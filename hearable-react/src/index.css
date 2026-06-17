@@ -1,0 +1,322 @@
+/* ==========================================================================
+   HEARABLE: BASE VARIABLES & RESET
+   ========================================================================== */
+:root {
+  --primary-color: #2563eb;     /* Professional Blue */
+  --hover-color: #eff6ff;       /* Light Blue for tags/hover */
+  --bg-color: #f8fafc;          /* Off-white background */
+  --card-bg: #ffffff;           /* Pure white for cards */
+  --text-color: #0f172a;        /* Dark slate for main text */
+  --secondary-text: #64748b;    /* Lighter slate for descriptions */
+  --border-color: #e2e8f0;      /* Subtle gray borders */
+  --danger-color: #dc2626;      /* Red for sign out/warnings */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography Defaults */
+h1, h2, h3, h4 { color: var(--text-color); font-weight: 600; }
+.subtext { color: var(--secondary-text); font-size: 1rem; margin-bottom: 24px; }
+a { color: var(--primary-color); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ==========================================================================
+   NAVIGATION BAR
+   ========================================================================== */
+.navbar {
+  background-color: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.navbar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.2rem;
+}
+
+.nav-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+
+.nav-link {
+  color: var(--secondary-text);
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.nav-link:hover, .nav-link.active {
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  text-decoration: none;
+}
+
+/* ==========================================================================
+   COMPONENTS (Cards, Buttons, Inputs, Avatars, Tags)
+   ========================================================================== */
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Buttons */
+button { font-family: inherit; }
+.btn-black {
+  background-color: var(--text-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.btn-black:hover { background-color: #000; }
+.btn-black:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-outline:hover { background-color: var(--bg-color); }
+
+.btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+.w-full { width: 100%; }
+
+/* Inputs & Forms */
+.search-box-wrapper { position: relative; }
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--secondary-text);
+}
+.search-input {
+  width: 100%;
+  padding: 12px 12px 12px 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+/* If an input doesn't have an icon, padding left should be standard */
+.search-input:not([placeholder*="Search"]) { padding-left: 12px; }
+.search-input:focus { outline: none; border-color: var(--primary-color); }
+label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.95rem; }
+
+/* Avatars */
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+.avatar-lg { border-radius: 50%; } 
+
+/* Tags */
+.tag {
+  background-color: var(--bg-color);
+  color: var(--secondary-text);
+  border: 1px solid var(--border-color);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   UTILITY CLASSES (The "Tailwind" Approach)
+   ========================================================================== */
+/* Layout & Spacing Containers */
+.page-container { max-width: 1000px; margin: 0 auto; padding-bottom: 64px; }
+.page-container-wide { max-width: 1100px; margin: 0 auto; padding-bottom: 64px; }
+
+/* Flexbox Helpers */
+.flex-row { display: flex; align-items: center; gap: 16px; }
+.flex-row-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.flex-between-start { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.flex-col { display: flex; flex-direction: column; gap: 16px; }
+.flex-col-lg { display: flex; flex-direction: column; gap: 24px; }
+
+/* Spacing Helpers */
+.mb-8 { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.mb-32 { margin-bottom: 32px; }
+.mt-24 { margin-top: 24px; }
+.mt-32 { margin-top: 32px; }
+.gap-8 { gap: 8px; }
+.p-20 { padding: 20px; }
+
+/* Text Helpers */
+.text-center { text-align: center; }
+.text-secondary { color: var(--secondary-text); }
+.text-primary { color: var(--primary-color); }
+.font-medium { font-weight: 500; }
+.text-sm { font-size: 0.85rem; }
+.text-lg { font-size: 1.1rem; }
+.text-xl { font-size: 1.5rem; }
+.text-2xl { font-size: 2rem; }
+.text-3xl { font-size: 3rem; }
+
+/* ==========================================================================
+   RESPONSIVE LAYOUT CLASSES (Grid Systems)
+   ========================================================================== */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 32px;
+  align-items: start;
+}
+
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+.jobs-split-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.profile-split-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.profile-header-flex {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS OVERRIDES (Max Width: 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  
+  /* Shrink massive typography for small screens */
+  h1 { font-size: 2rem !important; }
+  h2 { font-size: 1.5rem !important; }
+  
+  /* Make main container padding smaller */
+  .page-container, .page-container-wide {
+    padding: 16px !important;
+  }
+
+  /* Stack the Navigation Bar nicely */
+  .navbar-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+  }
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  /* Center the User Profile Dropdown on mobile so it doesn't clip off screen */
+  .mobile-dropdown-safe {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    width: 280px !important;
+  }
+
+  /* Stack the Dashboard: Move Profile to Top */
+  .dashboard-layout { grid-template-columns: 1fr; }
+  .dashboard-layout > div:last-child { order: -1; position: static !important; }
+
+  /* Stack Forms & Profiles */
+  .form-grid-2, .form-grid-3, .profile-split-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Center Profile Headers */
+  .profile-header-flex {
+    flex-direction: column;
+    text-align: center;
+  }
+  .profile-header-flex .avatar-lg {
+    margin: 0 auto;
+  }
+  
+  /* Center the location/website tags on mobile */
+  .profile-header-flex > div > div {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Fix Job Board Split Layout */
+  .jobs-split-layout { grid-template-columns: 1fr !important; }
+  
+  /* Hide the job list when a job is selected */
+  .jobs-split-layout.active-split .jobs-list-column { display: none; }
+  
+  /* Hide the empty right column when no job is selected */
+  .jobs-split-layout:not(.active-split) .job-details-column { display: none; }
+}
