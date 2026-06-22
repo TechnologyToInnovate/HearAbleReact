@@ -2,8 +2,8 @@
    HEARABLE: BASE VARIABLES & RESET
    ========================================================================== */
 :root {
-  --primary-color: #2563eb;     /* Professional Blue */
-  --hover-color: #eff6ff;       /* Light Blue for tags/hover */
+  --primary-color: #00703C;     /* Official La Salle/Benilde Green */
+  --hover-color: #dcfce7;       /* Soft Green for tags/hover states */
   --bg-color: #f8fafc;          /* Off-white background */
   --card-bg: #ffffff;           /* Pure white for cards */
   --text-color: #0f172a;        /* Dark slate for main text */

@@ -1,43 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import FilterButton from '../components/FilterButton'; // <-- NEW COMPONENT
 
-export default function Graduates({ role }) {
+export default function Users({ role }) {
   const navigate = useNavigate();
-  const [alumni, setAlumni] = useState([]);
+  const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    // If not admin, kick them back to dashboard
     if (role !== 'admin') {
       navigate('/');
       return;
     }
 
-    async function fetchAlumni() {
+    async function fetchUsers() {
       setIsLoading(true);
       const { data } = await supabase.from('profiles').select('*').order('name', { ascending: true });
-      if (data) setAlumni(data);
+      if (data) setUsers(data);
       setIsLoading(false);
     }
-    fetchAlumni();
+    fetchUsers();
   }, [role, navigate]);
 
-  const filteredAlumni = alumni.filter(person => 
+  const filteredUsers = users.filter(person => 
     (person.name && person.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (person.major && person.major.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '64px' }}>
-      
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ fontSize: '2rem', marginBottom: '8px' }}>Manage Alumni Talent</h2>
-        <p className="subtext" style={{ margin: 0 }}>View and moderate all registered graduate profiles on the platform.</p>
-      </div>
+    <div className="page-container-wide">
 
-      <div className="search-box-wrapper" style={{ marginBottom: '32px', maxWidth: '500px' }}>
+      <div className="search-box-wrapper mb-16" style={{ width: '100%' }}>
         <span className="search-icon">🔍</span>
         <input 
           type="text" 
@@ -48,11 +43,14 @@ export default function Graduates({ role }) {
         />
       </div>
 
-      {isLoading && <p style={{ textAlign: 'center', color: 'var(--secondary-text)' }}>Loading alumni profiles...</p>}
+      <div className="mb-32">
+        <FilterButton />
+      </div>
 
-      {/* ALUMNI GRID */}
+      {isLoading && <p style={{ textAlign: 'center', color: 'var(--secondary-text)' }}>Loading user profiles...</p>}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-        {filteredAlumni.map(person => (
+        {filteredUsers.map(person => (
           <div 
             key={person.id} 
             className="card" 
@@ -62,10 +60,9 @@ export default function Graduates({ role }) {
             onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
             
-            {/* UNIVERSAL HEADER: Avatar + Titles */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
               <div className="avatar" style={{ width: '48px', height: '48px', background: 'var(--text-color)', color: 'white', flexShrink: 0 }}>
-                {person.name ? person.name.charAt(0).toUpperCase() : 'A'}
+                {person.name ? person.name.charAt(0).toUpperCase() : 'U'}
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{person.name || 'Anonymous User'}</h3>
@@ -75,12 +72,10 @@ export default function Graduates({ role }) {
               </div>
             </div>
 
-            {/* BODY: Clamped Bio */}
             <p style={{ fontSize: '0.9rem', color: 'var(--secondary-text)', lineHeight: '1.5', marginBottom: '24px', flexGrow: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {person.bio || "No bio provided."}
             </p>
 
-            {/* UNIVERSAL FOOTER: Tags */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '24px' }}>
               {person.skills && person.skills.length > 0 ? (
                 person.skills.slice(0, 3).map((skill, idx) => (

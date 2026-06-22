@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import JobCard from '../components/JobCard';
-
-// Import our reusable TagList component!
 import TagList from '../components/TagList';
 
 export default function Jobs({ role }) {
@@ -13,8 +11,13 @@ export default function Jobs({ role }) {
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(null); 
+  
+  // --- SEARCH & FILTER STATE ---
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterModality, setFilterModality] = useState('All');
+  const [filterType, setFilterType] = useState('All');
+  const [filterDate, setFilterDate] = useState('All');
   
   const [currentUser, setCurrentUser] = useState(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -23,7 +26,6 @@ export default function Jobs({ role }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // New Job State
   const [newTitle, setNewTitle] = useState('');
   const [newCompany, setNewCompany] = useState('');
   const [newLocation, setNewLocation] = useState('');
@@ -32,7 +34,6 @@ export default function Jobs({ role }) {
   const [newDescription, setNewDescription] = useState('');
   const [newSkills, setNewSkills] = useState('');
 
-  // Edit Job State
   const [isEditingJob, setIsEditingJob] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editCompany, setEditCompany] = useState('');
@@ -152,33 +153,61 @@ export default function Jobs({ role }) {
     setIsSubmitting(false);
   }
 
-  const filteredJobs = jobs.filter(job => 
-    job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    job.company.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  async function handleDeleteJob() {
+    if (!window.confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) return;
+
+    const { error } = await supabase.from('jobs').delete().eq('id', selectedJob.id);
+    
+    if (!error) {
+      alert("Job deleted successfully!");
+      setJobs(jobs.filter(job => job.id !== selectedJob.id));
+      setSelectedJobId(null);
+    } else {
+      alert("Failed to delete job.");
+      console.error(error);
+    }
+  }
+
+  // ==========================================
+  // MASTER FILTER LOGIC
+  // ==========================================
+  const filteredJobs = jobs.filter(job => {
+    // 1. Text Search
+    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          job.company.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // 2. Modality Dropdown
+    const matchesModality = filterModality === 'All' || job.work_model === filterModality;
+    
+    // 3. Type Dropdown
+    const matchesType = filterType === 'All' || job.type === filterType;
+    
+    // 4. Date Dropdown Math
+    let matchesDate = true;
+    if (filterDate !== 'All' && job.date) {
+      const jobDate = new Date(job.date);
+      const now = new Date();
+      // Calculate difference in days
+      const diffTime = Math.abs(now - jobDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (filterDate === '24h') matchesDate = diffDays <= 1;
+      else if (filterDate === '7d') matchesDate = diffDays <= 7;
+      else if (filterDate === '30d') matchesDate = diffDays <= 30;
+    }
+
+    return matchesSearch && matchesModality && matchesType && matchesDate;
+  });
 
   return (
     <div className="page-container-wide">
       
-      {/* HEADER SECTION */}
-      <div className="flex-between mb-32">
-        <div>
-          <h2 className="text-3xl mb-8" style={{ margin: '0 0 8px 0' }}>Job Board</h2>
-          <p className="text-secondary text-lg" style={{ margin: 0 }}>Browse open positions or post a new opportunity.</p>
-        </div>
-        
-        {role === 'company' && (
-          !showAddForm ? <button className="btn-black" onClick={() => setShowAddForm(true)}>+ Post a Job</button>
-                       : <button className="btn-outline" onClick={() => setShowAddForm(false)}>← Back to Job Board</button>
-        )}
-      </div>
-
       {showAddForm ? (
-        // ==========================================
-        // CREATE JOB FORM
-        // ==========================================
         <section className="card p-20" style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <h3 className="mb-24" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>Create a New Job Posting</h3>
+          <div className="flex-between mb-24" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+            <h3 style={{ margin: 0 }}>Create a New Job Posting</h3>
+            <button className="btn-outline btn-sm" onClick={() => setShowAddForm(false)}>← Cancel</button>
+          </div>
           <form onSubmit={handlePostJob} className="flex-col">
             <div className="form-grid-2">
               <div><label>Job Title *</label><input type="text" className="search-input" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required /></div>
@@ -195,15 +224,45 @@ export default function Jobs({ role }) {
           </form>
         </section>
       ) : (
-        // ==========================================
-        // JOB BOARD (List View vs Split View)
-        // ==========================================
         !selectedJobId ? (
-          // NO JOB SELECTED: Full Width List
+          // ==========================================
+          // FULL WIDTH VIEW
+          // ==========================================
           <div>
-            <div className="search-box-wrapper mb-32" style={{ maxWidth: '500px' }}>
+            <div className="search-box-wrapper mb-16" style={{ width: '100%' }}>
               <span className="search-icon">🔍</span>
               <input type="text" placeholder="Search jobs or companies..." className="search-input" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            </div>
+            
+            {/* --- NEW FUNCTIONAL FILTERS UI --- */}
+            <div className="flex-between-start mb-32">
+              <div className="flex-row-wrap gap-8">
+                <select className="search-input text-sm" style={{ width: 'auto', padding: '8px 12px' }} value={filterModality} onChange={(e) => setFilterModality(e.target.value)}>
+                  <option value="All">🏢 All Modalities</option>
+                  <option value="On-site">On-site</option>
+                  <option value="Hybrid">Hybrid</option>
+                  <option value="Remote">Remote</option>
+                </select>
+                
+                <select className="search-input text-sm" style={{ width: 'auto', padding: '8px 12px' }} value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+                  <option value="All">💼 All Job Types</option>
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Contract">Contract</option>
+                  <option value="Internship">Internship</option>
+                </select>
+
+                <select className="search-input text-sm" style={{ width: 'auto', padding: '8px 12px' }} value={filterDate} onChange={(e) => setFilterDate(e.target.value)}>
+                  <option value="All">📅 Any Time</option>
+                  <option value="24h">Past 24 Hours</option>
+                  <option value="7d">Past Week</option>
+                  <option value="30d">Past Month</option>
+                </select>
+              </div>
+
+              {role === 'company' && (
+                <button className="btn-black" onClick={() => setShowAddForm(true)}>+ Post a Job</button>
+              )}
             </div>
             
             {isLoading ? (
@@ -218,35 +277,77 @@ export default function Jobs({ role }) {
               <div className="card text-center text-secondary p-20" style={{ padding: '48px 24px' }}>
                 <div className="text-3xl mb-16">📭</div>
                 <h3 className="mb-8">No jobs found</h3>
-                <p>We couldn't find any positions matching your search.</p>
+                <p>Try adjusting your search or clearing some filters.</p>
               </div>
             )}
           </div>
         ) : (
-          // JOB SELECTED: Split View
+          // ==========================================
+          // SPLIT VIEW (When a job is clicked)
+          // ==========================================
           <div className="jobs-split-layout active-split">
-            
-            {/* LEFT COLUMN: List */}
             <div className="jobs-list-column">
-              <div className="search-box-wrapper mb-24">
+              <div className="search-box-wrapper mb-16" style={{ width: '100%' }}>
                 <span className="search-icon">🔍</span>
                 <input type="text" placeholder="Search jobs..." className="search-input" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
+
+              {/* Condensed Filters for Split Layout */}
+              <div className="flex-col gap-8 mb-24">
+                <select className="search-input text-sm" style={{ padding: '8px 12px' }} value={filterModality} onChange={(e) => setFilterModality(e.target.value)}>
+                  <option value="All">🏢 All Modalities</option>
+                  <option value="On-site">On-site</option>
+                  <option value="Hybrid">Hybrid</option>
+                  <option value="Remote">Remote</option>
+                </select>
+                <div className="flex-row gap-8">
+                  <select className="search-input text-sm w-full" style={{ padding: '8px 12px' }} value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+                    <option value="All">💼 All Types</option>
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Internship">Internship</option>
+                  </select>
+                  <select className="search-input text-sm w-full" style={{ padding: '8px 12px' }} value={filterDate} onChange={(e) => setFilterDate(e.target.value)}>
+                    <option value="All">📅 Any Time</option>
+                    <option value="24h">Past 24h</option>
+                    <option value="7d">Past 7d</option>
+                    <option value="30d">Past 30d</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="flex-col">
-                {filteredJobs.map(job => (
-                  <JobCard key={job.id} job={job} isSelected={job.id === selectedJobId} onClick={() => setSelectedJobId(job.id)} />
-                ))}
+                {filteredJobs.length > 0 ? (
+                  filteredJobs.map(job => (
+                    <JobCard key={job.id} job={job} isSelected={job.id === selectedJobId} onClick={() => setSelectedJobId(job.id)} />
+                  ))
+                ) : (
+                  <p className="text-center text-secondary p-20">No matching jobs.</p>
+                )}
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Details / Edit */}
             <div className="job-details-column">
               {selectedJob && (
                 <>
                   <div className="flex-between mb-8">
-                    {role === 'company' && !isEditingJob ? (
-                      <button onClick={() => setIsEditingJob(true)} className="btn-outline btn-sm">⚙️ Edit Job</button>
-                    ) : <div></div>}
+                    
+                    <div className="flex-row gap-8">
+                      {role === 'company' && !isEditingJob ? (
+                        <>
+                          <button onClick={() => setIsEditingJob(true)} className="btn-outline btn-sm">⚙️ Edit Job</button>
+                          <button 
+                            onClick={handleDeleteJob} 
+                            className="btn-sm" 
+                            style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '6px 12px', fontWeight: '500', cursor: 'pointer' }}
+                          >
+                            🗑️ Delete Job
+                          </button>
+                        </>
+                      ) : <div></div>}
+                    </div>
+
                     <button onClick={() => setSelectedJobId(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-color)', padding: '0 8px' }}>✕</button>
                   </div>
                   
@@ -275,18 +376,17 @@ export default function Jobs({ role }) {
                       <>
                         <div className="flex-between-start mb-16">
                           <h2 style={{ margin: 0 }}>{selectedJob.title}</h2>
-                          {/* Replaced messy manual tags with our new TagList component! */}
                           <TagList tags={[selectedJob.work_model || 'On-site', selectedJob.type]} />
                         </div>
                         
                         <div className="flex-row-wrap text-secondary mb-24">
                           <span>🏢 {selectedJob.company}</span><span>📍 {selectedJob.location}</span>
+                          <span style={{ fontSize: '0.85rem', background: 'var(--bg-color)', padding: '2px 8px', borderRadius: '4px' }}>📅 Posted: {selectedJob.date}</span>
                         </div>
                         
                         <h4 className="mb-8">Job Description</h4>
                         <p style={{ lineHeight: '1.6', marginBottom: '24px', whiteSpace: 'pre-wrap' }}>{selectedJob.description}</p>
                         
-                        {/* Application Button */}
                         <div className="mt-32" style={{ paddingTop: '24px', borderTop: '1px solid var(--border-color)' }}>
                           {role !== 'company' && role !== 'admin' && (
                             <button 
@@ -304,7 +404,6 @@ export default function Jobs({ role }) {
                           )}
                         </div>
 
-                        {/* Company Snippet */}
                         {selectedCompany && (
                           <div className="mt-24 p-20" style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                             <div className="flex-row mb-16">

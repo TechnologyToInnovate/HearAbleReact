@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-
-// Import our new StatusBadge component!
 import StatusBadge from '../components/StatusBadge';
+import FilterButton from '../components/FilterButton'; // <-- NEW COMPONENT
 
 export default function Applicants({ role }) {
   const navigate = useNavigate();
@@ -69,20 +68,9 @@ export default function Applicants({ role }) {
   );
 
   return (
-    <div className="page-container">
-      
-      <div className="flex-between-start mb-32">
-        <div>
-          <h2 className="text-3xl mb-8" style={{ margin: '0 0 8px 0' }}>Applicant Tracking</h2>
-          <p className="text-secondary text-lg" style={{ margin: 0 }}>
-            {role === 'admin' 
-              ? 'Platform-wide overview of all submitted applications.' 
-              : `Review and manage talent applying to ${companyName || 'your company'}.`}
-          </p>
-        </div>
-      </div>
+    <div className="page-container-wide">
 
-      <div className="search-box-wrapper mb-32" style={{ maxWidth: '500px' }}>
+      <div className="search-box-wrapper mb-16" style={{ width: '100%' }}>
         <span className="search-icon">🔍</span>
         <input 
           type="text" 
@@ -91,6 +79,10 @@ export default function Applicants({ role }) {
           value={searchQuery} 
           onChange={(e) => setSearchQuery(e.target.value)} 
         />
+      </div>
+
+      <div className="mb-32">
+        <FilterButton />
       </div>
 
       {isLoading && <p className="text-center text-secondary">Loading applications...</p>}
@@ -103,17 +95,14 @@ export default function Applicants({ role }) {
         </div>
       )}
 
-      {/* REFACTORED APPLICANT LIST */}
       <div className="flex-col">
         {filteredApps.map(app => (
-          <div key={app.id} className="card p-20">
+          <div key={app.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
             
-            <div className="flex-between">
-              
-              {/* LEFT SIDE: Applicant Details */}
+            <div className="flex-between-start" style={{ padding: '24px' }}>
               <div className="flex-row">
-                <div className="avatar" style={{ width: '48px', height: '48px', background: 'var(--text-color)', color: 'white', flexShrink: 0 }}>
-                  {app.applicant_name ? app.applicant_name.charAt(0).toUpperCase() : 'C'}
+                <div className="avatar" style={{ width: '56px', height: '56px', background: 'var(--text-color)', color: 'white', flexShrink: 0, fontSize: '1.2rem' }}>
+                  {app.applicant_name ? app.applicant_name.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div>
                   <h3 className="text-lg" style={{ margin: '0 0 4px 0' }}>{app.applicant_name}</h3>
@@ -128,35 +117,48 @@ export default function Applicants({ role }) {
                 </div>
               </div>
 
-              {/* RIGHT SIDE: Pipeline Controls & Action Button */}
-              <div className="flex-row-wrap">
-                
-                {/* Status Box */}
-                <div className="flex-row gap-8" style={{ background: 'var(--bg-color)', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  
-                  {/* LOOK HOW CLEAN THIS IS NOW! */}
-                  <StatusBadge status={app.status} />
-                  
-                  <select 
-                    className="search-input text-sm" 
-                    style={{ padding: '4px 8px', minWidth: '130px', background: 'white' }}
-                    value={app.status || 'Under Review'}
-                    onChange={(e) => handleStatusChange(app.id, e.target.value)}
-                  >
-                    <option value="Under Review">Under Review</option>
-                    <option value="Interviewing">Interviewing</option>
-                    <option value="Hired">Hired</option>
-                    <option value="Rejected">Rejected</option>
-                  </select>
-                </div>
+              <StatusBadge status={app.status || 'Pending'} />
+            </div>
 
+            <div className="flex-between" style={{ padding: '16px 24px', background: 'var(--bg-color)', borderTop: '1px solid var(--border-color)' }}>
+              
+              <div className="flex-row gap-8">
                 <button 
                   className="btn-outline btn-sm" 
                   onClick={() => navigate(`/user/${app.applicant_id}`)}
-                  style={{ padding: '8px 16px' }}
+                  style={{ background: 'white' }}
                 >
-                  View Profile
+                  👤 View Profile
                 </button>
+                <button 
+                  className="btn-outline btn-sm" 
+                  onClick={() => alert('Resume viewing feature coming soon!')}
+                  style={{ background: 'white' }}
+                >
+                  📄 View Resume
+                </button>
+              </div>
+
+              <div className="flex-row gap-8">
+                {app.status !== 'Approved' && (
+                  <button 
+                    className="btn-sm" 
+                    onClick={() => handleStatusChange(app.id, 'Approved')}
+                    style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}
+                  >
+                    ✓ Approve
+                  </button>
+                )}
+                
+                {app.status !== 'Rejected' && (
+                  <button 
+                    className="btn-sm" 
+                    onClick={() => handleStatusChange(app.id, 'Rejected')}
+                    style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}
+                  >
+                    ✕ Reject
+                  </button>
+                )}
               </div>
 
             </div>

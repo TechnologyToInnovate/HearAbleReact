@@ -5,7 +5,8 @@ export default function StatusBadge({ status }) {
   const getStatusColor = (statusName) => {
     switch(statusName) {
       case 'Interviewing': return { bg: '#fef3c7', text: '#d97706', border: '#fde68a' }; // Amber
-      case 'Hired': return { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' }; // Green
+      // UPDATED: Now looks for 'Approved' instead of 'Hired'
+      case 'Approved': return { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' }; // Green
       case 'Rejected': return { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' }; // Red
       default: return { bg: 'var(--hover-color)', text: 'var(--primary-color)', border: 'var(--primary-color)' }; // Blue
     }

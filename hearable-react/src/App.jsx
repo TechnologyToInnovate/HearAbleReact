@@ -2,27 +2,20 @@ import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import './index.css';
 
-// Import our custom pages
 import Home from './pages/Home';
 import Jobs from './pages/Jobs';
 import Companies from './pages/Companies';
 import CompanyProfile from './pages/CompanyProfile';
 import Applicants from './pages/Applicants';
-import Graduates from './pages/Graduates';
+import Users from './pages/Users'; // <--- UPDATED IMPORT
 import UserProfile from './pages/UserProfile';
 import Profile from './pages/Profile'; 
 
-/* ==========================================================================
-   NAVIGATION BAR COMPONENT
-   ========================================================================== */
 function Navigation({ role, setRole }) {
   const location = useLocation();
   const navigate = useNavigate();
-  
-  // State to track if the profile dropdown is open
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Helper function to handle clicking a menu item and closing the menu
   const handleMenuClick = (path) => {
     setIsDropdownOpen(false);
     navigate(path);
@@ -32,7 +25,6 @@ function Navigation({ role, setRole }) {
     <nav className="navbar">
       <div className="navbar-container">
         
-        {/* Clicking the logo returns home */}
         <div className="brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
           <span className="brand-logo" style={{ background: 'var(--primary-color)' }}>H</span>
           <span className="brand-name">Hearable</span>
@@ -48,7 +40,7 @@ function Navigation({ role, setRole }) {
           
           {role === 'user' && (
             <li>
-              <Link to="/companies" className={`nav-link ${location.pathname.includes('/company') ? 'active' : ''}`}>Approved Partners</Link>
+              <Link to="/companies" className={`nav-link ${location.pathname.includes('/company') ? 'active' : ''}`}>Companies</Link>
             </li>
           )}
           
@@ -61,7 +53,8 @@ function Navigation({ role, setRole }) {
           {role === 'admin' && (
             <>
               <li>
-                <Link to="/graduates" className={`nav-link ${location.pathname === '/graduates' ? 'active' : ''}`}>Manage Alumni</Link>
+                {/* UPDATED PATH TO /users */}
+                <Link to="/users" className={`nav-link ${location.pathname === '/users' ? 'active' : ''}`}>Manage Users</Link>
               </li>
               <li>
                 <Link to="/companies" className={`nav-link ${location.pathname.includes('/company') ? 'active' : ''}`}>Manage Companies</Link>
@@ -72,7 +65,6 @@ function Navigation({ role, setRole }) {
 
         <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           
-          {/* DEV TOOL: Dummy Account Switcher (Always visible for testing!) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fef3c7', padding: '4px 8px', borderRadius: '4px', border: '1px solid #f59e0b' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#d97706', textTransform: 'uppercase' }}>Test As:</span>
             <select 
@@ -80,24 +72,21 @@ function Navigation({ role, setRole }) {
               onChange={(e) => setRole(e.target.value)}
               style={{ padding: '2px 4px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#92400e', fontWeight: '500', outline: 'none', cursor: 'pointer' }}
             >
-              <option value="user">Talent</option>
+              <option value="user">User</option>
               <option value="company">Company</option>
               <option value="admin">Admin</option>
             </select>
           </div>
           
-          {/* The Avatar Wrapper with Relative Positioning */}
           <div style={{ position: 'relative' }}>
             <div 
               className="avatar" 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               style={{ cursor: 'pointer', userSelect: 'none' }}
             >
-              {/* Change Avatar Initials based on Role */}
-              {role === 'company' ? 'TI' : role === 'admin' ? 'AD' : 'JG'}
+              {role === 'company' ? 'TI' : role === 'admin' ? 'AD' : 'JU'}
             </div>
 
-            {/* The Floating Dropdown Menu */}
             {isDropdownOpen && (
               <div style={{
                 position: 'absolute',
@@ -114,16 +103,14 @@ function Navigation({ role, setRole }) {
                 overflow: 'hidden'
               }}>
                 <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)' }}>
-                  {/* Change Name and Email based on Role */}
                   <p style={{ margin: 0, fontWeight: '600', color: 'var(--text-color)' }}>
-                    {role === 'company' ? 'Tech Innovators Inc.' : role === 'admin' ? 'System Admin' : 'John Graduate'}
+                    {role === 'company' ? 'Tech Innovators Inc.' : role === 'admin' ? 'System Admin' : 'John User'}
                   </p>
                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--secondary-text)' }}>
-                    {role === 'company' ? 'jane@techinnovators.com' : role === 'admin' ? 'admin@hearable.com' : 'alumni@benilde.edu'}
+                    {role === 'company' ? 'jane@techinnovators.com' : role === 'admin' ? 'admin@hearable.com' : 'user@domain.edu'}
                   </p>
                 </div>
                 
-                {/* DYNAMIC VIEW PROFILE BUTTON */}
                 <button 
                   onClick={() => handleMenuClick(role === 'company' ? '/company/1' : '/user/1')} 
                   style={{ width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-color)' }}
@@ -131,7 +118,6 @@ function Navigation({ role, setRole }) {
                   {role === 'company' ? '🏢 View Company Profile' : '👤 View Public Profile'}
                 </button>
                 
-                {/* DYNAMIC EDIT PROFILE BUTTON */}
                 <button 
                   onClick={() => handleMenuClick(role === 'company' ? '/company/1' : '/edit-profile')} 
                   style={{ width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-color)' }}
@@ -157,9 +143,6 @@ function Navigation({ role, setRole }) {
   );
 }
 
-/* ==========================================================================
-   MAIN APP ROUTER
-   ========================================================================== */
 export default function App() {
   const [currentRole, setCurrentRole] = useState('admin');
 
@@ -175,9 +158,10 @@ export default function App() {
             <Route path="/companies" element={<Companies role={currentRole} />} />
             <Route path="/company/:id" element={<CompanyProfile role={currentRole} />} />
             <Route path="/applicants" element={<Applicants role={currentRole} />} />
-            <Route path="/graduates" element={<Graduates role={currentRole} />} />
             
-            {/* Registered Profile Routes */}
+            {/* UPDATED ROUTE TO /users AND COMPONENT TO <Users /> */}
+            <Route path="/users" element={<Users role={currentRole} />} />
+            
             <Route path="/user/:id" element={<UserProfile role={currentRole} />} />
             <Route path="/edit-profile" element={<Profile />} />
           </Routes>
