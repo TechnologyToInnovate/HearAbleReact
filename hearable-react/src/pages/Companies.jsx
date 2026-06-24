@@ -8,6 +8,9 @@ export default function Companies({ role }) {
   const [companies, setCompanies] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // NEW: Tab state for filtering
+  const [activeTab, setActiveTab] = useState('All');
 
   // Form States
   const [showAddForm, setShowAddForm] = useState(false);
@@ -51,40 +54,57 @@ export default function Companies({ role }) {
     setIsSubmitting(false);
   }
 
+  // --- STATUS UPDATE FUNCTION ---
+  async function handleUpdateStatus(e, id, newStatus) {
+    e.stopPropagation();
+    const { error } = await supabase.from('companies').update({ status: newStatus }).eq('id', id);
+    if (!error) {
+      setCompanies(companies.map(c => c.id === id ? { ...c, status: newStatus } : c));
+    } else {
+      alert("Failed to update status.");
+      console.error(error);
+    }
+  }
+
   // --- DELETE COMPANY FUNCTION ---
-async function handleDeleteCompany(e, company) {
+  async function handleDeleteCompany(e, company) {
     e.stopPropagation(); 
-    if (!window.confirm(`Are you sure you want to permanently remove ${company.name}?`)) return;
+    if (!window.confirm(`Are you sure you want to permanently remove ${company.name}? This will delete all their job postings too.`)) return;
 
-    // 1. Delete the pre-approved record if it exists (prevents the duplicate key error later)
-    // We add .eq('name', company.name) just in case the email differs
     await supabase.from('pre_approved_companies').delete().eq('name', company.name);
-
-    // 2. Delete all applications
     await supabase.from('applications').delete().eq('company', company.name);
-
-    // 3. Delete jobs
     await supabase.from('jobs').delete().eq('company', company.name);
-
-    // 4. Delete the company profile
     const { error } = await supabase.from('companies').delete().eq('id', company.id);
     
     if (!error) {
       setCompanies(companies.filter(c => c.id !== company.id));
     } else {
       alert("Failed to delete company.");
+      console.error(error);
     }
   }
 
-  const filteredCompanies = companies.filter(company => 
-    company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (company.address && company.address.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // --- FILTER LOGIC ---
+  const filteredCompanies = companies.filter(company => {
+    // Search query
+    const matchesSearch = company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (company.address && company.address.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    // Map 'Approved' (from original login script) or null to 'Active'
+    const currentStatus = company.status === 'Approved' ? 'Active' : (company.status || 'Active');
+
+    // Tab matching
+    let matchesTab = true;
+    if (activeTab === 'Active') matchesTab = currentStatus === 'Active';
+    if (activeTab === 'Inactive') matchesTab = currentStatus === 'Inactive';
+    if (activeTab === 'Archived') matchesTab = currentStatus === 'Archived';
+
+    return matchesSearch && matchesTab;
+  });
 
   return (
     <div className="page-container-wide">
       
-      {/* SHOW THE ADD FORM IF TRIGGERED */}
       {showAddForm && role === 'admin' ? (
         <section className="card p-20 mb-32" style={{ maxWidth: '800px', margin: '0 auto 32px' }}>
           <div className="flex-between mb-24" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
@@ -116,63 +136,122 @@ async function handleDeleteCompany(e, company) {
         </section>
       ) : (
         <>
-          {/* SHOW THE MAIN COMPANIES LIST */}
-          <div className="search-box-wrapper mb-16" style={{ width: '100%' }}>
-            <span className="search-icon">🔍</span>
-            <input type="text" placeholder="Search by company name or location..." className="search-input" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-          </div>
-
-          <div className="flex-between mb-32">
-            <FilterButton />
+          <div className="flex-between mb-24">
+            <h1 style={{ margin: 0 }}>Manage Companies</h1>
             {role === 'admin' && (
               <button className="btn-black" onClick={() => setShowAddForm(true)}>+ Add Company</button>
             )}
           </div>
 
-          {isLoading && <p className="text-center text-secondary">Loading companies...</p>}
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-            {filteredCompanies.map(company => (
-              <div 
-                key={company.id} 
-                className="card p-20" 
-                style={{ display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer' }} 
-                onClick={() => navigate(`/company/${company.id}`)} 
+          {/* --- TAB NAVIGATION --- */}
+          <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
+            {['All', 'Active', 'Inactive', 'Archived'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '8px 20px',
+                  border: 'none',
+                  background: 'none',
+                  borderBottom: activeTab === tab ? '2px solid var(--text-color)' : '2px solid transparent',
+                  color: activeTab === tab ? 'var(--text-color)' : 'var(--secondary-text)',
+                  fontWeight: activeTab === tab ? '600' : '400',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                }}
               >
-                <div className="flex-row mb-16">
-                  <div className="avatar" style={{ width: '48px', height: '48px', background: 'var(--primary-color)', color: 'white', borderRadius: '12px', flexShrink: 0 }}>
-                    {company.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="text-lg" style={{ margin: '0 0 4px 0' }}>{company.name}</h3>
-                    <p className="text-sm text-secondary" style={{ margin: 0 }}>
-                      📍 {company.address || 'Location not specified'}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-sm text-secondary mb-24" style={{ lineHeight: '1.5', flexGrow: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {company.description || "No description provided."}
-                </p>
-
-                <div className="flex-col gap-8">
-                  <button className="btn-outline w-full" onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}>
-                    View Company Profile
-                  </button>
-
-                  {role === 'admin' && (
-                    <button 
-                      className="w-full" 
-                      onClick={(e) => handleDeleteCompany(e, company)}
-                      style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 20px', fontWeight: '500', cursor: 'pointer' }}
-                    >
-                      🗑️ Remove Company
-                    </button>
-                  )}
-                </div>
-              </div>
+                {tab}
+              </button>
             ))}
           </div>
+
+          <div className="search-box-wrapper mb-24" style={{ width: '100%' }}>
+            <span className="search-icon">🔍</span>
+            <input type="text" placeholder={`Search ${activeTab.toLowerCase()} companies...`} className="search-input" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          </div>
+
+          {isLoading ? (
+            <p className="text-center text-secondary">Loading companies...</p>
+          ) : filteredCompanies.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+              {filteredCompanies.map(company => {
+                const currentStatus = company.status === 'Approved' ? 'Active' : (company.status || 'Active');
+                
+                return (
+                  <div 
+                    key={company.id} 
+                    className="card p-20" 
+                    style={{ display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer', opacity: currentStatus === 'Archived' ? 0.6 : 1 }} 
+                    onClick={() => navigate(`/company/${company.id}`)} 
+                  >
+                    <div className="flex-between-start mb-16">
+                      <div className="flex-row">
+                        <div className="avatar" style={{ width: '48px', height: '48px', background: 'var(--primary-color)', color: 'white', borderRadius: '12px', flexShrink: 0 }}>
+                          {company.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="text-lg" style={{ margin: '0 0 4px 0' }}>{company.name}</h3>
+                          <p className="text-sm text-secondary" style={{ margin: 0 }}>
+                            📍 {company.address || 'Location not specified'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <span style={{
+                        padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold',
+                        backgroundColor: currentStatus === 'Active' ? '#dcfce7' : currentStatus === 'Inactive' ? '#fef9c3' : '#f3f4f6',
+                        color: currentStatus === 'Active' ? '#166534' : currentStatus === 'Inactive' ? '#854d0e' : '#374151'
+                      }}>
+                        {currentStatus}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-secondary mb-24" style={{ lineHeight: '1.5', flexGrow: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {company.description || "No description provided."}
+                    </p>
+
+                    <div className="flex-col gap-8">
+                      {/* ADMIN STATUS CONTROLS */}
+                      {role === 'admin' && (
+                        <div className="flex-row gap-8 mb-8">
+                          {currentStatus !== 'Active' && (
+                            <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Active')} style={{ borderColor: '#86efac', color: '#166534' }}>Set Active</button>
+                          )}
+                          {currentStatus !== 'Inactive' && (
+                            <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Inactive')} style={{ borderColor: '#fde047', color: '#854d0e' }}>Set Inactive</button>
+                          )}
+                          {currentStatus !== 'Archived' && (
+                            <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Archived')} style={{ borderColor: '#d1d5db', color: '#374151' }}>Archive</button>
+                          )}
+                        </div>
+                      )}
+
+                      <button className="btn-outline w-full" onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}>
+                        View Company Profile
+                      </button>
+
+                      {role === 'admin' && (
+                        <button 
+                          className="w-full" 
+                          onClick={(e) => handleDeleteCompany(e, company)}
+                          style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 20px', fontWeight: '500', cursor: 'pointer' }}
+                        >
+                          🗑️ Remove Company
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="card text-center text-secondary p-20" style={{ padding: '48px 24px' }}>
+              <div className="text-3xl mb-16">🏢</div>
+              <h3 className="mb-8">No {activeTab.toLowerCase()} companies found</h3>
+              <p>Try adjusting your search or switching tabs.</p>
+            </div>
+          )}
         </>
       )}
     </div>

@@ -29,9 +29,11 @@ function Navigation({ role, setRole, currentUserId }) {
     setIsDropdownOpen(false);
     await supabase.auth.signOut();
     setRole('guest');
-    // UPDATED: Now sends the user to the landing page instead of login
     navigate('/');
   };
+
+  // Check if they are locked out of normal features
+  const isRestricted = role === 'pending_user' || role === 'rejected_user';
 
   return (
     <nav className="navbar">
@@ -44,10 +46,15 @@ function Navigation({ role, setRole, currentUserId }) {
 
         <ul className="nav-links">
           <li><Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Home</Link></li>
-          <li><Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>Job Postings</Link></li>
           
-          {(role === 'user' || role === 'guest') && (
-            <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/company') ? 'active' : ''}`}>Companies</Link></li>
+          {/* Hide these links if the user is pending or rejected */}
+          {!isRestricted && (
+            <>
+              <li><Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>Job Postings</Link></li>
+              {(role === 'user' || role === 'guest') && (
+                <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/company') ? 'active' : ''}`}>Companies</Link></li>
+              )}
+            </>
           )}
           
           {role === 'company' && <li><Link to="/applicants" className={`nav-link ${location.pathname === '/applicants' ? 'active' : ''}`}>Applicants</Link></li>}
@@ -77,7 +84,9 @@ function Navigation({ role, setRole, currentUserId }) {
                 <div style={{ position: 'absolute', top: 'calc(100% + 12px)', right: '0', width: '220px', backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 1000, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)' }}>
                     <p style={{ margin: 0, fontWeight: '600', color: 'var(--text-color)' }}>My Account</p>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--secondary-text)', textTransform: 'capitalize' }}>Role: {role}</p>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--secondary-text)', textTransform: 'capitalize' }}>
+                      Status: {role.replace('_', ' ')}
+                    </p>
                   </div>
                   
                   {role === 'company' && <button onClick={() => handleMenuClick(`/company/${currentUserId}`)} style={{ width: '100%', textAlign: 'left', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-color)' }}>🏢 View Company Profile</button>}
@@ -132,11 +141,27 @@ export default function App() {
       if (adminData || user.email === 'admin@hearable.com') {
         setCurrentRole('admin'); setIsInitializing(false); return;
       }
+      
       const { data: companyData } = await supabase.from('companies').select('id').eq('id', user.id).maybeSingle();
       if (companyData) {
         setCurrentRole('company'); setIsInitializing(false); return;
       }
-      setCurrentRole('user'); setIsInitializing(false);
+      
+      // Fetch the user's specific status
+      const { data: profileData } = await supabase.from('profiles').select('status').eq('id', user.id).maybeSingle();
+      
+      if (profileData) {
+        if (profileData.status === 'Pending') {
+          setCurrentRole('pending_user');
+        } else if (profileData.status === 'Rejected') {
+          setCurrentRole('rejected_user');
+        } else {
+          setCurrentRole('user');
+        }
+      } else {
+        setCurrentRole('user');
+      }
+      setIsInitializing(false);
     } catch (error) {
       console.error("Auth error:", error);
       setIsInitializing(false);
@@ -146,6 +171,8 @@ export default function App() {
   if (isInitializing) {
     return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading Hearable...</div>;
   }
+
+  const isRestricted = currentRole === 'pending_user' || currentRole === 'rejected_user';
 
   return (
     <BrowserRouter>
@@ -157,9 +184,11 @@ export default function App() {
             <Route path="/login" element={currentRole === 'guest' ? <Login setRole={setCurrentRole} /> : <Navigate to="/" />} />
             
             <Route path="/" element={<Home role={currentRole} />} />
-            <Route path="/jobs" element={<Jobs role={currentRole} />} />
-            <Route path="/companies" element={<Companies role={currentRole} />} />
-            <Route path="/company/:id" element={<CompanyProfile role={currentRole} />} />
+            
+            {/* If they try to force navigate to jobs/companies while pending, bounce them back to home */}
+            <Route path="/jobs" element={isRestricted ? <Navigate to="/" /> : <Jobs role={currentRole} />} />
+            <Route path="/companies" element={isRestricted ? <Navigate to="/" /> : <Companies role={currentRole} />} />
+            <Route path="/company/:id" element={isRestricted ? <Navigate to="/" /> : <CompanyProfile role={currentRole} />} />
 
             {/* PROTECTED ROUTES */}
             <Route path="/applicants" element={currentRole === 'guest' ? <Navigate to="/login" /> : <Applicants role={currentRole} />} />

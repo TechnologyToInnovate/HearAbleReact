@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient';
 
 import StatCard from '../components/StatCard';
 import TagList from '../components/TagList';
-import OnboardingModal from '../components/OnboardingModal'; // <-- IMPORT NEW MODAL
+import OnboardingModal from '../components/OnboardingModal'; 
 
 export default function Home({ role }) {
   const navigate = useNavigate();
@@ -13,17 +13,24 @@ export default function Home({ role }) {
   const [userProfile, setUserProfile] = useState(null);
   const [companyProfile, setCompanyProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({ stat1: 0, stat2: 0 });
   
-  // <-- MODAL STATE
+  // Expanded stats state to hold the new Admin metrics
+  const [stats, setStats] = useState({ stat1: 0, stat2: 0, stat3: 0, stat4: 0 });
+  
   const [showOnboarding, setShowOnboarding] = useState(false); 
 
   useEffect(() => {
+    setShowOnboarding(false); 
     fetchDashboardData();
   }, [role]); 
 
   async function fetchDashboardData() {
     setIsLoading(true);
+
+    if (role === 'pending_user' || role === 'rejected_user') {
+      setIsLoading(false);
+      return;
+    }
     
     const { data: jobsData } = await supabase
       .from('jobs')
@@ -36,22 +43,24 @@ export default function Home({ role }) {
     if (role === 'guest') {
       const { count: jobCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true });
       const { count: companyCount } = await supabase.from('companies').select('*', { count: 'exact', head: true });
-      setStats({ stat1: jobCount || 0, stat2: companyCount || 0 });
+      setStats({ stat1: jobCount || 0, stat2: companyCount || 0, stat3: 0, stat4: 0 });
       setIsLoading(false);
       return;
     }
 
+    // --- NEW: Admin Data Fetching ---
     if (role === 'admin') {
       const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+      const { count: pendingCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
       const { count: companyCount } = await supabase.from('companies').select('*', { count: 'exact', head: true });
-      setStats({ stat1: usersCount || 0, stat2: companyCount || 0 });
-
-      const { data: adminUser } = await supabase.from('profiles').select('*').eq('id', '1').maybeSingle();
-      const { data: adminCompany } = await supabase.from('companies').select('*').eq('id', '1').maybeSingle();
-
-      setUserProfile(adminUser || { id: '1', name: 'Sandbox Candidate', major: 'Template Profile' });
-      setCompanyProfile(adminCompany || { id: '1', name: 'Sandbox Company', address: 'Template HQ' });
+      const { count: jobsCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true });
       
+      setStats({ 
+        stat1: usersCount || 0, 
+        stat2: companyCount || 0,
+        stat3: pendingCount || 0,
+        stat4: jobsCount || 0
+      });
       setIsLoading(false);
       return;
     }
@@ -68,9 +77,7 @@ export default function Home({ role }) {
         setCompanyProfile(compData);
         const { count: jobCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('company', compData.name);
         const { count: appCount } = await supabase.from('applications').select('*', { count: 'exact', head: true }).eq('company', compData.name);
-        setStats({ stat1: jobCount || 0, stat2: appCount || 0 });
-      } else {
-        setCompanyProfile({ id: '1', name: 'Template Company', address: 'Local Testing' });
+        setStats({ stat1: jobCount || 0, stat2: appCount || 0, stat3: 0, stat4: 0 });
       }
 
     } else if (role === 'user') {
@@ -78,34 +85,51 @@ export default function Home({ role }) {
       
       if (userData) {
         setUserProfile(userData);
-        
-        // <-- TRIGGER POPUP IF NEW USER 
-        // If their name is still the placeholder from Login.jsx or they are missing a major
         if (userData.name === 'New User' || !userData.major) {
           setShowOnboarding(true);
         }
-
         const { count: appCount } = await supabase.from('applications').select('*', { count: 'exact', head: true }).eq('applicant_id', userData.id);
         const { count: totalJobsCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true });
-        setStats({ stat1: appCount || 0, stat2: totalJobsCount || 0 });
-      } else {
-        setUserProfile({ id: '1', name: 'Template User', major: 'Local Testing' });
+        setStats({ stat1: appCount || 0, stat2: totalJobsCount || 0, stat3: 0, stat4: 0 });
       }
     }
 
     setIsLoading(false);
   }
 
-  // Reloads dashboard data once the modal successfully saves
   function handleOnboardingComplete() {
     setShowOnboarding(false);
     fetchDashboardData();
   }
 
+  if (role === 'pending_user') {
+    return (
+      <div className="card text-center p-20 mt-32" style={{ maxWidth: '600px', margin: '64px auto', padding: '48px 24px' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⏳</div>
+        <h2 className="mb-16">Account Under Review</h2>
+        <p className="text-secondary mb-24" style={{ lineHeight: '1.6' }}>
+          Your registration has been successfully received, but it is currently waiting for administrator approval. You will gain full access to job postings and companies once approved.
+        </p>
+        <p className="text-sm" style={{ color: 'var(--primary-color)' }}>Please check back later.</p>
+      </div>
+    );
+  }
+
+  if (role === 'rejected_user') {
+    return (
+      <div className="card text-center p-20 mt-32" style={{ maxWidth: '600px', margin: '64px auto', padding: '48px 24px', borderColor: '#fecaca', background: '#fef2f2' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '16px' }}>❌</div>
+        <h2 className="mb-16" style={{ color: '#991b1b' }}>Registration Declined</h2>
+        <p style={{ color: '#7f1d1d', lineHeight: '1.6' }}>
+          Unfortunately, your account registration was not approved by the administration. You do not have access to the platform.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container-wide">
 
-      {/* RENDER THE ONBOARDING OVERLAY */}
       <OnboardingModal 
         isOpen={showOnboarding} 
         userId={userProfile?.id} 
@@ -125,9 +149,24 @@ export default function Home({ role }) {
         </div>
       )}
 
-      <div className="dashboard-layout">
+      {/* Conditionally apply the split dashboard layout vs a full-width column layout for Admin */}
+      <div className={role === 'admin' ? "flex-col" : "dashboard-layout"} style={{ gap: '32px' }}>
         
-        <div>
+        <div style={{ width: '100%' }}>
+          
+          {/* --- NEW: Admin Statistics Grid --- */}
+          {role === 'admin' && (
+            <div className="mb-32">
+              <h2 className="mb-24">Platform Overview</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
+                <StatCard value={stats.stat1} label="Total Users" isLoading={isLoading} />
+                <StatCard value={stats.stat3} label="Pending Approvals" isLoading={isLoading} />
+                <StatCard value={stats.stat2} label="Registered Companies" isLoading={isLoading} />
+                <StatCard value={stats.stat4} label="Active Job Postings" isLoading={isLoading} />
+              </div>
+            </div>
+          )}
+
           <div className="card">
             <div className="flex-between mb-16" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
               <h3 style={{ margin: 0 }}>Recently Posted Jobs</h3>
@@ -157,65 +196,49 @@ export default function Home({ role }) {
           </div>
         </div>
 
-        <div className="flex-col-lg" style={{ position: 'sticky', top: '24px' }}>
-          
-          {role === 'guest' ? (
-            <div className="card text-center p-20">
-              <div className="avatar-lg mb-16" style={{ width: '80px', height: '80px', fontSize: '2rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--text-color)', color: 'white' }}>👋</div>
-              <h3 className="mb-8">Join Hearable</h3>
-              <p className="text-sm text-secondary mb-24">Create an account to apply to jobs and get noticed by companies.</p>
-              <button className="btn-black w-full" onClick={() => navigate('/login')}>Sign Up Now</button>
-            </div>
-          ) : role === 'admin' ? (
-            <div className="flex-col" style={{ gap: '20px' }}>
-              <div className="card p-20" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="flex-row">
-                  <div className="avatar" style={{ background: 'var(--primary-color)', color: 'white', fontWeight: 'bold' }}>T</div>
-                  <div style={{ textAlign: 'left' }}><h4 style={{ margin: 0 }}>{userProfile?.name}</h4><p className="text-sm text-secondary" style={{ margin: 0 }}>Sandbox Candidate</p></div>
-                </div>
-                <button className="btn-outline btn-sm" onClick={() => navigate('/user/1')}>View</button>
+        {/* --- Hide the entire right sidebar if the user is an Admin --- */}
+        {role !== 'admin' && (
+          <div className="flex-col-lg" style={{ position: 'sticky', top: '24px' }}>
+            
+            {role === 'guest' ? (
+              <div className="card text-center p-20">
+                <div className="avatar-lg mb-16" style={{ width: '80px', height: '80px', fontSize: '2rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--text-color)', color: 'white', borderRadius: '50%' }}>👤</div>
+                <h3 className="mb-8">Join Hearable</h3>
+                <p className="text-sm text-secondary mb-24">Create an account to apply to jobs and get noticed by companies.</p>
+                <button className="btn-black w-full" onClick={() => navigate('/login')}>Sign Up Now</button>
               </div>
-
-              <div className="card p-20" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="flex-row">
-                  <div className="avatar" style={{ background: 'var(--text-color)', color: 'white', fontWeight: 'bold', borderRadius: '8px' }}>C</div>
-                  <div style={{ textAlign: 'left' }}><h4 style={{ margin: 0 }}>{companyProfile?.name}</h4><p className="text-sm text-secondary" style={{ margin: 0 }}>Sandbox Employer</p></div>
-                </div>
-                <button className="btn-outline btn-sm" onClick={() => navigate('/company/1')}>View</button>
-              </div>
-            </div>
-          ) : (
-            role === 'company' ? (
+            ) : role === 'company' ? (
               <div className="card text-center p-20">
                 <div className="avatar-lg mb-16" style={{ width: '80px', height: '80px', fontSize: '2rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-color)', color: 'white', borderRadius: '16px' }}>
                   {companyProfile?.name ? companyProfile.name.charAt(0).toUpperCase() : 'C'}
                 </div>
                 <h3 className="mb-8">{companyProfile?.name}</h3>
                 <p className="text-sm text-secondary mb-24">📍 {companyProfile?.address}</p>
-                <button className="btn-black w-full" disabled={!companyProfile?.id} onClick={() => navigate(`/company/${companyProfile.id}`)}>
+                <button className="btn-black w-full" disabled={!companyProfile?.id} onClick={() => navigate(`/company/${companyProfile?.id}`)}>
                   {companyProfile?.id ? 'View Company Profile' : 'No Profile Found'}
                 </button>
               </div>
             ) : (
               <div className="card text-center p-20">
-                <div className="avatar-lg mb-16" style={{ width: '80px', height: '80px', fontSize: '2rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-color)', color: 'white' }}>
+                <div className="avatar-lg mb-16" style={{ width: '80px', height: '80px', fontSize: '2rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-color)', color: 'white', borderRadius: '50%' }}>
                   {userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : 'T'}
                 </div>
                 <h3 className="mb-8">{userProfile?.name}</h3>
                 <p className="text-sm text-secondary mb-24">{userProfile?.major}</p>
-                <button className="btn-black w-full" disabled={!userProfile?.id} onClick={() => navigate(`/user/${userProfile.id}`)}>
+                <button className="btn-black w-full" disabled={!userProfile?.id} onClick={() => navigate(`/user/${userProfile?.id}`)}>
                   {userProfile?.id ? 'View Profile' : 'No Profile Found'}
                 </button>
               </div>
-            )
-          )}
+            )}
 
-          <div className="flex-col">
-            <StatCard value={stats.stat1} label={role === 'company' ? 'Active Job Postings' : role === 'admin' ? 'Total Users' : role === 'guest' ? 'Total Open Jobs' : 'Applications Sent'} isLoading={isLoading} />
-            <StatCard value={stats.stat2} label={role === 'company' ? 'Total Applicants' : role === 'admin' ? 'Total Companies' : role === 'guest' ? 'Companies Hiring' : 'Open Jobs'} isLoading={isLoading} />
+            <div className="flex-col">
+              <StatCard value={stats.stat1} label={role === 'company' ? 'Active Job Postings' : role === 'guest' ? 'Total Open Jobs' : 'Applications Sent'} isLoading={isLoading} />
+              <StatCard value={stats.stat2} label={role === 'company' ? 'Total Applicants' : role === 'guest' ? 'Companies Hiring' : 'Open Jobs'} isLoading={isLoading} />
+            </div>
+
           </div>
+        )}
 
-        </div>
       </div>
 
     </div>
