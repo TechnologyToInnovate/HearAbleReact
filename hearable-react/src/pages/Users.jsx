@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import FilterButton from '../components/FilterButton'; // <-- NEW COMPONENT
+import FilterButton from '../components/FilterButton'; 
 
 export default function Users({ role }) {
   const navigate = useNavigate();
@@ -23,6 +23,25 @@ export default function Users({ role }) {
     }
     fetchUsers();
   }, [role, navigate]);
+
+async function handleDeleteUser(e, id) {
+    e.stopPropagation(); 
+    if (!window.confirm("Are you sure you want to permanently remove this user profile?")) return;
+
+    // 1. Wipe their applications first so the database allows the profile deletion
+    await supabase.from('applications').delete().eq('applicant_id', id);
+
+    // 2. Now safely delete the user profile
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    
+    if (!error) {
+      setUsers(users.filter(u => u.id !== id));
+      alert("User removed successfully.");
+    } else {
+      alert("Failed to remove user.");
+      console.error(error);
+    }
+  }
 
   const filteredUsers = users.filter(person => 
     (person.name && person.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -54,10 +73,7 @@ export default function Users({ role }) {
           <div 
             key={person.id} 
             className="card" 
-            style={{ display: 'flex', flexDirection: 'column', height: '100%', transition: 'all 0.2s', cursor: 'pointer', padding: '20px' }} 
-            onClick={() => navigate(`/user/${person.id}`)} 
-            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} 
-            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px' }} 
           >
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
@@ -86,12 +102,23 @@ export default function Users({ role }) {
               )}
             </div>
 
-            <button 
-              className="btn-outline w-full" 
-              onClick={(e) => { e.stopPropagation(); navigate(`/user/${person.id}`); }}
-            >
-              View Full Profile
-            </button>
+            <div className="flex-col gap-8">
+              <button 
+                className="btn-outline w-full" 
+                onClick={() => navigate(`/user/${person.id}`)}
+              >
+                View Full Profile
+              </button>
+              
+              {/* NEW: Admin Delete Button */}
+              <button 
+                className="w-full" 
+                onClick={(e) => handleDeleteUser(e, person.id)}
+                style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 20px', fontWeight: '500', cursor: 'pointer' }}
+              >
+                🗑️ Remove User
+              </button>
+            </div>
           </div>
         ))}
       </div>

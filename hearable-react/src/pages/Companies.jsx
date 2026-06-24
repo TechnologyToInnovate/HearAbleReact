@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import FilterButton from '../components/FilterButton'; // <-- NEW COMPONENT
+import FilterButton from '../components/FilterButton'; 
 
 export default function Companies({ role }) {
   const navigate = useNavigate();
@@ -9,11 +9,14 @@ export default function Companies({ role }) {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Form States
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Pre-Approve Variables
+  const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newAddress, setNewAddress] = useState('');
-  const [newDescription, setNewDescription] = useState('');
 
   useEffect(() => {
     fetchCompanies();
@@ -21,100 +24,102 @@ export default function Companies({ role }) {
 
   async function fetchCompanies() {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('companies')
-      .select('*')
-      .order('name', { ascending: true });
-
-    if (!error && data) {
-      setCompanies(data);
-    }
+    const { data } = await supabase.from('companies').select('*').order('name', { ascending: true });
+    if (data) setCompanies(data);
     setIsLoading(false);
   }
 
+  // --- ADD COMPANY FUNCTION ---
   async function handleAddCompany(e) {
     e.preventDefault();
     setIsSubmitting(true);
     
-    const { error } = await supabase.from('companies').insert([{
+    const { error } = await supabase.from('pre_approved_companies').insert([{
+      email: newEmail.toLowerCase().trim(),
       name: newName,
-      address: newAddress,
-      description: newDescription,
-      status: 'Active'
+      address: newAddress
     }]);
 
     if (!error) {
-      alert("Company added successfully!");
-      setNewName(''); setNewAddress(''); setNewDescription('');
+      alert(`Success! ${newEmail} is on the roster. They can now sign up on the Login page!`);
+      setNewEmail(''); setNewName(''); setNewAddress('');
       setShowAddForm(false);
-      fetchCompanies(); 
     } else {
-      alert("Failed to add company. Check console.");
+      alert("Failed to pre-approve company. Email might already be on the list.");
       console.error(error);
     }
     setIsSubmitting(false);
   }
 
-  async function handleDeleteCompany(e, id) {
+  // --- DELETE COMPANY FUNCTION ---
+async function handleDeleteCompany(e, company) {
     e.stopPropagation(); 
-    if (!window.confirm("Are you sure you want to permanently remove this company?")) return;
+    if (!window.confirm(`Are you sure you want to permanently remove ${company.name}?`)) return;
 
-    const { error } = await supabase.from('companies').delete().eq('id', id);
+    // 1. Delete the pre-approved record if it exists (prevents the duplicate key error later)
+    // We add .eq('name', company.name) just in case the email differs
+    await supabase.from('pre_approved_companies').delete().eq('name', company.name);
+
+    // 2. Delete all applications
+    await supabase.from('applications').delete().eq('company', company.name);
+
+    // 3. Delete jobs
+    await supabase.from('jobs').delete().eq('company', company.name);
+
+    // 4. Delete the company profile
+    const { error } = await supabase.from('companies').delete().eq('id', company.id);
     
     if (!error) {
-      setCompanies(companies.filter(c => c.id !== id));
+      setCompanies(companies.filter(c => c.id !== company.id));
     } else {
-      alert("Failed to remove company.");
-      console.error(error);
+      alert("Failed to delete company.");
     }
   }
 
   const filteredCompanies = companies.filter(company => 
     company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (company.description && company.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (company.address && company.address.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
     <div className="page-container-wide">
       
+      {/* SHOW THE ADD FORM IF TRIGGERED */}
       {showAddForm && role === 'admin' ? (
         <section className="card p-20 mb-32" style={{ maxWidth: '800px', margin: '0 auto 32px' }}>
           <div className="flex-between mb-24" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-            <h3 style={{ margin: 0 }}>Register New Company</h3>
+            <h3 style={{ margin: 0 }}>Pre-Approve New Company</h3>
             <button className="btn-outline btn-sm" onClick={() => setShowAddForm(false)}>← Cancel</button>
+          </div>
+          <div className="mb-24" style={{ background: '#ecfdf5', color: '#047857', padding: '12px', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '0.9rem' }}>
+            <strong>Admin Notice:</strong> Add a company email. When they go to the Login page and "Sign Up", their profile will be automatically built and approved!
           </div>
           <form onSubmit={handleAddCompany} className="flex-col">
             <div className="form-grid-2">
               <div>
+                <label>Company Email *</label>
+                <input type="email" className="search-input" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
+              </div>
+              <div>
                 <label>Company Name *</label>
                 <input type="text" className="search-input" value={newName} onChange={(e) => setNewName(e.target.value)} required />
               </div>
-              <div>
-                <label>Location / Address *</label>
-                <input type="text" className="search-input" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} required />
-              </div>
             </div>
             <div>
-              <label>Company Description</label>
-              <textarea className="search-input" style={{ height: '100px' }} value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
+              <label>Location / HQ</label>
+              <input type="text" className="search-input" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} />
             </div>
             <button type="submit" className="btn-black w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Registering...' : 'Register Company'}
+              {isSubmitting ? 'Registering...' : 'Add to Pre-Approved Roster'}
             </button>
           </form>
         </section>
       ) : (
         <>
+          {/* SHOW THE MAIN COMPANIES LIST */}
           <div className="search-box-wrapper mb-16" style={{ width: '100%' }}>
             <span className="search-icon">🔍</span>
-            <input 
-              type="text" 
-              placeholder="Search by company name, industry, or location..." 
-              className="search-input" 
-              value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
-            />
+            <input type="text" placeholder="Search by company name or location..." className="search-input" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
 
           <div className="flex-between mb-32">
@@ -125,26 +130,15 @@ export default function Companies({ role }) {
           </div>
 
           {isLoading && <p className="text-center text-secondary">Loading companies...</p>}
-          
-          {!isLoading && filteredCompanies.length === 0 && (
-            <div className="card text-center text-secondary p-20" style={{ padding: '48px 24px' }}>
-              <div className="text-3xl mb-16">🏢</div>
-              <h3 className="mb-8" style={{ margin: 0 }}>No companies found</h3>
-              <p>We couldn't find any companies matching your search.</p>
-            </div>
-          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
             {filteredCompanies.map(company => (
               <div 
                 key={company.id} 
                 className="card p-20" 
-                style={{ display: 'flex', flexDirection: 'column', height: '100%', transition: 'all 0.2s', cursor: 'pointer' }} 
+                style={{ display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer' }} 
                 onClick={() => navigate(`/company/${company.id}`)} 
-                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'} 
-                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                
                 <div className="flex-row mb-16">
                   <div className="avatar" style={{ width: '48px', height: '48px', background: 'var(--primary-color)', color: 'white', borderRadius: '12px', flexShrink: 0 }}>
                     {company.name.charAt(0).toUpperCase()}
@@ -162,17 +156,14 @@ export default function Companies({ role }) {
                 </p>
 
                 <div className="flex-col gap-8">
-                  <button 
-                    className="btn-outline w-full" 
-                    onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}
-                  >
+                  <button className="btn-outline w-full" onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}>
                     View Company Profile
                   </button>
 
                   {role === 'admin' && (
                     <button 
                       className="w-full" 
-                      onClick={(e) => handleDeleteCompany(e, company.id)}
+                      onClick={(e) => handleDeleteCompany(e, company)}
                       style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 20px', fontWeight: '500', cursor: 'pointer' }}
                     >
                       🗑️ Remove Company

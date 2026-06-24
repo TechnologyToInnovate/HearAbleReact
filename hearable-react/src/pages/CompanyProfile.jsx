@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-
-// Import our new component!
 import ProfileHeader from '../components/ProfileHeader';
+
+// Import our new Modal
+import EditCompanyModal from '../components/EditCompanyModal';
 
 export default function CompanyProfile({ role }) {
   const { id } = useParams();
@@ -11,40 +12,68 @@ export default function CompanyProfile({ role }) {
   
   const [company, setCompany] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Modal control & user verification
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [refreshData, setRefreshData] = useState(0);
 
   useEffect(() => {
     async function fetchCompany() {
       setIsLoading(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setCurrentUserId(session.user.id);
+      }
+
       const { data } = await supabase.from('companies').select('*').eq('id', id).single();
       if (data) setCompany(data);
+      
       setIsLoading(false);
     }
     fetchCompany();
-  }, [id]);
+  }, [id, refreshData]); // Refreshes when modal closes
 
   if (isLoading) return <p className="text-center p-20">Loading...</p>;
   if (!company) return <p className="text-center p-20">Company not found.</p>;
 
+  const isOwnProfile = currentUserId === id;
+
   return (
     <div className="page-container">
-      
-      {/* Back button */}
-      <button onClick={() => navigate(-1)} className="mb-24" style={{ background: 'none', border: 'none', color: 'var(--secondary-text)', cursor: 'pointer' }}>
-        ← Back
-      </button>
+
+      {/* RENDER THE EDIT MODAL OVERLAY */}
+      {isEditing && (
+        <EditCompanyModal 
+          companyId={company.id}
+          onClose={() => {
+            setIsEditing(false);
+            setRefreshData(prev => prev + 1);
+          }} 
+        />
+      )}
 
       <div className="card p-20">
-        {/* REFACTORED: The messy header is now just this one component */}
-        <ProfileHeader name={company.name} type="company">
-          {company.address && <span>📍 {company.address}</span>}
-          {company.website && (
-            <span>
-              🌐 <a href={company.website} target="_blank" rel="noreferrer" className="text-primary">
-                {company.website.replace(/^https?:\/\//, '')}
-              </a>
-            </span>
+        
+        <div className="flex-between-start">
+          <ProfileHeader name={company.name} type="company">
+            {company.address && <span>📍 {company.address}</span>}
+            {company.website && (
+              <span>
+                🌐 <a href={company.website} target="_blank" rel="noreferrer" className="text-primary">
+                  {company.website.replace(/^https?:\/\//, '')}
+                </a>
+              </span>
+            )}
+          </ProfileHeader>
+
+          {isOwnProfile && (
+            <button className="btn-outline" onClick={() => setIsEditing(true)}>
+              ⚙️ Edit Profile
+            </button>
           )}
-        </ProfileHeader>
+        </div>
 
         <div className="profile-split-layout">
           <div>
