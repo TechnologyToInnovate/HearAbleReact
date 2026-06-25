@@ -1,236 +1,86 @@
-/* ==========================================================================
-   HEARABLE: BASE VARIABLES & RESET
-   ========================================================================== */
+/* =========================================
+   HEARABLE - CSB BENILDE THEME
+   ========================================= */
+
 :root {
-  --primary-color: #00703C;     /* Official La Salle/Benilde Green */
-  --hover-color: #dcfce7;       /* Soft Green for tags/hover states */
-  --bg-color: #f8fafc;          /* Off-white background */
-  --card-bg: #ffffff;           /* Pure white for cards */
-  --text-color: #0f172a;        /* Dark slate for main text */
-  --secondary-text: #64748b;    /* Lighter slate for descriptions */
-  --border-color: #e2e8f0;      /* Subtle gray borders */
-  --danger-color: #dc2626;      /* Red for sign out/warnings */
+  /* Benilde Identity Colors */
+  --primary-color: #00703C;       /* Official Benilde Green */
+  --primary-hover: #00542D;       /* Darker green for hover states */
+  --primary-light: #E6F0EC;       /* Very soft green for backgrounds/outlines */
+  
+  /* Core UI Colors */
+  --bg-color: #f3f4f6;            /* Light gray app background */
+  --card-bg: #ffffff;             /* Pure white for cards */
+  --text-color: #111827;          /* Near black for headings */
+  --secondary-text: #6b7280;      /* Gray for standard text */
+  --border-color: #e5e7eb;        /* Soft borders */
+  
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* =========================================
+   HIDE SCROLLBAR GLOBALLY
+   ========================================= */
 
 /* Hide scrollbar for Chrome, Safari and Opera */
-*::-webkit-scrollbar {
+::-webkit-scrollbar {
   display: none;
 }
 
 /* Hide scrollbar for IE, Edge and Firefox */
 * {
   -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  scrollbar-width: none;     /* Firefox */
+}
+
+/* --- RESET & BASE STYLES --- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-family);
   background-color: var(--bg-color);
   color: var(--text-color);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Typography Defaults */
-h1, h2, h3, h4 { color: var(--text-color); font-weight: 600; }
-.subtext { color: var(--secondary-text); font-size: 1rem; margin-bottom: 24px; }
-a { color: var(--primary-color); text-decoration: none; }
-a:hover { text-decoration: underline; }
-
-/* ==========================================================================
-   NAVIGATION BAR
-   ========================================================================== */
-.navbar {
-  background-color: var(--card-bg);
-  border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
-  z-index: 100;
+a {
+  text-decoration: none;
+  color: inherit;
 }
 
-.navbar-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 16px 32px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-color);
-}
-
-.brand-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1.2rem;
-}
-
-.nav-links {
-  display: flex;
-  gap: 24px;
+ul {
   list-style: none;
 }
 
-.nav-link {
-  color: var(--secondary-text);
-  font-weight: 500;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: all 0.2s;
-  cursor: pointer;
-}
-
-.nav-link:hover, .nav-link.active {
-  color: var(--text-color);
-  background-color: var(--bg-color);
-  text-decoration: none;
-}
-
-/* ==========================================================================
-   COMPONENTS (Cards, Buttons, Inputs, Avatars, Tags)
-   ========================================================================== */
-.card {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-/* Buttons */
-button { font-family: inherit; }
-.btn-black {
-  background-color: var(--text-color);
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-.btn-black:hover { background-color: #000; }
-.btn-black:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.btn-outline {
-  background-color: transparent;
-  color: var(--text-color);
-  border: 1px solid var(--border-color);
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-outline:hover { background-color: var(--bg-color); }
-
-.btn-sm { padding: 6px 12px; font-size: 0.85rem; }
-.w-full { width: 100%; }
-
-/* Inputs & Forms */
-.search-box-wrapper { position: relative; }
-.search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--secondary-text);
-}
-.search-input {
-  width: 100%;
-  padding: 12px 12px 12px 36px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: inherit;
-  transition: border-color 0.2s;
-}
-/* If an input doesn't have an icon, padding left should be standard */
-.search-input:not([placeholder*="Search"]) { padding-left: 12px; }
-.search-input:focus { outline: none; border-color: var(--primary-color); }
-label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.95rem; }
-
-/* Avatars */
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: var(--border-color);
+/* --- LAYOUT CONTAINERS --- */
+.app-container {
+  min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-}
-.avatar-lg { border-radius: 50%; } 
-
-/* Tags */
-.tag {
-  background-color: var(--bg-color);
-  color: var(--secondary-text);
-  border: 1px solid var(--border-color);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
+  flex-direction: column;
 }
 
-/* ==========================================================================
-   UTILITY CLASSES (The "Tailwind" Approach)
-   ========================================================================== */
-/* Layout & Spacing Containers */
-.page-container { max-width: 1000px; margin: 0 auto; padding-bottom: 64px; }
-.page-container-wide { max-width: 1100px; margin: 0 auto; padding-bottom: 64px; }
+.main-content {
+  flex: 1;
+  width: 100%;
+}
 
-/* Flexbox Helpers */
-.flex-row { display: flex; align-items: center; gap: 16px; }
-.flex-row-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.flex-between { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-.flex-between-start { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
-.flex-col { display: flex; flex-direction: column; gap: 16px; }
-.flex-col-lg { display: flex; flex-direction: column; gap: 24px; }
+.page-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
 
-/* Spacing Helpers */
-.mb-8 { margin-bottom: 8px; }
-.mb-16 { margin-bottom: 16px; }
-.mb-24 { margin-bottom: 24px; }
-.mb-32 { margin-bottom: 32px; }
-.mt-24 { margin-top: 24px; }
-.mt-32 { margin-top: 32px; }
-.gap-8 { gap: 8px; }
-.p-20 { padding: 20px; }
+.page-container-wide {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
 
-/* Text Helpers */
-.text-center { text-align: center; }
-.text-secondary { color: var(--secondary-text); }
-.text-primary { color: var(--primary-color); }
-.font-medium { font-weight: 500; }
-.text-sm { font-size: 0.85rem; }
-.text-lg { font-size: 1.1rem; }
-.text-xl { font-size: 1.5rem; }
-.text-2xl { font-size: 2rem; }
-.text-3xl { font-size: 3rem; }
-
-/* ==========================================================================
-   RESPONSIVE LAYOUT CLASSES (Grid Systems)
-   ========================================================================== */
 .dashboard-layout {
   display: grid;
   grid-template-columns: 1fr 320px;
@@ -238,96 +88,316 @@ label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 0.95rem
   align-items: start;
 }
 
-.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
-
-.jobs-split-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  align-items: start;
+@media (max-width: 900px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
-.profile-split-layout {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 24px;
-  margin-top: 32px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-color);
+/* --- NAVIGATION BAR --- */
+.navbar {
+  background-color: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
-.profile-header-flex {
+.navbar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+  height: 70px;
   display: flex;
   align-items: center;
-  gap: 24px;
+  justify-content: space-between;
 }
 
-/* ==========================================================================
-   MOBILE RESPONSIVENESS OVERRIDES (Max Width: 768px)
-   ========================================================================== */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+
+.brand-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 32px;
+  height: 100%;
+}
+
+.nav-link {
+  font-weight: 500;
+  color: var(--secondary-text);
+  display: flex;
+  align-items: center;
+  height: 100%;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: var(--primary-color);
+}
+
+/* Active Page Indicator (Benilde Green Line) */
+.nav-links .nav-link.active {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+.nav-links .nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: var(--primary-color);
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+/* --- CARDS & UI ELEMENTS --- */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  padding: 24px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.avatar-lg {
+  width: 80px;
+  height: 80px;
+  font-size: 2rem;
+}
+
+.badge-pill {
+  padding: 6px 12px;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* --- BUTTONS --- */
+/* The main button class is still called btn-black in JS, but we theme it Green! */
+.btn-black {
+  background-color: var(--primary-color);
+  color: white;
+  border: 1px solid var(--primary-color);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-black:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-black:disabled {
+  background-color: #9ca3af;
+  border-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-outline:hover {
+  background-color: var(--primary-light);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.9rem;
+}
+
+/* --- FORMS & INPUTS --- */
+.search-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 112, 60, 0.15); /* Soft green glow */
+}
+
+.search-input:disabled {
+  background-color: var(--bg-color);
+  color: var(--secondary-text);
+  cursor: not-allowed;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .form-grid-2, .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.search-box-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--secondary-text);
+  pointer-events: none;
+}
+
+.search-box-wrapper .search-input {
+  padding-left: 40px;
+}
+
+/* --- UTILITY CLASSES --- */
+.w-full { width: 100%; }
+
+/* Flexbox */
+.flex-col { display: flex; flex-direction: column; }
+.flex-row { display: flex; flex-direction: row; }
+.flex-row-wrap { display: flex; flex-direction: row; flex-wrap: wrap; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-between-start { display: flex; justify-content: space-between; align-items: flex-start; }
+.align-center { align-items: center; }
+
+/* Spacing / Gaps */
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.gap-20 { gap: 20px; }
+.gap-24 { gap: 24px; }
+.gap-32 { gap: 32px; }
+
+/* Margins */
+.m-0 { margin: 0; }
+.mb-8 { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.mb-32 { margin-bottom: 32px; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mt-32 { margin-top: 32px; }
+
+/* Padding */
+.p-0 { padding: 0; }
+.p-16 { padding: 16px; }
+.p-20 { padding: 20px; }
+.p-24 { padding: 24px; }
+.p-32 { padding: 32px; }
+
+/* Typography */
+.text-center { text-align: center; }
+.text-secondary { color: var(--secondary-text); }
+.text-sm { font-size: 0.875rem; }
+.text-md { font-size: 1rem; }
+.text-lg { font-size: 1.125rem; }
+.text-3xl { font-size: 1.875rem; font-weight: bold; }
+
+/* ==========================================
+   JOBS SPLIT LAYOUT
+========================================== */
+
+.jobs-split-layout {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.jobs-list-column {
+  width: 40%; /* Takes up 40% of the screen */
+  flex-shrink: 0;
+}
+
+.job-details-column {
+  width: 60%; /* Takes up 60% of the screen */
+  position: sticky;
+  top: 24px; /* Keeps the details stuck to the top while you scroll the list! */
+  height: max-content;
+}
+
+/* Make it mobile-friendly (Stacks them on top of each other on small screens) */
 @media (max-width: 768px) {
-  
-  /* Shrink massive typography for small screens */
-  h1 { font-size: 2rem !important; }
-  h2 { font-size: 1.5rem !important; }
-  
-  /* Make main container padding smaller */
-  .page-container, .page-container-wide {
-    padding: 16px !important;
-  }
-
-  /* Stack the Navigation Bar nicely */
-  .navbar-container {
+  .jobs-split-layout {
     flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 16px;
-  }
-  .nav-links {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 12px;
   }
   
-  /* Center the User Profile Dropdown on mobile so it doesn't clip off screen */
-  .mobile-dropdown-safe {
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%);
-    width: 280px !important;
+  .jobs-list-column, 
+  .job-details-column {
+    width: 100%;
+    position: static;
   }
-
-  /* Stack the Dashboard: Move Profile to Top */
-  .dashboard-layout { grid-template-columns: 1fr; }
-  .dashboard-layout > div:last-child { order: -1; position: static !important; }
-
-  /* Stack Forms & Profiles */
-  .form-grid-2, .form-grid-3, .profile-split-layout {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Center Profile Headers */
-  .profile-header-flex {
-    flex-direction: column;
-    text-align: center;
-  }
-  .profile-header-flex .avatar-lg {
-    margin: 0 auto;
-  }
-  
-  /* Center the location/website tags on mobile */
-  .profile-header-flex > div > div {
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  /* Fix Job Board Split Layout */
-  .jobs-split-layout { grid-template-columns: 1fr !important; }
-  
-  /* Hide the job list when a job is selected */
-  .jobs-split-layout.active-split .jobs-list-column { display: none; }
-  
-  /* Hide the empty right column when no job is selected */
-  .jobs-split-layout:not(.active-split) .job-details-column { display: none; }
 }

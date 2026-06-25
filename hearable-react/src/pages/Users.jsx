@@ -1,246 +1,266 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 export default function Users({ role }) {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // NEW: Multi-select dropdown state
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [statusFilters, setStatusFilters] = useState(['Pending', 'Approved', 'Rejected']); // 'Archived' off by default
 
-  // Form States
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Pre-Approve Variables
-  const [newEmail, setNewEmail] = useState('');
-  const [newName, setNewName] = useState('');
-  const [newIdNumber, setNewIdNumber] = useState('');
-  const [newMajor, setNewMajor] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('All');
+  const [sortBy, setSortBy] = useState('name_asc');
+  const [filterDegree, setFilterDegree] = useState('All');
+  const [filterBatch, setFilterBatch] = useState('All');
 
   useEffect(() => {
+    if (role !== 'admin') {
+      navigate('/');
+      return;
+    }
     fetchUsers();
-  }, []);
+  }, [role, navigate]);
 
   async function fetchUsers() {
     setIsLoading(true);
-    const { data } = await supabase.from('profiles').select('*').order('name', { ascending: true });
-    if (data) setUsers(data);
+
+    try {
+      // 1. Fetch profiles WITH the joined degrees and batches!
+      // (Removed the rule hiding "New User")
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select(`
+          *,
+          degrees ( name, abbreviation ),
+          batches ( batch_number )
+        `)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      // Map the relational data to plain text so your UI and filters don't break
+      const mappedProfiles = profiles.map(p => ({
+        ...p,
+        degreeText: p.degrees ? (p.degrees.abbreviation ? `${p.degrees.abbreviation} - ${p.degrees.name}` : p.degrees.name) : null,
+        batchText: p.batches ? String(p.batches.batch_number) : null
+      }));
+
+      // 2. Fetch all Company IDs to exclude them
+      const { data: companies } = await supabase.from('companies').select('id');
+      const companyIds = companies ? companies.map(c => c.id) : [];
+
+      // 3. Fetch all Admin IDs to exclude them 
+      const { data: admins, error: adminError } = await supabase.from('admins').select('id');
+      const adminIds = admins && !adminError ? admins.map(a => a.id).filter(Boolean) : [];
+
+      // 4. FILTER OUT Companies and Admins ONLY
+      // (Removed the rule hiding "New User")
+      const pureUsers = mappedProfiles.filter(user =>
+        !companyIds.includes(user.id) &&
+        !adminIds.includes(user.id)
+      );
+
+      setUsers(pureUsers);
+
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      alert("Error fetching users: " + error.message);
+    }
+
     setIsLoading(false);
   }
 
-  // --- ADD PRE-APPROVED USER ---
-  async function handleAddUser(e) {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    const { error } = await supabase.from('pre_approved_users').insert([{
-      email: newEmail.toLowerCase().trim(),
-      name: newName,
-      id_number: newIdNumber,
-      major: newMajor
-    }]);
+  async function handleUpdateStatus(userId, newStatus) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status: newStatus })
+      .eq('id', userId);
 
     if (!error) {
-      alert(`Success! ${newEmail} is on the roster.`);
-      setNewEmail(''); setNewName(''); setNewIdNumber(''); setNewMajor('');
-      setShowAddForm(false);
+      setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u));
     } else {
-      alert("Failed to pre-approve user. Email might already be on the list.");
+      alert("Failed to update user status.");
     }
-    setIsSubmitting(false);
   }
 
-  // --- UNIFIED STATUS HANDLER ---
-  async function handleUpdateStatus(e, id, newStatus) {
-    e.stopPropagation();
-    const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', id);
+  async function handleDeleteUser(userId, userName) {
+    if (!window.confirm(`Are you sure you want to permanently remove ${userName || 'this user'}? This action cannot be undone.`)) return;
+
+    const { error } = await supabase.from('profiles').delete().eq('id', userId);
+
     if (!error) {
-      setUsers(users.map(u => u.id === id ? { ...u, status: newStatus } : u));
+      setUsers(users.filter(u => u.id !== userId));
     } else {
-      alert("Failed to update status.");
+      alert("Failed to delete user: " + error.message);
       console.error(error);
     }
   }
 
-  // --- DELETE USER ---
-  async function handleDeleteUser(e, id) {
-    e.stopPropagation(); 
-    if (!window.confirm("Are you sure you want to permanently remove this user profile?")) return;
+  // 🚨 UI FIX: Extract unique degrees and batches based on the mapped text
+  const uniqueDegrees = ['All', ...[...new Set(users.map(u => u.degreeText).filter(Boolean))].sort()];
+  const uniqueBatches = ['All', ...[...new Set(users.map(u => u.batchText).filter(Boolean))].sort()];
+  let processedUsers = users.filter(user => {
+    // Search checks the newly mapped degreeText
+    const matchesSearch = (user.name && user.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (user.degreeText && user.degreeText.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    await supabase.from('applications').delete().eq('applicant_id', id);
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
-    
-    if (!error) {
-      setUsers(users.filter(u => u.id !== id));
-    } else {
-      alert("Failed to remove user.");
-      console.error(error);
+    let matchesTab = true;
+    if (activeTab === 'Pending') matchesTab = user.status === 'Pending';
+    if (activeTab === 'Approved') matchesTab = user.status === 'Approved';
+    if (activeTab === 'Rejected') matchesTab = user.status === 'Rejected';
+
+    const matchesDegree = filterDegree === 'All' || user.degreeText === filterDegree;
+    const matchesBatch = filterBatch === 'All' || user.batchText === filterBatch;
+
+    return matchesSearch && matchesTab && matchesDegree && matchesBatch;
+  });
+
+  processedUsers.sort((a, b) => {
+    if (sortBy === 'name_asc') {
+      return (a.name || '').localeCompare(b.name || '');
+    } else if (sortBy === 'name_desc') {
+      return (b.name || '').localeCompare(a.name || '');
     }
-  }
-
-  // Toggle filter array helper
-  function toggleStatusFilter(status) {
-    setStatusFilters(prev => 
-      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
-    );
-  }
-
-  // --- MULTI-FILTER LOGIC ---
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.major && user.major.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (user.id_number && user.id_number.includes(searchQuery));
-
-    const currentStatus = user.status || 'Pending';
-    const matchesFilter = statusFilters.includes(currentStatus);
-
-    return matchesSearch && matchesFilter;
+    return 0;
   });
 
   return (
     <div className="page-container-wide">
-      
-      {showAddForm && role === 'admin' ? (
-        <section className="card p-20 mb-32" style={{ maxWidth: '800px', margin: '0 auto 32px' }}>
-          <div className="flex-between mb-24" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-            <h3 style={{ margin: 0 }}>Pre-Approve New User</h3>
-            <button className="btn-outline btn-sm" onClick={() => setShowAddForm(false)}>← Cancel</button>
-          </div>
-          <form onSubmit={handleAddUser} className="flex-col">
-            <div className="form-grid-2">
-              <div><label>User Email *</label><input type="email" className="search-input" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required /></div>
-              <div><label>Full Name *</label><input type="text" className="search-input" value={newName} onChange={(e) => setNewName(e.target.value)} required /></div>
-            </div>
-            <div className="form-grid-2">
-              <div><label>ID Number (8 Digits) *</label><input type="text" className="search-input" value={newIdNumber} onChange={(e) => setNewIdNumber(e.target.value)} required maxLength="8" /></div>
-              <div><label>Major / Program</label><input type="text" className="search-input" value={newMajor} onChange={(e) => setNewMajor(e.target.value)} /></div>
-            </div>
-            <button type="submit" className="btn-black w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Registering...' : 'Add to Pre-Approved Roster'}
-            </button>
-          </form>
-        </section>
-      ) : (
-        <>
-          <div className="flex-between mb-24">
-            <h1 style={{ margin: 0 }}>Manage Users</h1>
-            {role === 'admin' && (
-              <button className="btn-black" onClick={() => setShowAddForm(true)}>+ Add User</button>
-            )}
-          </div>
 
-          {/* --- SEARCH AND DROPDOWN FILTER BAR --- */}
-          <div className="flex-row gap-16 mb-24" style={{ width: '100%', position: 'relative' }}>
-            <div className="search-box-wrapper" style={{ flexGrow: 1 }}>
-              <span className="search-icon">🔍</span>
-              <input type="text" placeholder="Search users by name, ID, or major..." className="search-input" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-            </div>
+      {/* HEADER WITH DEGREES & BATCHES BUTTONS */}
+      <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
+        <h1 style={{ margin: 0 }}>Manage Users</h1>
+        <div className="flex-row gap-12">
+          <button className="btn-outline btn-sm" onClick={() => navigate('/degrees')}>🎓 Manage Degrees</button>
+          <button className="btn-outline btn-sm" onClick={() => navigate('/batches')}>📅 Manage Batches</button>
+        </div>
+      </div>
 
-            {/* CUSTOM MULTI-SELECT DROPDOWN */}
-            <div style={{ position: 'relative' }}>
-              <button className="btn-outline" onClick={() => setShowFilterDropdown(!showFilterDropdown)} style={{ height: '100%', minWidth: '140px' }}>
-                ⚙️ Filter Status
-              </button>
-              
-              {showFilterDropdown && (
-                <div className="card p-0" style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: '220px', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-color)' }}>
-                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>Show Users With Status:</p>
+      <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
+        {['All', 'Pending', 'Approved', 'Rejected'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '8px 20px',
+              border: 'none',
+              background: 'none',
+              borderBottom: activeTab === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
+              color: activeTab === tab ? 'var(--primary-color)' : 'var(--secondary-text)',
+              fontWeight: activeTab === tab ? '600' : '400',
+              cursor: 'pointer',
+              fontSize: '1rem',
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="search-box-wrapper mb-16" style={{ width: '100%' }}>
+        <span className="search-icon">🔍</span>
+        <input
+          type="text"
+          placeholder="Search by name or degree..."
+          className="search-input w-full"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      <div className="flex-row-wrap gap-16 mb-32">
+        <select className="search-input" style={{ width: 'auto', minWidth: '180px', padding: '10px 16px' }} value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="name_asc">Sort by: Name (A-Z)</option>
+          <option value="name_desc">Sort by: Name (Z-A)</option>
+        </select>
+
+        <select className="search-input" style={{ width: 'auto', minWidth: '180px', padding: '10px 16px' }} value={filterDegree} onChange={e => setFilterDegree(e.target.value)}>
+          {uniqueDegrees.map(degree => (
+            <option key={degree} value={degree}>{degree === 'All' ? 'All Degrees' : degree}</option>
+          ))}
+        </select>
+
+        <select className="search-input" style={{ width: 'auto', minWidth: '180px', padding: '10px 16px' }} value={filterBatch} onChange={e => setFilterBatch(e.target.value)}>
+          {uniqueBatches.map(batch => (
+            <option key={batch} value={batch}>{batch === 'All' ? 'All Batches' : `Batch ${batch}`}</option>
+          ))}
+        </select>
+      </div>
+
+      {isLoading ? (
+        <p className="text-center text-secondary mt-32">Loading users...</p>
+      ) : processedUsers.length > 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+          {processedUsers.map(user => (
+            <div key={user.id} className="card p-20 flex-col" style={{ height: '100%' }}>
+
+              <div className="flex-between-start mb-16">
+                <div className="flex-row gap-12 align-center">
+                  <div className="avatar" style={{ flexShrink: 0 }}>
+                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                   </div>
-                  {['Pending', 'Approved', 'Rejected', 'Archived'].map((status) => (
-                    <label key={status} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)', margin: 0, userSelect: 'none' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={statusFilters.includes(status)} 
-                        onChange={() => toggleStatusFilter(status)}
-                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                      />
-                      <span style={{ fontSize: '0.95rem' }}>{status === 'Approved' ? 'Accepted' : status}</span>
-                    </label>
-                  ))}
+                  <div>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{user.name || 'Incomplete Profile'}</h3>
+                    <p className="text-sm text-secondary m-0">
+                      {user.status === 'Pending' ? 'Awaiting Review' : `Status: ${user.status || 'Active'}`}
+                    </p>
+                  </div>
                 </div>
-              )}
+
+                <span style={{
+                  padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold',
+                  backgroundColor: user.status === 'Approved' ? '#dcfce7' : user.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
+                  color: user.status === 'Approved' ? '#166534' : user.status === 'Rejected' ? '#991b1b' : '#854d0e'
+                }}>
+                  {user.status || 'Active'}
+                </span>
+              </div>
+
+              <div className="mb-24 flex-grow" style={{ background: 'var(--bg-color)', padding: '12px', borderRadius: '8px' }}>
+                <div style={{ marginBottom: '8px' }}>
+                  <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '2px' }}>Degree</span>
+                  {/* 🚨 UI FIX: Displaying the mapped text */}
+                  <strong style={{ fontSize: '0.95rem' }}>{user.degreeText || 'Not provided'}</strong>
+                </div>
+                <div>
+                  <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '2px' }}>Batch</span>
+                  {/* 🚨 UI FIX: Displaying the mapped text */}
+                  <strong style={{ fontSize: '0.95rem' }}>{user.batchText || 'Not provided'}</strong>
+                </div>
+              </div>
+
+              <div className="flex-col gap-8">
+                <div className="flex-row gap-8">
+                  {user.status !== 'Approved' && (
+                    <button className="btn-outline flex-grow btn-sm" onClick={() => handleUpdateStatus(user.id, 'Approved')} style={{ background: '#ecfdf5', borderColor: '#34d399', color: '#065f46' }}>✓ Approve</button>
+                  )}
+                  {user.status !== 'Rejected' && (
+                    <button className="btn-outline flex-grow btn-sm" onClick={() => handleUpdateStatus(user.id, 'Rejected')} style={{ background: '#fef2f2', borderColor: '#f87171', color: '#991b1b' }}>✕ Reject</button>
+                  )}
+                </div>
+
+                <button className="btn-outline w-full btn-sm mb-4" onClick={() => navigate(`/user/${user.id}`)}>
+                  View Full Profile
+                </button>
+
+                <button
+                  className="w-full"
+                  onClick={() => handleDeleteUser(user.id, user.name)}
+                  style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '8px 16px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                  🗑️ Remove User
+                </button>
+              </div>
+
             </div>
-          </div>
-
-          {isLoading ? (
-            <p className="text-center text-secondary">Loading users...</p>
-          ) : filteredUsers.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
-              {filteredUsers.map(user => {
-                const currentStatus = user.status || 'Pending';
-                return (
-                  <div key={user.id} className="card p-20" style={{ display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer', opacity: currentStatus === 'Archived' ? 0.6 : 1 }} onClick={() => navigate(`/user/${user.id}`)}>
-                    
-                    {/* Header with Status Badge */}
-                    <div className="flex-between-start mb-16">
-                      <div className="flex-row">
-                        <div className="avatar" style={{ width: '48px', height: '48px', background: 'var(--primary-color)', color: 'white', borderRadius: '50%' }}>
-                          {user.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <h3 className="text-lg" style={{ margin: '0 0 4px 0' }}>{user.name}</h3>
-                          <p className="text-sm text-secondary" style={{ margin: 0 }}>ID: {user.id_number || 'N/A'}</p>
-                        </div>
-                      </div>
-                      
-                      {/* Status Badge */}
-                      <span style={{
-                        padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold',
-                        backgroundColor: currentStatus === 'Approved' ? '#dcfce7' : currentStatus === 'Rejected' ? '#fee2e2' : currentStatus === 'Archived' ? '#f3f4f6' : '#fef9c3',
-                        color: currentStatus === 'Approved' ? '#166534' : currentStatus === 'Rejected' ? '#991b1b' : currentStatus === 'Archived' ? '#374151' : '#854d0e'
-                      }}>
-                        {currentStatus === 'Approved' ? 'Accepted' : currentStatus}
-                      </span>
-                    </div>
-
-                    <p className="text-sm text-secondary mb-24" style={{ flexGrow: 1 }}>{user.major || "No major provided."}</p>
-
-                    <div className="flex-col gap-8">
-                      {/* APPROVAL CONTROLS */}
-                      {role === 'admin' && (
-                        <div className="flex-row gap-8 mb-8" style={{ flexWrap: 'wrap' }}>
-                          {currentStatus === 'Pending' && (
-                            <>
-                              <button className="btn-black flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, user.id, 'Approved')}>✅ Accept</button>
-                              <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, user.id, 'Rejected')} style={{ color: '#dc2626', borderColor: '#fecaca' }}>❌ Reject</button>
-                            </>
-                          )}
-                          
-                          {currentStatus !== 'Pending' && currentStatus !== 'Archived' && (
-                            <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, user.id, 'Archived')} style={{ borderColor: '#d1d5db', color: '#374151' }}>📦 Archive</button>
-                          )}
-                          
-                          {currentStatus === 'Archived' && (
-                            <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, user.id, 'Approved')} style={{ borderColor: '#86efac', color: '#166534' }}>♻️ Restore</button>
-                          )}
-                        </div>
-                      )}
-
-                      <button className="btn-outline w-full" onClick={(e) => { e.stopPropagation(); navigate(`/user/${user.id}`); }}>View Profile</button>
-                      {role === 'admin' && (
-                        <button className="w-full" onClick={(e) => handleDeleteUser(e, user.id)} style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 20px', fontWeight: '500', cursor: 'pointer' }}>
-                          🗑️ Remove User
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="card text-center text-secondary p-20" style={{ padding: '48px 24px' }}>
-              <div className="text-3xl mb-16">📭</div>
-              <h3 className="mb-8">No matching users found</h3>
-              <p>Try adjusting your search or updating your status filters.</p>
-            </div>
-          )}
-        </>
+          ))}
+        </div>
+      ) : (
+        <div className="card text-center text-secondary p-32 mt-32">
+          <div className="text-3xl mb-16">👥</div>
+          <h3 className="mb-8">No users found</h3>
+          <p>Try adjusting your search or filters.</p>
+        </div>
       )}
     </div>
   );

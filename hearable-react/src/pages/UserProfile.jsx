@@ -1,115 +1,146 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import ProfileHeader from '../components/ProfileHeader';
-
-// NEW: Import the Profile form so we can render it as a popup
-import Profile from './Profile'; 
+import EditProfileModal from '../components/EditProfileModal';
 
 export default function UserProfile({ role }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
+  
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
-
-  // Modal control & data refresh trigger
-  const [isEditing, setIsEditing] = useState(false);
-  const [refreshData, setRefreshData] = useState(0);
+  
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
-    async function fetchProfileData() {
-      setIsLoading(true);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setCurrentUserId(session.user.id);
-      }
+    fetchUser();
+    checkCurrentUser();
+  }, [id]);
 
-      const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
-      if (data) setProfile(data);
-      
-      setIsLoading(false);
+  async function checkCurrentUser() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setCurrentUserId(session.user.id);
     }
-    fetchProfileData();
-  }, [id, refreshData]); // <-- Refreshes whenever `refreshData` changes
+  }
 
-  if (isLoading) return <p className="text-center p-20">Loading profile...</p>;
-  if (!profile) return <div className="page-container-wide"><p className="text-center p-20">Profile not found.</p></div>;
+  async function fetchUser() {
+    setIsLoading(true);
+    
+    // 🚨 UPDATED QUERY: This tells Supabase to pull the joined data!
+    const { data } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        degrees ( name, abbreviation ),
+        batches ( batch_number )
+      `)
+      .eq('id', id)
+      .maybeSingle();
+    
+    if (data) {
+      setUser(data);
+    }
+    setIsLoading(false);
+  }
 
-  const isOwnProfile = currentUserId === id;
+  if (isLoading) {
+    return (
+      <div className="page-container text-center">
+        <p className="text-secondary mt-32">Loading profile...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="page-container text-center">
+        <p className="text-secondary mt-32">User not found.</p>
+        <button className="btn-outline mt-16" onClick={() => navigate('/')}>Go Home</button>
+      </div>
+    );
+  }
+
+  const isOwnProfile = currentUserId === user.id;
 
   return (
-    <div className="page-container-wide">
+    <div className="page-container">
+      
+      <EditProfileModal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)} 
+        userId={user.id}
+        onSuccess={fetchUser} 
+      />
 
-      {/* RENDER THE EDIT MODAL OVERLAY */}
-      {isEditing && (
-        <Profile 
-          onClose={() => {
-            setIsEditing(false);
-            setRefreshData(prev => prev + 1); // Refresh the profile data automatically!
-          }} 
-        />
-      )}
-
-      {/* TOP SECTION: Header & Bio */}
-      <div className="card p-20 mb-24">
+      <div className="card p-32 flex-col gap-32">
+        
         <div className="flex-between-start">
-          <ProfileHeader name={profile.name} type="user">
-            {profile.major && <span>💼 {profile.major}</span>}
-          </ProfileHeader>
+          <div className="flex-row gap-24 align-center">
+            <div className="avatar-lg" style={{ width: '80px', height: '80px', fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-color)', color: 'white', borderRadius: '50%' }}>
+              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div>
+              <h1 style={{ margin: '0 0 8px 0' }}>{user.name}</h1>
+              
+              {user.headline && (
+                <p className="text-lg" style={{ margin: '0 0 8px 0', color: 'var(--primary-color)', fontWeight: '600' }}>
+                  {user.headline}
+                </p>
+              )}
+              
+              <div className="flex-row gap-16 align-center" style={{ margin: '4px 0 0 0' }}>
+                <p className="text-secondary" style={{ margin: 0 }}>
+                  {/* 🚨 UPDATED: Displays the joined degree name safely */}
+                  🎓 {user.degrees?.name ? (user.degrees?.abbreviation ? `${user.degrees.abbreviation} - ${user.degrees.name}` : user.degrees.name) : 'Degree not specified'}
+                </p>
+                
+                {/* 🚨 UPDATED: Displays the joined batch number */}
+                {user.batches?.batch_number && (
+                  <span style={{ background: '#f3f4f6', color: '#374151', padding: '2px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                    Batch {user.batches.batch_number}
+                  </span>
+                )}
+              </div>
 
+              <div className="flex-row gap-16 mt-16" style={{ flexWrap: 'wrap' }}>
+                {(user.city || user.country) && (
+                  <span className="text-sm text-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    📍 {[user.city, user.country, user.postal_code].filter(Boolean).join(', ')}
+                  </span>
+                )}
+                {user.contact_number && (
+                  <span className="text-sm text-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    📞 {user.contact_number}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          
           {isOwnProfile && (
-            <button className="btn-outline" onClick={() => setIsEditing(true)}>
-              ⚙️ Edit Profile
+            <button className="btn-outline" onClick={() => setShowEditModal(true)}>
+              ✏️ Edit Profile
             </button>
           )}
         </div>
-        
-        <div className="mt-24" style={{ paddingTop: '24px', borderTop: '1px solid var(--border-color)' }}>
-          <h2 className="mb-16" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Headline</h2>
-          <p className="text-secondary" style={{ lineHeight: '1.7', whiteSpace: 'pre-wrap', margin: 0, fontSize: '1.05rem' }}>
-            {profile.bio || "This user hasn't added a headline yet."}
-          </p>
-        </div>
-      </div>
 
-      {/* BOTTOM SECTION: Stacking Cards */}
-      <div className="flex-col" style={{ gap: '24px' }}>
-        
-        <div className="card p-20">
-          <h2 className="mb-16" style={{ margin: '0 0 16px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>🎓 Education</h2>
-          <div className="flex-col" style={{ gap: '12px' }}>
-            {profile.education && profile.education.length > 0 ? (
-              profile.education.map((ed, idx) => (
-                <div key={idx} style={{ padding: '16px', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <p style={{ margin: '0 0 4px 0', fontWeight: '600', fontSize: '1.05rem' }}>{ed.name}</p>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--secondary-text)' }}>📍 {ed.location}</p>
-                </div>
-              ))
-            ) : (
-              <p className="text-secondary">No education listed.</p>
-            )}
-          </div>
-        </div>
+        <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: 0 }} />
 
-        <div className="card p-20">
-          <h2 className="mb-16" style={{ margin: '0 0 16px 0', fontSize: '1.5rem', fontWeight: 'bold' }}>🛠 Skills</h2>
-          <div className="flex-row-wrap gap-8">
-            {profile.skills && profile.skills.length > 0 ? (
-              profile.skills.map((skill, idx) => (
-                skill.link ? (
-                  <a key={idx} href={skill.link} target="_blank" rel="noreferrer" className="tag bg-white border" style={{ textDecoration: 'none', color: 'var(--primary-color)' }}>
-                    {skill.name} 🔗
-                  </a>
-                ) : (
-                  <span key={idx} className="tag bg-white border">{skill.name}</span>
-                )
-              ))
-            ) : (
-              <p className="text-secondary">No skills listed.</p>
-            )}
-          </div>
+        <div>
+          <h3 className="mb-16">Skills</h3>
+          {user.skills && user.skills.length > 0 ? (
+            <div className="flex-row-wrap gap-12">
+              {user.skills.map((skill, index) => (
+                <span key={index} className="badge-pill" style={{ padding: '8px 16px', fontSize: '0.95rem' }}>
+                  {skill}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-secondary" style={{ margin: 0 }}>No skills added yet.</p>
+          )}
         </div>
 
       </div>

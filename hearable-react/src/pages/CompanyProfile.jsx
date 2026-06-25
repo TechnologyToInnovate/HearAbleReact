@@ -1,25 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import ProfileHeader from '../components/ProfileHeader';
 
-// Import our new Modal
 import EditCompanyModal from '../components/EditCompanyModal';
+import JobCard from '../components/JobCard';
 
 export default function CompanyProfile({ role }) {
   const { id } = useParams();
   const navigate = useNavigate();
   
   const [company, setCompany] = useState(null);
+  const [companyJobs, setCompanyJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Modal control & user verification
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [refreshData, setRefreshData] = useState(0);
 
   useEffect(() => {
-    async function fetchCompany() {
+    async function fetchCompanyData() {
       setIsLoading(true);
       
       const { data: { session } } = await supabase.auth.getSession();
@@ -27,23 +26,40 @@ export default function CompanyProfile({ role }) {
         setCurrentUserId(session.user.id);
       }
 
-      const { data } = await supabase.from('companies').select('*').eq('id', id).single();
-      if (data) setCompany(data);
+      const { data: companyData } = await supabase.from('companies').select('*').eq('id', id).single();
+      if (companyData) setCompany(companyData);
+      
+      if (companyData) {
+        const { data: jobsData } = await supabase
+          .from('jobs')
+          .select('*')
+          .eq('company_id', id)
+          .order('created_at', { ascending: false });
+
+        if (jobsData) {
+          const mappedJobs = jobsData.map(job => ({
+            ...job,
+            company: companyData.name,
+            date: new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          }));
+          setCompanyJobs(mappedJobs);
+        }
+      }
       
       setIsLoading(false);
     }
-    fetchCompany();
-  }, [id, refreshData]); // Refreshes when modal closes
+    fetchCompanyData();
+  }, [id, refreshData]); 
 
-  if (isLoading) return <p className="text-center p-20">Loading...</p>;
-  if (!company) return <p className="text-center p-20">Company not found.</p>;
+  if (isLoading) return <div className="page-container text-center mt-32"><p className="text-secondary">Loading company profile...</p></div>;
+  if (!company) return <div className="page-container text-center mt-32"><h2>🏢</h2><p className="text-secondary">Company not found.</p></div>;
 
   const isOwnProfile = currentUserId === id;
+  const locationText = [company.city, company.country].filter(Boolean).join(', ');
 
   return (
-    <div className="page-container">
+    <div className="page-container-wide">
 
-      {/* RENDER THE EDIT MODAL OVERLAY */}
       {isEditing && (
         <EditCompanyModal 
           companyId={company.id}
@@ -54,45 +70,133 @@ export default function CompanyProfile({ role }) {
         />
       )}
 
-      <div className="card p-20">
+      {/* --- HERO SECTION --- */}
+      <div className="card p-0 mb-32" style={{ overflow: 'hidden' }}>
+        <div style={{ height: '120px', backgroundColor: 'var(--primary-color)', opacity: 0.9 }}></div>
         
-        <div className="flex-between-start">
-          <ProfileHeader name={company.name} type="company">
-            {company.address && <span>📍 {company.address}</span>}
-            {company.website && (
-              <span>
-                🌐 <a href={company.website} target="_blank" rel="noreferrer" className="text-primary">
-                  {company.website.replace(/^https?:\/\//, '')}
-                </a>
-              </span>
+        <div style={{ padding: '0 32px 32px 32px', position: 'relative' }}>
+          <div className="flex-between-start" style={{ marginTop: '-40px' }}>
+            
+            <div className="flex-row gap-24 align-center">
+              <div className="avatar-lg" style={{ width: '100px', height: '100px', border: '4px solid var(--card-bg)', borderRadius: '16px', background: 'var(--bg-color)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {company.logo_url ? (
+                  <img src={company.logo_url} alt={`${company.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <img src="https://placehold.co/200x200/e5e7eb/6b7280?text=🏢" alt="Default Company" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                )}
+              </div>
+
+              <div style={{ marginTop: '40px' }}>
+                <h1 style={{ margin: '0 0 8px 0', fontSize: '2rem' }}>{company.name}</h1>
+                <div className="flex-row-wrap gap-16 text-secondary text-sm">
+                  {(locationText || company.address) && <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📍 {locationText || company.address}</span>}
+                  {company.website && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🌐 <a href={company.website} target="_blank" rel="noreferrer" className="text-primary" style={{ color: 'var(--primary-color)', fontWeight: '500' }}>
+                        {company.website.replace(/^https?:\/\//, '')}
+                      </a>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {isOwnProfile && (
+              <div style={{ marginTop: '56px' }}>
+                <button className="btn-outline" onClick={() => setIsEditing(true)}>
+                  ⚙️ Edit Profile
+                </button>
+              </div>
             )}
-          </ProfileHeader>
 
-          {isOwnProfile && (
-            <button className="btn-outline" onClick={() => setIsEditing(true)}>
-              ⚙️ Edit Profile
-            </button>
-          )}
+          </div>
         </div>
+      </div>
 
-        <div className="profile-split-layout">
-          <div>
-            <h3 className="mb-16">About {company.name}</h3>
-            <p className="text-secondary" style={{ lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
-              {company.description || "No description provided."}
+      {/* --- PROFILE BODY --- */}
+      <div className="dashboard-layout">
+        <div className="flex-col gap-32">
+          <div className="card p-24">
+            <h3 className="mb-16 m-0">About Us</h3>
+            <p className="text-secondary" style={{ lineHeight: '1.7', whiteSpace: 'pre-wrap', margin: 0 }}>
+              {company.description || "This company hasn't added a description yet."}
             </p>
           </div>
 
           <div>
-            <div className="card p-20" style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)' }}>
-              <h4 className="mb-16">Company Details</h4>
-              <div className="flex-col" style={{ gap: '12px' }}>
-                <p className="text-sm"><strong>Industry:</strong> {company.industry || 'N/A'}</p>
-                <p className="text-sm"><strong>Founded:</strong> {company.founded || 'N/A'}</p>
+            <h3 className="mb-16 m-0">Active Job Postings</h3>
+            {companyJobs.length > 0 ? (
+              <div className="flex-col gap-16">
+                {companyJobs.map(job => (
+                  <JobCard 
+                    key={job.id} 
+                    job={job} 
+                    isSelected={false} 
+                    onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })} 
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="card text-center p-32">
+                <p className="text-secondary m-0">No active job postings at the moment.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ position: 'sticky', top: '90px' }}>
+          <div className="card p-24">
+            <h3 className="mb-16 m-0">Company Details</h3>
+            <div className="flex-col gap-16">
+              <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Industry</span>
+                <strong style={{ fontSize: '1rem' }}>{company.industry || 'Not specified'}</strong>
+              </div>
+              <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Founded</span>
+                <strong style={{ fontSize: '1rem' }}>{company.founded_year || 'Not specified'}</strong>
+              </div>
+              <div>
+                <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Headquarters</span>
+                <strong style={{ fontSize: '1rem' }}>{locationText || company.address || 'Not specified'}</strong>
               </div>
             </div>
           </div>
+
+          {/* --- UPDATED: CONTACT PERSON CARD --- */}
+          {(company.contact_person_name || company.contact_person_email || company.contact_person_number) && (
+            <div className="card p-24" style={{ marginTop: '24px' }}>
+              <h3 className="mb-16 m-0">Representative</h3>
+              <div className="flex-row gap-16 align-center">
+                <div className="avatar" style={{ width: '56px', height: '56px', border: '1px solid var(--border-color)', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {company.contact_person_pic ? (
+                    <img src={company.contact_person_pic} alt={company.contact_person_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
+                      {company.contact_person_name ? company.contact_person_name.charAt(0).toUpperCase() : '👤'}
+                    </span>
+                  )}
+                </div>
+                <div style={{ overflow: 'hidden' }}>
+                  <strong style={{ display: 'block', fontSize: '1.05rem', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {company.contact_person_name || 'Contact Person'}
+                  </strong>
+                  {company.contact_person_email && (
+                    <span className="text-sm text-secondary" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' }}>
+                      ✉️ {company.contact_person_email}
+                    </span>
+                  )}
+                  {company.contact_person_number && (
+                    <span className="text-sm text-secondary" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      📞 {company.contact_person_number}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
       </div>
     </div>
   );

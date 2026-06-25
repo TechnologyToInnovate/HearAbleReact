@@ -47,8 +47,21 @@ export default function Jobs({ role }) {
 
   async function fetchJobs() {
     setIsLoading(true);
-    const { data } = await supabase.from('jobs').select('*').order('id', { ascending: false });
-    if (data) setJobs(data);
+    // 🚨 UPDATED QUERY: JOIN the companies table to get the name, and order by created_at!
+    const { data } = await supabase
+      .from('jobs')
+      .select('*, companies(name)')
+      .order('created_at', { ascending: false });
+      
+    if (data) {
+      // We map the data so your existing JobCard component doesn't break!
+      const mappedJobs = data.map(job => ({
+        ...job,
+        company: job.companies?.name || 'Unknown Company',
+        date: new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      }));
+      setJobs(mappedJobs);
+    }
     setIsLoading(false);
   }
 
@@ -59,14 +72,12 @@ export default function Jobs({ role }) {
       return;
     }
 
-    // Try finding them in the profiles (Talent) table first
     const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
     if (profileData) {
       setCurrentUser(profileData);
       return;
     }
 
-    // If not Talent, try finding them in the companies table
     const { data: companyData } = await supabase.from('companies').select('*').eq('id', session.user.id).maybeSingle();
     if (companyData) {
       setCurrentUser(companyData);
@@ -78,17 +89,17 @@ export default function Jobs({ role }) {
       setHasApplied(false);
       
       if (selectedJob) {
-        // Pre-fill the form states in case they click "Edit"
         setJobTitle(selectedJob.title);
         setJobLocation(selectedJob.location);
         setJobWorkModel(selectedJob.work_model || 'On-site');
         setJobType(selectedJob.type);
         setJobDescription(selectedJob.description);
 
-        const companyRes = await supabase.from('companies').select('*').eq('name', selectedJob.company).maybeSingle();
+        // 🚨 UPDATED: Now looks up the company by their secure ID instead of text name
+        const companyRes = await supabase.from('companies').select('*').eq('id', selectedJob.company_id).maybeSingle();
         if (companyRes.data) setSelectedCompany(companyRes.data);
 
-        if (currentUser) {
+        if (currentUser && currentUser.id) {
           const appRes = await supabase.from('applications').select('*').eq('job_id', selectedJob.id).eq('applicant_id', currentUser.id).maybeSingle();
           if (appRes.data) setHasApplied(true);
         }
@@ -105,17 +116,26 @@ export default function Jobs({ role }) {
       navigate('/login');
       return;
     }
+
+    if (currentUser.status === 'Pending' || currentUser.status === 'Rejected' || role === 'pending_user' || role === 'rejected_user') {
+      alert("Your account must be approved by an administrator before you can submit applications.");
+      return;
+    }
+
     setIsApplying(true);
+    
+    // 🚨 UPDATED INSERT: The new database only needs the Job ID and Applicant ID!
     const { error } = await supabase.from('applications').insert([{
-      job_id: selectedJob.id, job_title: selectedJob.title, company: selectedJob.company,
-      applicant_id: currentUser.id, applicant_name: currentUser.name, status: 'Under Review'
+      job_id: selectedJob.id, 
+      applicant_id: currentUser.id
     }]);
 
     if (!error) setHasApplied(true);
+    else console.error(error);
+    
     setIsApplying(false);
   }
 
-  // --- OPENERS FOR MODALS ---
   function openAddModal() {
     setJobTitle(''); setJobLocation(''); setJobWorkModel('On-site'); setJobType('Full-time'); setJobDescription('');
     setShowAddForm(true);
@@ -125,32 +145,33 @@ export default function Jobs({ role }) {
     setIsEditingJob(true);
   }
 
-  // --- SAVE / POST LOGIC ---
   async function handlePostJob(e) {
     e.preventDefault();
-    if (!currentUser || !currentUser.name) {
-      alert("Company profile not found. Please make sure your company name is set.");
+    if (!currentUser || !currentUser.id) {
+      alert("Company profile not found.");
       return;
     }
 
     setIsSubmitting(true);
-    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+    // 🚨 UPDATED INSERT: Sends the company_id. Removed the manual 'date' since created_at handles it!
     const { error } = await supabase.from('jobs').insert([{
       title: jobTitle, 
-      company: currentUser.name, // Automatically assigned!
+      company_id: currentUser.id, 
       location: jobLocation, 
       work_model: jobWorkModel,
       type: jobType, 
       description: jobDescription, 
-      skills: [], // Required skills removed
-      date: today
+      skills: [] 
     }]);
 
     if (!error) {
       alert("Job posted successfully!");
       setShowAddForm(false);
       fetchJobs();
+    } else {
+      alert("Failed to post job.");
+      console.error(error);
     }
     setIsSubmitting(false);
   }
@@ -167,15 +188,14 @@ export default function Jobs({ role }) {
       description: jobDescription
     };
 
-    setJobs(jobs.map(job => job.id === selectedJob.id ? { ...job, ...updatedJobData } : job));
-
     const { error } = await supabase.from('jobs').update(updatedJobData).eq('id', selectedJob.id);
 
     if (!error) {
       setIsEditingJob(false);
+      fetchJobs(); // Re-fetch to ensure the mapped data stays perfect
     } else {
-      alert("Failed to update job. Check console for details.");
-      fetchJobs(); 
+      alert("Failed to update job.");
+      console.error(error);
     }
     setIsSubmitting(false);
   }
@@ -183,7 +203,7 @@ export default function Jobs({ role }) {
   async function handleDeleteJob() {
     if (!window.confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) return;
 
-    await supabase.from('applications').delete().eq('job_id', selectedJob.id);
+    // We no longer need to manually delete applications first because we added ON DELETE CASCADE!
     const { error } = await supabase.from('jobs').delete().eq('id', selectedJob.id);
     
     if (!error) {
@@ -203,8 +223,8 @@ export default function Jobs({ role }) {
     const matchesType = filterType === 'All' || job.type === filterType;
     
     let matchesDate = true;
-    if (filterDate !== 'All' && job.date) {
-      const jobDate = new Date(job.date);
+    if (filterDate !== 'All' && job.created_at) {
+      const jobDate = new Date(job.created_at);
       const now = new Date();
       const diffTime = Math.abs(now - jobDate);
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -230,13 +250,13 @@ export default function Jobs({ role }) {
             </div>
             <div style={{ padding: '24px', overflowY: 'auto' }}>
               <form onSubmit={handlePostJob} className="flex-col gap-20">
-                <div><label>Job Title *</label><input type="text" className="search-input" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} required /></div>
+                <div><label>Job Title *</label><input type="text" className="search-input w-full" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} required /></div>
                 <div className="form-grid-3">
-                  <div><label>City / Region *</label><input type="text" className="search-input" value={jobLocation} onChange={(e) => setJobLocation(e.target.value)} required /></div>
-                  <div><label>Work Model *</label><select className="search-input" value={jobWorkModel} onChange={(e) => setJobWorkModel(e.target.value)}><option value="On-site">On-site</option><option value="Hybrid">Hybrid</option><option value="Remote">Remote</option></select></div>
-                  <div><label>Employment Type *</label><select className="search-input" value={jobType} onChange={(e) => setJobType(e.target.value)}><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Contract">Contract</option><option value="Internship">Internship</option></select></div>
+                  <div><label>City / Region *</label><input type="text" className="search-input w-full" value={jobLocation} onChange={(e) => setJobLocation(e.target.value)} required /></div>
+                  <div><label>Work Model *</label><select className="search-input w-full" value={jobWorkModel} onChange={(e) => setJobWorkModel(e.target.value)}><option value="On-site">On-site</option><option value="Hybrid">Hybrid</option><option value="Remote">Remote</option></select></div>
+                  <div><label>Employment Type *</label><select className="search-input w-full" value={jobType} onChange={(e) => setJobType(e.target.value)}><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Contract">Contract</option><option value="Internship">Internship</option></select></div>
                 </div>
-                <div><label>Job Description *</label><textarea className="search-input" style={{ height: '150px', resize: 'vertical' }} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} required /></div>
+                <div><label>Job Description *</label><textarea className="search-input w-full" style={{ height: '150px', resize: 'vertical' }} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} required /></div>
                 <div style={{ marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
                   <button type="submit" className="btn-black w-full" disabled={isSubmitting}>{isSubmitting ? 'Publishing...' : 'Publish Job Posting'}</button>
                 </div>
@@ -256,13 +276,13 @@ export default function Jobs({ role }) {
             </div>
             <div style={{ padding: '24px', overflowY: 'auto' }}>
               <form onSubmit={handleUpdateJob} className="flex-col gap-20">
-                <div><label>Job Title *</label><input type="text" className="search-input" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} required /></div>
+                <div><label>Job Title *</label><input type="text" className="search-input w-full" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} required /></div>
                 <div className="form-grid-3">
-                  <div><label>Location *</label><input type="text" className="search-input" value={jobLocation} onChange={(e) => setJobLocation(e.target.value)} required /></div>
-                  <div><label>Work Model *</label><select className="search-input" value={jobWorkModel} onChange={(e) => setJobWorkModel(e.target.value)}><option value="On-site">On-site</option><option value="Hybrid">Hybrid</option><option value="Remote">Remote</option></select></div>
-                  <div><label>Type *</label><select className="search-input" value={jobType} onChange={(e) => setJobType(e.target.value)}><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Contract">Contract</option><option value="Internship">Internship</option></select></div>
+                  <div><label>Location *</label><input type="text" className="search-input w-full" value={jobLocation} onChange={(e) => setJobLocation(e.target.value)} required /></div>
+                  <div><label>Work Model *</label><select className="search-input w-full" value={jobWorkModel} onChange={(e) => setJobWorkModel(e.target.value)}><option value="On-site">On-site</option><option value="Hybrid">Hybrid</option><option value="Remote">Remote</option></select></div>
+                  <div><label>Type *</label><select className="search-input w-full" value={jobType} onChange={(e) => setJobType(e.target.value)}><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Contract">Contract</option><option value="Internship">Internship</option></select></div>
                 </div>
-                <div><label>Job Description *</label><textarea className="search-input" style={{ height: '150px', resize: 'vertical' }} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} required /></div>
+                <div><label>Job Description *</label><textarea className="search-input w-full" style={{ height: '150px', resize: 'vertical' }} value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} required /></div>
                 <div style={{ marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
                   <button type="submit" className="btn-black w-full" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save Changes'}</button>
                 </div>
@@ -418,14 +438,14 @@ export default function Jobs({ role }) {
                       <button 
                         className="w-full" 
                         onClick={handleApply}
-                        disabled={isApplying || hasApplied}
+                        disabled={isApplying || hasApplied || role === 'pending_user' || role === 'rejected_user'}
                         style={{
-                          padding: '12px 24px', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: hasApplied ? 'default' : 'pointer', border: 'none',
-                          backgroundColor: hasApplied ? '#10b981' : 'var(--text-color)',
-                          color: 'white'
+                          padding: '12px 24px', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: (hasApplied || role === 'pending_user' || role === 'rejected_user') ? 'default' : 'pointer', border: 'none',
+                          backgroundColor: hasApplied ? '#10b981' : (role === 'pending_user' || role === 'rejected_user') ? 'var(--border-color)' : 'var(--text-color)',
+                          color: (role === 'pending_user' || role === 'rejected_user') ? 'var(--secondary-text)' : 'white'
                         }}
                       >
-                        {isApplying ? 'Sending Application...' : hasApplied ? '✓ Application Sent' : 'Apply Now'}
+                        {isApplying ? 'Sending Application...' : hasApplied ? '✓ Application Sent' : (role === 'pending_user' || role === 'rejected_user') ? 'Account Approval Required to Apply' : 'Apply Now'}
                       </button>
                     )}
                   </div>
