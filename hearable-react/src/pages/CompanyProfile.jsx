@@ -1,30 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-
 import EditCompanyModal from '../components/EditCompanyModal';
 import JobCard from '../components/JobCard';
+import { useAuth } from '../context/AuthContext'; // 🚨 Global Auth
 
-export default function CompanyProfile({ role }) {
+export default function CompanyProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
+  
+  // 🚨 Replaced manual checkCurrentUser with instant context user
+  const { user: currentUser } = useAuth(); 
   
   const [company, setCompany] = useState(null);
   const [companyJobs, setCompanyJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  const [currentUserId, setCurrentUserId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [refreshData, setRefreshData] = useState(0);
 
   useEffect(() => {
     async function fetchCompanyData() {
       setIsLoading(true);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setCurrentUserId(session.user.id);
-      }
 
       const { data: companyData } = await supabase.from('companies').select('*').eq('id', id).single();
       if (companyData) setCompany(companyData);
@@ -51,10 +48,10 @@ export default function CompanyProfile({ role }) {
     fetchCompanyData();
   }, [id, refreshData]); 
 
-  if (isLoading) return <div className="page-container text-center mt-32"><p className="text-secondary">Loading company profile...</p></div>;
-  if (!company) return <div className="page-container text-center mt-32"><h2>🏢</h2><p className="text-secondary">Company not found.</p></div>;
+  if (isLoading) return <div className="page-container-wide text-center mt-32"><p className="text-secondary">Loading company profile...</p></div>;
+  if (!company) return <div className="page-container-wide text-center mt-32"><h2>🏢</h2><p className="text-secondary">Company not found.</p></div>;
 
-  const isOwnProfile = currentUserId === id;
+  const isOwnProfile = currentUser?.id === id;
   const locationText = [company.city, company.country].filter(Boolean).join(', ');
 
   return (
@@ -78,6 +75,7 @@ export default function CompanyProfile({ role }) {
           <div className="flex-between-start" style={{ marginTop: '-40px' }}>
             
             <div className="flex-row gap-24 align-center">
+              {/* Restored exact original layout for the avatar to prevent clipping issues */}
               <div className="avatar-lg" style={{ width: '100px', height: '100px', border: '4px solid var(--card-bg)', borderRadius: '16px', background: 'var(--bg-color)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {company.logo_url ? (
                   <img src={company.logo_url} alt={`${company.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -148,6 +146,7 @@ export default function CompanyProfile({ role }) {
           <div className="card p-24">
             <h3 className="mb-16 m-0">Company Details</h3>
             <div className="flex-col gap-16">
+              {/* Restored proper block styling so titles and data don't collapse together */}
               <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Industry</span>
                 <strong style={{ fontSize: '1rem' }}>{company.industry || 'Not specified'}</strong>
@@ -163,11 +162,12 @@ export default function CompanyProfile({ role }) {
             </div>
           </div>
 
-          {/* --- UPDATED: CONTACT PERSON CARD --- */}
+          {/* --- CONTACT PERSON CARD --- */}
           {(company.contact_person_name || company.contact_person_email || company.contact_person_number) && (
             <div className="card p-24" style={{ marginTop: '24px' }}>
               <h3 className="mb-16 m-0">Representative</h3>
               <div className="flex-row gap-16 align-center">
+                {/* Restored the specific 56px sizing for this card */}
                 <div className="avatar" style={{ width: '56px', height: '56px', border: '1px solid var(--border-color)', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {company.contact_person_pic ? (
                     <img src={company.contact_person_pic} alt={company.contact_person_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

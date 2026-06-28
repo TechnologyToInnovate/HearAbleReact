@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
 import StatCard from '../components/StatCard';
 import TagList from '../components/TagList';
@@ -8,6 +9,7 @@ import CompanyOnboardingModal from '../components/CompanyOnboardingModal';
 
 export default function Home({ role }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const [recentJobs, setRecentJobs] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
@@ -15,20 +17,18 @@ export default function Home({ role }) {
   const [isLoading, setIsLoading] = useState(true);
   
   const [stats, setStats] = useState({ stat1: 0, stat2: 0, stat3: 0, stat4: 0 });
-  
   const [showCompanyOnboarding, setShowCompanyOnboarding] = useState(false); 
 
   useEffect(() => {
     setShowCompanyOnboarding(false);
     fetchDashboardData();
-  }, [role]); 
+  }, [role, user]); 
 
   async function fetchDashboardData() {
     setIsLoading(true);
     setUserProfile(null);
     setCompanyProfile(null);
     
-    // Fetch Recent Jobs (everyone sees this)
     const { data: jobsData } = await supabase
       .from('jobs')
       .select('*')
@@ -37,7 +37,6 @@ export default function Home({ role }) {
 
     if (jobsData) setRecentJobs(jobsData);
 
-    // 1. GUEST DATA
     if (role === 'guest') {
       const { count: jobCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true });
       const { count: companyCount } = await supabase.from('companies').select('*', { count: 'exact', head: true });
@@ -46,7 +45,6 @@ export default function Home({ role }) {
       return;
     }
 
-    // 2. ADMIN DATA
     if (role === 'admin') {
       const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
       const { count: pendingCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
@@ -63,11 +61,13 @@ export default function Home({ role }) {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setIsLoading(false); return; }
+    if (!user) { 
+      setIsLoading(false); 
+      return; 
+    }
+    
     const activeId = user.id;
 
-    // 3. COMPANY DATA
     if (role === 'company') {
       const { data: compData } = await supabase.from('companies').select('*').eq('id', activeId).maybeSingle();
       
@@ -83,14 +83,12 @@ export default function Home({ role }) {
         setStats({ stat1: jobCount || 0, stat2: appCount || 0, stat3: 0, stat4: 0 });
       }
 
-    // 4. USER DATA
     } else if (['user', 'pending_user', 'rejected_user'].includes(role)) {
       const { data: userData } = await supabase.from('profiles').select('*').eq('id', activeId).maybeSingle();
       
       if (userData) {
         setUserProfile(userData);
 
-        // 🚨 THE FIX: Check for degree_id instead of major! No more infinite loop!
         if (userData.name === 'New User' || !userData.degree_id) {
           navigate('/onboarding');
           return; 
@@ -119,46 +117,88 @@ export default function Home({ role }) {
         onSuccess={handleCompanyOnboardingComplete}
       />
 
+      {/* --- HERO / ALERT BANNERS --- */}
       {role === 'guest' && (
-        <div className="card text-center mb-32" style={{ padding: '64px 20px', background: 'var(--primary-color)', color: 'white', border: 'none' }}>
-          <h1 style={{ fontSize: '2.5rem', margin: '0 0 16px 0', color: 'white' }}>Discover Your Next Opportunity</h1>
-          <p style={{ fontSize: '1.2rem', margin: '0 0 32px 0', opacity: 0.9 }}>
+        <div 
+          className="card text-center mb-32 p-32" 
+          style={{ 
+            backgroundColor: 'var(--primary-color)', 
+            color: 'var(--bg-color)', 
+            border: 'none' 
+          }}
+        >
+          <h1 className="text-3xl m-0 mb-16" style={{ color: 'var(--bg-color)' }}>
+            Discover Your Next Opportunity
+          </h1>
+          <p className="text-lg m-0 mb-32" style={{ color: 'var(--bg-color)', opacity: 0.9 }}>
             Connect with top companies and find the perfect role for your skills.
           </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
-            <button className="btn-black" style={{ background: 'white', color: 'var(--primary-color)' }} onClick={() => navigate('/jobs')}>Browse Jobs</button>
-            <button className="btn-outline" style={{ color: 'white', borderColor: 'white' }} onClick={() => navigate('/companies')}>Explore Companies</button>
+          <div className="flex-row gap-16 align-center" style={{ justifyContent: 'center' }}>
+            
+            {/* Solid Button: Uses standard card background to flip cleanly */}
+            <button 
+              onClick={() => navigate('/jobs')}
+              style={{
+                backgroundColor: 'var(--card-bg)',
+                color: 'var(--primary-color)',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Browse Jobs
+            </button>
+            
+            {/* Outline Button: Perfectly matches the text color of the banner */}
+            <button 
+              onClick={() => navigate('/companies')}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--bg-color)',
+                border: '2px solid var(--bg-color)',
+                padding: '10px 24px',
+                borderRadius: '8px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Explore Companies
+            </button>
+            
           </div>
         </div>
       )}
 
       {role === 'pending_user' && (
-        <div className="mb-24 p-16" style={{ background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1.5rem' }}>⏳</span>
+        <div className="mb-24 p-16 flex-row align-center gap-12" style={{ background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047', borderRadius: '8px' }}>
+          <span className="text-3xl">⏳</span>
           <div>
-            <strong style={{ display: 'block', marginBottom: '4px' }}>Account Under Review</strong>
-            <span style={{ fontSize: '0.9rem' }}>You can browse jobs and companies, but you will not have full access to apply until an administrator reviews your profile.</span>
+            <strong className="block mb-8">Account Under Review</strong>
+            <span className="text-sm">You can browse jobs and companies, but you will not have full access to apply until an administrator reviews your profile.</span>
           </div>
         </div>
       )}
 
       {role === 'rejected_user' && (
-        <div className="mb-24 p-16" style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '1.5rem' }}>❌</span>
+        <div className="mb-24 p-16 flex-row align-center gap-12" style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '8px' }}>
+          <span className="text-3xl">❌</span>
           <div>
-            <strong style={{ display: 'block', marginBottom: '4px' }}>Registration Declined</strong>
-            <span style={{ fontSize: '0.9rem' }}>Your account was not approved by the administration. You can view listings but do not have application privileges.</span>
+            <strong className="block mb-8">Registration Declined</strong>
+            <span className="text-sm">Your account was not approved by the administration. You can view listings but do not have application privileges.</span>
           </div>
         </div>
       )}
 
-      <div className={role === 'admin' ? "flex-col" : "dashboard-layout"} style={{ gap: '32px' }}>
+      {/* --- DASHBOARD GRID --- */}
+      <div className={role === 'admin' ? "flex-col" : "dashboard-layout"}>
         
-        <div style={{ width: '100%' }}>
+        <div className="w-full">
           
           {role === 'admin' && (
             <div className="mb-32">
-              <h2 className="mb-24">Platform Overview</h2>
+              <h2 className="m-0 mb-24">Platform Overview</h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
                 <StatCard value={stats.stat1} label="Total Users" isLoading={isLoading} />
                 <StatCard value={stats.stat3} label="Pending Approvals" isLoading={isLoading} />
@@ -169,20 +209,20 @@ export default function Home({ role }) {
           )}
 
           <div className="card">
-            <div className="flex-between mb-16" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-              <h3 style={{ margin: 0 }}>Recently Posted Jobs</h3>
+            <div className="flex-between align-center mb-16" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+              <h3 className="m-0">Recently Posted Jobs</h3>
               <button className="btn-outline btn-sm" onClick={() => navigate('/jobs')}>View All Jobs</button>
             </div>
 
             {isLoading ? (
               <p className="text-secondary text-center p-20">Loading recent jobs...</p>
             ) : recentJobs.length > 0 ? (
-              <div className="flex-col" style={{ gap: 0 }}>
+              <div className="flex-col gap-0">
                 {recentJobs.map((job, index) => (
-                  <div key={job.id} className="flex-between" style={{ padding: '20px 0', borderBottom: index !== recentJobs.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                  <div key={job.id} className="flex-between align-center" style={{ padding: '20px 0', borderBottom: index !== recentJobs.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                     <div>
-                      <h4 className="text-lg mb-8" style={{ margin: 0 }}>{job.title}</h4>
-                      <p className="text-sm text-secondary mb-16" style={{ margin: '4px 0 12px 0' }}>
+                      <h4 className="text-lg m-0 mb-8">{job.title}</h4>
+                      <p className="text-sm text-secondary m-0 mt-8 mb-12">
                         📍 {job.location}
                       </p>
                       <TagList tags={[job.work_model || 'On-site', job.type]} />
@@ -197,41 +237,42 @@ export default function Home({ role }) {
           </div>
         </div>
 
+        {/* --- STICKY SIDEBAR PROFILES --- */}
         {role !== 'admin' && (
-          <div className="flex-col-lg" style={{ position: 'sticky', top: '24px' }}>
+          <div className="flex-col gap-32" style={{ position: 'sticky', top: '24px' }}>
             
             {role === 'guest' ? (
-              <div className="card text-center p-20">
-                <div className="avatar-lg mb-16" style={{ width: '80px', height: '80px', fontSize: '2rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--text-color)', color: 'white', borderRadius: '50%' }}>👤</div>
-                <h3 className="mb-8">Join Hearable</h3>
-                <p className="text-sm text-secondary mb-24">Create an account to apply to jobs and get noticed by companies.</p>
+              <div className="card text-center p-24">
+                <div className="avatar avatar-lg mb-16" style={{ margin: '0 auto', background: 'var(--text-color)' }}>👤</div>
+                <h3 className="m-0 mb-8">Join Hearable</h3>
+                <p className="text-sm text-secondary m-0 mb-24">Create an account to apply to jobs and get noticed by companies.</p>
                 <button className="btn-black w-full" onClick={() => navigate('/login')}>Sign Up Now</button>
               </div>
             ) : role === 'company' ? (
-              <div className="card text-center p-20">
-                <div className="avatar-lg mb-16" style={{ width: '80px', height: '80px', fontSize: '2rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-color)', color: 'white', borderRadius: '16px' }}>
+              <div className="card text-center p-24">
+                <div className="avatar avatar-lg mb-16" style={{ margin: '0 auto', borderRadius: '16px' }}>
                   {companyProfile?.name ? companyProfile.name.charAt(0).toUpperCase() : 'C'}
                 </div>
-                <h3 className="mb-8">{companyProfile?.name}</h3>
-                <p className="text-sm text-secondary mb-24">📍 {companyProfile?.address}</p>
+                <h3 className="m-0 mb-8">{companyProfile?.name}</h3>
+                <p className="text-sm text-secondary m-0 mb-24">📍 {companyProfile?.address}</p>
                 <button className="btn-black w-full" disabled={!companyProfile?.id} onClick={() => navigate(`/company/${companyProfile?.id}`)}>
                   {companyProfile?.id ? 'View Company Profile' : 'No Profile Found'}
                 </button>
               </div>
             ) : (
-              <div className="card text-center p-20">
-                <div className="avatar-lg mb-16" style={{ width: '80px', height: '80px', fontSize: '2rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary-color)', color: 'white', borderRadius: '50%' }}>
+              <div className="card text-center p-24">
+                <div className="avatar avatar-lg mb-16" style={{ margin: '0 auto' }}>
                   {userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : 'T'}
                 </div>
-                <h3 className="mb-8">{userProfile?.name}</h3>
-                <p className="text-sm text-secondary mb-24">{userProfile?.headline || 'Talent Profile'}</p>
+                <h3 className="m-0 mb-8">{userProfile?.name}</h3>
+                <p className="text-sm text-secondary m-0 mb-24">{userProfile?.headline || 'Talent Profile'}</p>
                 <button className="btn-black w-full" disabled={!userProfile?.id} onClick={() => navigate(`/user/${userProfile?.id}`)}>
                   {userProfile?.id ? 'View Profile' : 'No Profile Found'}
                 </button>
               </div>
             )}
 
-            <div className="flex-col">
+            <div className="flex-col gap-16">
               <StatCard value={stats.stat1} label={role === 'company' ? 'Active Job Postings' : role === 'guest' ? 'Total Open Jobs' : 'Applications Sent'} isLoading={isLoading} />
               <StatCard value={stats.stat2} label={role === 'company' ? 'Total Applicants' : role === 'guest' ? 'Companies Hiring' : 'Open Jobs'} isLoading={isLoading} />
             </div>

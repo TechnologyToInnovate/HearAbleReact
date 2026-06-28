@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useAuth } from '../context/AuthContext'; // 🚨 NEW: Global Auth
 
 const MOCK_SKILL_DATABASE = [
   "JavaScript", "Python", "React", "Node.js", "UI/UX Design", 
@@ -20,7 +21,8 @@ async function fetchSuggestions(query, database) {
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const [userId, setUserId] = useState(null);
+  const { user, role } = useAuth(); // 🚨 Replaces manual session checks
+  
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,8 +30,8 @@ export default function Onboarding() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
-  const [degree, setDegree] = useState(''); // Now stores the UUID
-  const [batch, setBatch] = useState('');   // Now stores the UUID
+  const [degree, setDegree] = useState(''); 
+  const [batch, setBatch] = useState('');   
   
   // LOCATION
   const [country, setCountry] = useState('');
@@ -47,31 +49,14 @@ export default function Onboarding() {
   const [skillSuggestions, setSkillSuggestions] = useState([]);
   const [showSkillDropdown, setShowSkillDropdown] = useState(false);
 
-  // 1. Initial access check
+  // 1. Initial access check (Drastically simplified via AuthContext)
   useEffect(() => {
-    async function checkAccess() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) { navigate('/login'); return; }
-      
-      const uid = session.user.id;
-      setUserId(uid);
-
-      const { data: adminData } = await supabase.from('admins').select('email').eq('email', session.user.email).maybeSingle();
-      if (adminData || session.user.email === 'admin@hearable.com') { navigate('/'); return; }
-
-      const { data: companyData } = await supabase.from('companies').select('id').eq('id', uid).maybeSingle();
-      if (companyData) { navigate('/'); return; }
-
-      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
-      if (profileData) {
-        // Changed to check for degree_id instead of degree
-        if (profileData.name !== 'New User' && profileData.degree_id) { navigate('/'); return; }
-      }
+    if (role !== 'needs_onboarding' && role !== 'guest') {
+      navigate('/');
     }
-    checkAccess();
-  }, [navigate]);
+  }, [role, navigate]);
 
-  // 2. Fetch official degrees and batches for the dropdowns from Supabase
+  // 2. Fetch official degrees and batches for the dropdowns
   useEffect(() => {
     async function fetchOptions() {
       const [degRes, batchRes] = await Promise.all([
@@ -102,13 +87,14 @@ export default function Onboarding() {
       setShowSkillDropdown(false);
     }
   };
+  
   const removeSkill = (index) => setSkills(skills.filter((_, i) => i !== index));
 
   async function handleSubmit() {
+    if (!user) return;
     setIsSubmitting(true);
     const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
 
-    // Adjusted the payload to send degree_id and batch_id!
     const { error } = await supabase
       .from('profiles')
       .update({ 
@@ -123,13 +109,14 @@ export default function Onboarding() {
         degree_id: degree, 
         skills 
       })
-      .eq('id', userId);
+      .eq('id', user.id); // Uses global user
 
     setIsSubmitting(false);
+    
     if (!error) { 
+      // Forces a full app reload to completely re-evaluate the user's role from 'needs_onboarding' to 'pending_user'
       window.location.href = '/'; 
-    } 
-    else { 
+    } else { 
       alert("Error saving profile. Please try again."); 
       console.error(error);
     }
@@ -137,25 +124,33 @@ export default function Onboarding() {
 
   const handleKeyDown = (e, action) => { if (e.key === 'Enter') { e.preventDefault(); action(); } };
   
-  const isStep1Valid = firstName.trim() && lastName.trim() && degree.trim() && batch.trim();
-
-  const modalOverlayStyle = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' };
-  const dropdownStyle = { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', marginTop: '4px', maxHeight: '150px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' };
+  const isStep1Valid = firstName.trim() && lastName.trim() && degree && batch;
 
   return (
     <div className="page-container" style={{ maxWidth: '700px', marginTop: '48px' }}>
       
       {showSkillModal && (
-        <div style={modalOverlayStyle}>
+        <div className="modal-overlay">
           <div className="card p-24 flex-col gap-16" style={{ width: '100%', maxWidth: '500px', background: 'var(--bg-color)', overflow: 'visible' }}>
             <div className="flex-between mb-8">
               <h3 style={{ margin: 0 }}>Add New Skill</h3>
-              <button onClick={() => setShowSkillModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
+              <button className="close-btn" onClick={() => setShowSkillModal(false)}>✕</button>
             </div>
+            
             <div style={{ position: 'relative' }}>
               <input type="text" className="search-input w-full" value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyDown={(e) => handleKeyDown(e, saveSkill)} placeholder="Search or type a skill..." autoFocus />
-              {showSkillDropdown && <div style={dropdownStyle}>{skillSuggestions.map((skill, idx) => <div key={idx} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }} onMouseDown={() => { setSkillInput(skill); setShowSkillDropdown(false); }}>{skill}</div>)}</div>}
+              
+              {showSkillDropdown && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', marginTop: '4px', maxHeight: '150px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                  {skillSuggestions.map((skill, idx) => (
+                    <div key={idx} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }} onMouseDown={() => { setSkillInput(skill); setShowSkillDropdown(false); }}>
+                      {skill}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+            
             <button className="btn-black w-full mt-8" onClick={saveSkill}>Save Skill</button>
           </div>
         </div>
@@ -174,15 +169,20 @@ export default function Onboarding() {
             <div className="flex-col gap-24">
               <h3 style={{ margin: 0 }}>Basic Information</h3>
               <div className="form-grid-2">
-                <div><label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>First Name *</label><input type="text" className="search-input w-full" value={firstName} onChange={e => setFirstName(e.target.value)} required /></div>
-                <div><label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Last Name *</label><input type="text" className="search-input w-full" value={lastName} onChange={e => setLastName(e.target.value)} required /></div>
+                <div className="flex-col gap-8">
+                  <label style={{ fontWeight: '600' }}>First Name *</label>
+                  <input type="text" className="search-input w-full" value={firstName} onChange={e => setFirstName(e.target.value)} required />
+                </div>
+                <div className="flex-col gap-8">
+                  <label style={{ fontWeight: '600' }}>Last Name *</label>
+                  <input type="text" className="search-input w-full" value={lastName} onChange={e => setLastName(e.target.value)} required />
+                </div>
               </div>
               <div className="form-grid-2">
-                <div>
-                  <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Degree *</label>
+                <div className="flex-col gap-8">
+                  <label style={{ fontWeight: '600' }}>Degree *</label>
                   <select className="search-input w-full" value={degree} onChange={e => setDegree(e.target.value)} required>
                     <option value="" disabled>Select a Degree</option>
-                    {/* Changed value from d.name to d.id */}
                     {degreeOptions.map(d => (
                       <option key={d.id} value={d.id}>
                         {d.abbreviation ? `${d.abbreviation} - ${d.name}` : d.name}
@@ -190,11 +190,10 @@ export default function Onboarding() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Batch *</label>
+                <div className="flex-col gap-8">
+                  <label style={{ fontWeight: '600' }}>Batch *</label>
                   <select className="search-input w-full" value={batch} onChange={e => setBatch(e.target.value)} required>
                     <option value="" disabled>Select a Batch</option>
-                    {/* Changed value from b.batch_number to b.id */}
                     {batchOptions.map(b => (
                       <option key={b.id} value={b.id}>Batch {b.batch_number}</option>
                     ))}
@@ -207,11 +206,23 @@ export default function Onboarding() {
           {step === 2 && (
             <div className="flex-col gap-24">
               <h3 style={{ margin: 0 }}>Contact & Location</h3>
-              <div><label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Contact Number</label><input type="tel" className="search-input w-full" value={contactNumber} onChange={e => setContactNumber(e.target.value)} placeholder="e.g. +1 234 567 8900" /></div>
+              <div className="flex-col gap-8">
+                <label style={{ fontWeight: '600' }}>Contact Number</label>
+                <input type="tel" className="search-input w-full" value={contactNumber} onChange={e => setContactNumber(e.target.value)} placeholder="e.g. +1 234 567 8900" />
+              </div>
               <div className="form-grid-3">
-                <div><label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Country</label><input type="text" className="search-input w-full" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. USA" /></div>
-                <div><label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>City</label><input type="text" className="search-input w-full" value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. New York" /></div>
-                <div><label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Postal Code</label><input type="text" className="search-input w-full" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 10001" /></div>
+                <div className="flex-col gap-8">
+                  <label style={{ fontWeight: '600' }}>Country</label>
+                  <input type="text" className="search-input w-full" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. USA" />
+                </div>
+                <div className="flex-col gap-8">
+                  <label style={{ fontWeight: '600' }}>City</label>
+                  <input type="text" className="search-input w-full" value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. New York" />
+                </div>
+                <div className="flex-col gap-8">
+                  <label style={{ fontWeight: '600' }}>Postal Code</label>
+                  <input type="text" className="search-input w-full" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 10001" />
+                </div>
               </div>
             </div>
           )}
@@ -221,8 +232,9 @@ export default function Onboarding() {
               <h3 style={{ margin: 0 }}>Skills</h3>
               <div className="flex-row-wrap gap-8">
                 {skills.map((item, idx) => (
-                  <span key={idx} className="badge-pill" style={{ padding: '8px 16px', background: 'var(--primary-color)', color: 'white', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {item} <button onClick={() => removeSkill(idx)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'white', fontSize: '1rem', padding: 0 }}>✕</button>
+                  <span key={idx} className="badge badge-primary" style={{ padding: '8px 16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {item} 
+                    <button onClick={() => removeSkill(idx)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem', padding: 0 }}>✕</button>
                   </span>
                 ))}
               </div>

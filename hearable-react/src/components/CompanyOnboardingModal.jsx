@@ -3,21 +3,31 @@ import { supabase } from '../supabaseClient';
 
 export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess }) {
   const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
+  
+  // 🚨 LOCATION UPDATE: Split into 3 fields instead of 'address'
+  const [country, setCountry] = useState('');
+  const [city, setCity] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  
   const [industry, setIndustry] = useState('');
   const [website, setWebsite] = useState('');
   const [description, setDescription] = useState('');
   const [founded, setFounded] = useState('');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (companyData) {
       setName(companyData.name || '');
-      setAddress(companyData.address || '');
+      
+      // 🚨 Pulling the split location data passed from the pre-approval roster
+      setCountry(companyData.country || '');
+      setCity(companyData.city || '');
+      setPostalCode(companyData.postal_code || '');
+      
       setIndustry(companyData.industry || '');
       setWebsite(companyData.website || '');
       setDescription(companyData.description || '');
-      // 🚨 FIX: Now correctly pulls from founded_year instead of founded
       setFounded(companyData.founded_year || '');
     }
   }, [companyData]);
@@ -28,16 +38,17 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
     e.preventDefault();
     setIsSubmitting(true);
 
-    // 🚨 FIX: Convert the text input into a true number so the database accepts it
     const parsedYear = parseInt(founded, 10);
 
+    // 🚨 Push the 3 new location fields to the database
     const { error } = await supabase.from('companies').update({
       name, 
-      address, 
+      country,
+      city,
+      postal_code: postalCode,
       industry, 
       website, 
       description, 
-      // 🚨 FIX: Saving as founded_year, and handling empty/invalid inputs safely
       founded_year: isNaN(parsedYear) ? null : parsedYear
     }).eq('id', companyData.id);
 
@@ -67,9 +78,20 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
               <input type="text" className="search-input w-full" value={name} onChange={e => setName(e.target.value)} required />
             </div>
             
+            {/* 🚨 LOCATION UPDATE: 3-Grid layout to match the Admin panel */}
             <div>
-              <label>Headquarters / Location *</label>
-              <input type="text" className="search-input w-full" value={address} onChange={e => setAddress(e.target.value)} required />
+              <label style={{ display: 'block', marginBottom: '8px' }}>Headquarters / Location *</label>
+              <div className="form-grid-3">
+                <div>
+                  <input type="text" className="search-input w-full" placeholder="Country" value={country} onChange={e => setCountry(e.target.value)} required />
+                </div>
+                <div>
+                  <input type="text" className="search-input w-full" placeholder="City" value={city} onChange={e => setCity(e.target.value)} required />
+                </div>
+                <div>
+                  <input type="text" className="search-input w-full" placeholder="Postal Code" value={postalCode} onChange={e => setPostalCode(e.target.value.replace(/\D/g, ''))} />
+                </div>
+              </div>
             </div>
             
             <div className="form-grid-2">

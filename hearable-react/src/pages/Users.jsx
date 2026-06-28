@@ -21,40 +21,42 @@ export default function Users({ role }) {
     fetchUsers();
   }, [role, navigate]);
 
+  // Auto-switch to "Oldest First" when viewing Pending users
+  useEffect(() => {
+    if (activeTab === 'Pending') {
+      setSortBy('date_asc');
+    } else {
+      setSortBy('name_asc');
+    }
+  }, [activeTab]);
+
   async function fetchUsers() {
     setIsLoading(true);
 
     try {
-      // 1. Fetch profiles WITH the joined degrees and batches!
-      // (Removed the rule hiding "New User")
       const { data: profiles, error } = await supabase
         .from('profiles')
         .select(`
           *,
           degrees ( name, abbreviation ),
           batches ( batch_number )
-        `)
-        .order('name', { ascending: true });
+        `);
 
       if (error) throw error;
 
-      // Map the relational data to plain text so your UI and filters don't break
       const mappedProfiles = profiles.map(p => ({
         ...p,
         degreeText: p.degrees ? (p.degrees.abbreviation ? `${p.degrees.abbreviation} - ${p.degrees.name}` : p.degrees.name) : null,
-        batchText: p.batches ? String(p.batches.batch_number) : null
+        batchText: p.batches ? String(p.batches.batch_number) : null,
+        joinDate: p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Unknown'
       }));
 
-      // 2. Fetch all Company IDs to exclude them
       const { data: companies } = await supabase.from('companies').select('id');
       const companyIds = companies ? companies.map(c => c.id) : [];
 
-      // 3. Fetch all Admin IDs to exclude them 
       const { data: admins, error: adminError } = await supabase.from('admins').select('id');
       const adminIds = admins && !adminError ? admins.map(a => a.id).filter(Boolean) : [];
 
-      // 4. FILTER OUT Companies and Admins ONLY
-      // (Removed the rule hiding "New User")
       const pureUsers = mappedProfiles.filter(user =>
         !companyIds.includes(user.id) &&
         !adminIds.includes(user.id)
@@ -71,36 +73,53 @@ export default function Users({ role }) {
   }
 
   async function handleUpdateStatus(userId, newStatus) {
+    // Stamp the approval date if they are approved
+    const updatePayload = { status: newStatus };
+    if (newStatus === 'Approved') {
+      updatePayload.approved_at = new Date().toISOString();
+    }
+
     const { error } = await supabase
       .from('profiles')
-      .update({ status: newStatus })
+      .update(updatePayload)
       .eq('id', userId);
 
     if (!error) {
       setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+      
+      if (newStatus === 'Approved') {
+        await supabase.from('notifications').insert([{
+          user_id: userId,
+          title: 'Account Approved! 🚀',
+          message: 'An administrator has approved your account. You now have full access to apply for jobs!',
+          link: '/jobs'
+        }]);
+      }
+      
     } else {
       alert("Failed to update user status.");
     }
   }
 
   async function handleDeleteUser(userId, userName) {
-    if (!window.confirm(`Are you sure you want to permanently remove ${userName || 'this user'}? This action cannot be undone.`)) return;
+    if (!window.confirm(`Are you sure you want to permanently remove ${userName || 'this user'}? This action cannot be undone and will delete their login credentials.`)) return;
 
-    const { error } = await supabase.from('profiles').delete().eq('id', userId);
+    // 🚨 THE FIX: This now calls our secure Postgres function!
+    const { error } = await supabase.rpc('admin_delete_user', { target_id: userId });
 
     if (!error) {
       setUsers(users.filter(u => u.id !== userId));
+      alert(`${userName || 'User'} has been completely removed from the system.`);
     } else {
       alert("Failed to delete user: " + error.message);
       console.error(error);
     }
   }
 
-  // 🚨 UI FIX: Extract unique degrees and batches based on the mapped text
   const uniqueDegrees = ['All', ...[...new Set(users.map(u => u.degreeText).filter(Boolean))].sort()];
   const uniqueBatches = ['All', ...[...new Set(users.map(u => u.batchText).filter(Boolean))].sort()];
+  
   let processedUsers = users.filter(user => {
-    // Search checks the newly mapped degreeText
     const matchesSearch = (user.name && user.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (user.degreeText && user.degreeText.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -115,19 +134,18 @@ export default function Users({ role }) {
     return matchesSearch && matchesTab && matchesDegree && matchesBatch;
   });
 
+  // Time-based sorting logic
   processedUsers.sort((a, b) => {
-    if (sortBy === 'name_asc') {
-      return (a.name || '').localeCompare(b.name || '');
-    } else if (sortBy === 'name_desc') {
-      return (b.name || '').localeCompare(a.name || '');
-    }
+    if (sortBy === 'name_asc') return (a.name || '').localeCompare(b.name || '');
+    if (sortBy === 'name_desc') return (b.name || '').localeCompare(a.name || '');
+    if (sortBy === 'date_asc') return new Date(a.created_at || 0) - new Date(b.created_at || 0); // Oldest first
+    if (sortBy === 'date_desc') return new Date(b.created_at || 0) - new Date(a.created_at || 0); // Newest first
     return 0;
   });
 
   return (
     <div className="page-container-wide">
 
-      {/* HEADER WITH DEGREES & BATCHES BUTTONS */}
       <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
         <h1 style={{ margin: 0 }}>Manage Users</h1>
         <div className="flex-row gap-12">
@@ -172,6 +190,8 @@ export default function Users({ role }) {
         <select className="search-input" style={{ width: 'auto', minWidth: '180px', padding: '10px 16px' }} value={sortBy} onChange={e => setSortBy(e.target.value)}>
           <option value="name_asc">Sort by: Name (A-Z)</option>
           <option value="name_desc">Sort by: Name (Z-A)</option>
+          <option value="date_asc">Sort by: Oldest First</option>
+          <option value="date_desc">Sort by: Newest First</option>
         </select>
 
         <select className="search-input" style={{ width: 'auto', minWidth: '180px', padding: '10px 16px' }} value={filterDegree} onChange={e => setFilterDegree(e.target.value)}>
@@ -207,24 +227,27 @@ export default function Users({ role }) {
                   </div>
                 </div>
 
-                <span style={{
-                  padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold',
-                  backgroundColor: user.status === 'Approved' ? '#dcfce7' : user.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
-                  color: user.status === 'Approved' ? '#166534' : user.status === 'Rejected' ? '#991b1b' : '#854d0e'
-                }}>
-                  {user.status || 'Active'}
-                </span>
+                <div className="flex-col align-end gap-8">
+                  <span style={{
+                    padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold',
+                    backgroundColor: user.status === 'Approved' ? '#dcfce7' : user.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
+                    color: user.status === 'Approved' ? '#166534' : user.status === 'Rejected' ? '#991b1b' : '#854d0e'
+                  }}>
+                    {user.status || 'Active'}
+                  </span>
+                  <span className="text-sm text-secondary" style={{ fontSize: '0.8rem' }}>
+                    📅 Joined: {user.joinDate}
+                  </span>
+                </div>
               </div>
 
               <div className="mb-24 flex-grow" style={{ background: 'var(--bg-color)', padding: '12px', borderRadius: '8px' }}>
                 <div style={{ marginBottom: '8px' }}>
                   <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '2px' }}>Degree</span>
-                  {/* 🚨 UI FIX: Displaying the mapped text */}
                   <strong style={{ fontSize: '0.95rem' }}>{user.degreeText || 'Not provided'}</strong>
                 </div>
                 <div>
                   <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '2px' }}>Batch</span>
-                  {/* 🚨 UI FIX: Displaying the mapped text */}
                   <strong style={{ fontSize: '0.95rem' }}>{user.batchText || 'Not provided'}</strong>
                 </div>
               </div>

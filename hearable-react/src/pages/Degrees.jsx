@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-export default function Degrees({ role }) {
+export default function Degrees() {
   const navigate = useNavigate();
+  const { role } = useAuth(); // 🚨 NEW: Pulling role from context
   const [degrees, setDegrees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   

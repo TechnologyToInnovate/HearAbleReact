@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-export default function Batches({ role }) {
+export default function Batches() {
   const navigate = useNavigate();
+  const { role } = useAuth(); // 🚨 NEW: Pulling role from context
   const [batches, setBatches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newBatch, setNewBatch] = useState('');
