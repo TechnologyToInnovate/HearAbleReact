@@ -6,23 +6,27 @@ export default function Login({ setRole }) {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // 🚨 THE FIX: Automatically sets to Sign Up if passed from Navbar, otherwise defaults to Sign In
   const [isLogin, setIsLogin] = useState(!location.state?.isSignUp);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  
+  // 🚨 NEW: Added success state for the password reset functionality
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Clear errors when toggling between Sign In and Sign Up
   useEffect(() => {
     setErrorMsg('');
+    setSuccessMsg('');
   }, [isLogin]);
 
   async function handleAuth(e) {
     e.preventDefault();
     setLoading(true);
     setErrorMsg('');
+    setSuccessMsg('');
 
     try {
       if (isLogin) {
@@ -40,27 +44,25 @@ export default function Login({ setRole }) {
         if (error) throw error;
 
         if (adminData || email.toLowerCase() === 'admin@hearable.com') {
-          // It's an admin signing up
           setRole('admin');
           navigate('/');
         } else if (preApprovedData) {
-          // It's a pre-approved company signing up. Build their profile!
+          // 🚨 FIX: Now inserts ALL new fields during company creation
           await supabase.from('companies').insert([{
             id: data.user.id,
             name: preApprovedData.name,
-            address: preApprovedData.address,
             country: preApprovedData.country,
             city: preApprovedData.city,
             postal_code: preApprovedData.postal_code,
-            contact_person_name: preApprovedData.contact_person_name,
-            contact_person_email: preApprovedData.contact_person_email,
-            contact_person_number: preApprovedData.contact_person_number,
+            industry: preApprovedData.industry,          
+            founded_year: preApprovedData.founded_year,  
+            website: preApprovedData.website,            
+            description: preApprovedData.description,    
             status: 'Approved'
           }]);
           setRole('company');
           navigate('/');
         } else {
-          // Standard user signing up
           setRole('needs_onboarding');
           navigate('/onboarding');
         }
@@ -69,6 +71,30 @@ export default function Login({ setRole }) {
       setErrorMsg(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // 🚨 NEW: Handles the Forgot Password flow
+  async function handleForgotPassword() {
+    if (!email) {
+      setErrorMsg('Please enter your email address in the field above first.');
+      return;
+    }
+    
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/settings`,
+    });
+    
+    setLoading(false);
+    
+    if (error) {
+      setErrorMsg(error.message);
+    } else {
+      setSuccessMsg('Password reset link sent! Please check your email inbox.');
     }
   }
 
@@ -141,6 +167,13 @@ export default function Login({ setRole }) {
             </div>
           )}
 
+          {/* 🚨 NEW: Success message for the password reset */}
+          {successMsg && (
+            <div style={{ background: '#f0fdf4', color: '#166534', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px', border: '1px solid #bbf7d0' }}>
+              {successMsg}
+            </div>
+          )}
+
           <form onSubmit={handleAuth} className="flex-col gap-16">
             <div>
               <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: '500' }}>Email Address</label>
@@ -154,7 +187,21 @@ export default function Login({ setRole }) {
             </div>
             
             <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: '500' }}>Password</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ margin: 0, fontSize: '0.9rem', fontWeight: '500' }}>Password</label>
+                
+                {/* 🚨 THE NEW FORGOT PASSWORD BUTTON */}
+                {isLogin && (
+                  <button 
+                    type="button" 
+                    onClick={handleForgotPassword} 
+                    style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.8rem', cursor: 'pointer', padding: 0, fontWeight: '500' }}
+                  >
+                    Forgot Password?
+                  </button>
+                )}
+              </div>
+              
               <input 
                 type="password" 
                 className="search-input w-full" 

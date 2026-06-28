@@ -1,0 +1,46 @@
+/* =========================================
+   5. BUTTONS (buttons.css)
+   ========================================= */
+button { font-family: inherit; }
+
+.btn-black {
+  background-color: var(--primary-color); color: white; border: 1px solid var(--primary-color);
+  padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+}
+.btn-black:hover:not(:disabled) { background-color: var(--primary-hover); border-color: var(--primary-hover); transform: translateY(-1px); }
+.btn-black:disabled { background-color: var(--secondary-text); border-color: var(--secondary-text); cursor: not-allowed; opacity: 0.6; }
+
+.btn-outline {
+  background-color: var(--primary-light); color: var(--primary-hover); border: 1px solid var(--primary-light);
+  padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+}
+.btn-outline:hover:not(:disabled) { background-color: #d1e5db; border-color: #d1e5db; }
+.btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-danger {
+  background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+  padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+}
+.btn-danger:hover { background-color: #fee2e2; }
+
+.btn-sm { padding: 6px 14px; font-size: 0.9rem; }
+
+.btn-apply {
+  width: 100%; padding: 12px 24px; border-radius: 8px; font-size: 1rem; font-weight: 600;
+  border: none; cursor: pointer; background-color: var(--text-color); color: var(--bg-color); transition: all 0.2s ease;
+}
+.btn-apply.success { background-color: #10b981; color: white; cursor: default; }
+.btn-apply:disabled { background-color: var(--border-color); color: var(--secondary-text); cursor: not-allowed; }
+
+.nav-icon-btn {
+  background: none; border: none; cursor: pointer; color: var(--text-color);
+  padding: 10px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;
+}
+.nav-icon-btn:hover { background-color: var(--border-color); color: var(--primary-color); }
+
+.dropdown-btn {
+  width: 100%; text-align: left; padding: 14px 20px; background: none; border: none; cursor: pointer;
+  color: var(--text-color); display: flex; align-items: center; transition: background-color 0.2s ease; font-size: 0.95rem;
+}
+.dropdown-btn:hover { background-color: var(--bg-color); }
+.dropdown-btn.text-danger { color: #dc2626; }

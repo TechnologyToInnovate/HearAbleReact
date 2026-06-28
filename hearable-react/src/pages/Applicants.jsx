@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import StatusBadge from '../components/StatusBadge';
+import { useAuth } from '../context/AuthContext';
 
-export default function Applicants({ role }) {
+// 🚨 FIX: Removed 'role' from props, we now pull it securely from context!
+export default function Applicants() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { role } = useAuth(); 
   
   const [applications, setApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,8 +77,7 @@ export default function Applicants({ role }) {
     setIsLoading(false);
   }
 
-async function handleStatusChange(appId, newStatus) {
-    // Grab the specific application data so we know who to notify
+  async function handleStatusChange(appId, newStatus) {
     const appToUpdate = applications.find(app => app.id === appId);
 
     setApplications(applications.map(app => 
@@ -88,7 +90,6 @@ async function handleStatusChange(appId, newStatus) {
       .eq('id', appId);
 
     if (!error && appToUpdate) {
-      // 🚨 FIX: Now redirects the user to their personal Job Tracker instead of the company page
       await supabase.from('notifications').insert([{
         user_id: appToUpdate.applicant_id,
         title: newStatus === 'Approved' ? 'Application Approved! ✅' : 'Application Update',

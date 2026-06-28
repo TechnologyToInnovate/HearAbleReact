@@ -11,38 +11,28 @@ export default function Notifications() {
   const [isLoading, setIsLoading] = useState(true);
 
   // --- ADMIN ANNOUNCEMENT STATE ---
+  const [showAnnounceModal, setShowAnnounceModal] = useState(false);
   const [annTitle, setAnnTitle] = useState('');
   const [annMessage, setAnnMessage] = useState('');
-  const [annLink, setAnnLink] = useState('');
   const [annTarget, setAnnTarget] = useState('all');
   const [isSending, setIsSending] = useState(false);
   const [annMsg, setAnnMsg] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    if (role === 'guest' || role === 'needs_onboarding') {
-      navigate('/');
-      return;
-    }
+    if (role === 'guest' || role === 'needs_onboarding') { navigate('/'); return; }
     if (user) fetchNotifications();
   }, [user, role, navigate]);
 
   async function fetchNotifications() {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    
+    const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     if (data) setNotifications(data);
     setIsLoading(false);
   }
 
   async function handleMarkAsRead(id) {
     const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    if (!error) {
-      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
-    }
+    if (!error) setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
   }
 
   async function handleClearAll() {
@@ -52,12 +42,8 @@ export default function Notifications() {
   }
 
   async function handleNotificationClick(notification) {
-    if (!notification.is_read) {
-      await handleMarkAsRead(notification.id);
-    }
-    if (notification.link) {
-      navigate(notification.link);
-    }
+    if (!notification.is_read) await handleMarkAsRead(notification.id);
+    if (notification.link) navigate(notification.link);
   }
 
   // 🚨 ADMIN BROADCAST FUNCTION
@@ -71,125 +57,86 @@ export default function Notifications() {
     const { error } = await supabase.rpc('admin_create_announcement', {
       announcement_title: annTitle.trim(),
       announcement_message: annMessage.trim(),
-      announcement_link: annLink.trim() || null,
+      announcement_link: null, // Hardcoded to null since the field is removed
       target_audience: annTarget
     });
 
     setIsSending(false);
 
     if (error) {
-      setAnnMsg({ type: 'error', text: 'Failed to broadcast announcement: ' + error.message });
+      setAnnMsg({ type: 'error', text: 'Failed to broadcast: ' + error.message });
     } else {
-      setAnnMsg({ type: 'success', text: 'Announcement successfully broadcasted! 🚀' });
-      setAnnTitle('');
-      setAnnMessage('');
-      setAnnLink('');
-      setAnnTarget('all');
-      
-      // Refresh the admin's own notifications so they can see the blast instantly
+      alert('Announcement successfully broadcasted! 🚀');
+      setAnnTitle(''); setAnnMessage(''); setAnnTarget('all');
+      setShowAnnounceModal(false);
       fetchNotifications();
     }
   }
 
-  const renderMessage = (msgObj) => {
-    if (!msgObj.text) return null;
-    const isError = msgObj.type === 'error';
-    return (
-      <div style={{ 
-        padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.9rem',
-        background: isError ? '#fef2f2' : '#f0fdf4', 
-        color: isError ? '#991b1b' : '#166534', 
-        border: `1px solid ${isError ? '#fecaca' : '#bbf7d0'}` 
-      }}>
-        {msgObj.text}
-      </div>
-    );
-  };
-
   return (
     <div className="page-container" style={{ maxWidth: '800px' }}>
-      
-      {/* 🚨 THE ADMIN ANNOUNCEMENT BLOCK (Only visible to admins) */}
-      {role === 'admin' && (
-        <div className="card p-0 mb-32" style={{ overflow: 'hidden', border: '1px solid var(--primary-color)' }}>
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-color)', background: '#f8fafc' }}>
-            <h2 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>📢</span> Send Global Announcement
-            </h2>
-            <p className="text-secondary m-0">Push an alert directly to the notification inbox of specific user groups.</p>
-          </div>
 
-          <div style={{ padding: '32px' }}>
-            {renderMessage(annMsg)}
-            
-            <form onSubmit={handleSendAnnouncement} className="flex-col gap-16">
-              <div className="form-grid-2">
-                <div>
-                  <label>Announcement Title *</label>
-                  <input 
-                    type="text" 
-                    className="search-input w-full" 
-                    placeholder="e.g. Platform Update, New Features..." 
-                    value={annTitle} 
-                    onChange={e => setAnnTitle(e.target.value)} 
-                    required
-                  />
-                </div>
-                <div>
-                  <label>Target Audience *</label>
-                  <select className="search-input w-full" value={annTarget} onChange={e => setAnnTarget(e.target.value)}>
-                    <option value="all">Everyone (All Accounts)</option>
-                    <option value="applicants">Applicants Only</option>
-                    <option value="companies">Companies Only</option>
-                  </select>
-                </div>
-              </div>
+      {/* 🚨 THE ADMIN MODAL POPUP */}
+      {showAnnounceModal && role === 'admin' && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="card p-0" style={{ width: '100%', maxWidth: '600px', background: 'var(--bg-color)', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><span>📢</span> Send Broadcast</h2>
+              <button onClick={() => setShowAnnounceModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
+            </div>
 
-              <div>
-                <label>Message *</label>
-                <textarea 
-                  className="search-input w-full" 
-                  placeholder="What do you want to tell them?" 
-                  value={annMessage} 
-                  onChange={e => setAnnMessage(e.target.value)} 
-                  style={{ height: '100px', resize: 'vertical' }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label>Link (Optional)</label>
-                <input 
-                  type="text" 
-                  className="search-input w-full" 
-                  placeholder="e.g. /jobs, /settings, or https://..." 
-                  value={annLink} 
-                  onChange={e => setAnnLink(e.target.value)} 
-                />
-              </div>
+            <div style={{ padding: '24px' }}>
+              {annMsg.text && <div style={{ color: '#dc2626', marginBottom: '16px' }}>{annMsg.text}</div>}
               
-              <div className="mt-8">
-                <button type="submit" className="btn-black" disabled={isSending}>
-                  {isSending ? 'Broadcasting...' : '🚀 Send Announcement'}
-                </button>
-              </div>
-            </form>
+              <form onSubmit={handleSendAnnouncement} className="flex-col gap-16">
+                <div className="form-grid-2">
+                  <div>
+                    <label>Title *</label>
+                    <input type="text" className="search-input w-full" value={annTitle} onChange={e => setAnnTitle(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label>Target Audience *</label>
+                    <select className="search-input w-full" value={annTarget} onChange={e => setAnnTarget(e.target.value)}>
+                      <option value="all">Everyone</option>
+                      <option value="applicants">Applicants Only</option>
+                      <option value="companies">Companies Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label>Message *</label>
+                  <textarea className="search-input w-full" value={annMessage} onChange={e => setAnnMessage(e.target.value)} style={{ height: '100px', resize: 'vertical' }} required />
+                </div>
+                
+                <div className="mt-8 flex-row gap-12">
+                  <button type="submit" className="btn-black flex-grow" disabled={isSending}>
+                    {isSending ? 'Broadcasting...' : '🚀 Send Announcement'}
+                  </button>
+                  <button type="button" className="btn-outline" onClick={() => setShowAnnounceModal(false)}>Cancel</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* --- INBOX SECTION --- */}
+      {/* --- HEADER --- */}
       <div className="flex-between align-center mb-24">
         <h1 className="m-0">{role === 'admin' ? 'Your Notifications' : 'Notifications'}</h1>
-        {notifications.length > 0 && (
-          <button 
-            className="btn-outline btn-sm" 
-            onClick={handleClearAll} 
-            style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}
-          >
-            Clear All
-          </button>
-        )}
+        
+        <div className="flex-row gap-12">
+          {role === 'admin' && (
+            <button className="btn-black btn-sm" onClick={() => setShowAnnounceModal(true)}>
+              📢 New Broadcast
+            </button>
+          )}
+          {notifications.length > 0 && (
+            <button className="btn-outline btn-sm" onClick={handleClearAll} style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}>
+              Clear All
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="card p-0" style={{ overflow: 'hidden' }}>
@@ -198,52 +145,22 @@ export default function Notifications() {
         ) : notifications.length > 0 ? (
           <div className="flex-col">
             {notifications.map((notif, index) => (
-              <div 
-                key={notif.id} 
-                onClick={() => handleNotificationClick(notif)}
-                style={{ 
-                  padding: '20px 24px', 
-                  borderBottom: index !== notifications.length - 1 ? '1px solid var(--border-color)' : 'none',
-                  backgroundColor: notif.is_read ? 'transparent' : 'var(--bg-color)',
-                  cursor: notif.link ? 'pointer' : 'default',
-                  transition: 'background-color 0.2s',
-                  display: 'flex',
-                  gap: '16px'
-                }}
-              >
-                {/* Unread indicator dot */}
+              <div key={notif.id} onClick={() => handleNotificationClick(notif)} style={{ padding: '20px 24px', borderBottom: index !== notifications.length - 1 ? '1px solid var(--border-color)' : 'none', backgroundColor: notif.is_read ? 'transparent' : 'var(--bg-color)', cursor: notif.link ? 'pointer' : 'default', display: 'flex', gap: '16px' }}>
                 <div style={{ flexShrink: 0, marginTop: '6px' }}>
-                  <span style={{ 
-                    display: 'block', 
-                    width: '10px', 
-                    height: '10px', 
-                    borderRadius: '50%', 
-                    backgroundColor: notif.is_read ? 'transparent' : 'var(--primary-color)' 
-                  }}></span>
+                  <span style={{ display: 'block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: notif.is_read ? 'transparent' : 'var(--primary-color)' }}></span>
                 </div>
-                
                 <div className="w-full">
                   <div className="flex-between-start mb-8">
-                    <h4 className="m-0" style={{ fontWeight: notif.is_read ? '500' : '700' }}>
-                      {notif.title}
-                    </h4>
-                    <span className="text-sm text-secondary" style={{ whiteSpace: 'nowrap', marginLeft: '16px' }}>
-                      {new Date(notif.created_at).toLocaleDateString()}
-                    </span>
+                    <h4 className="m-0" style={{ fontWeight: notif.is_read ? '500' : '700' }}>{notif.title}</h4>
+                    <span className="text-sm text-secondary block ml-16">{new Date(notif.created_at).toLocaleDateString()}</span>
                   </div>
-                  <p className="text-secondary m-0" style={{ lineHeight: '1.5' }}>
-                    {notif.message}
-                  </p>
+                  <p className="text-secondary m-0" style={{ lineHeight: '1.5' }}>{notif.message}</p>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-center p-32">
-            <div className="text-3xl mb-16">📭</div>
-            <h3 className="m-0 mb-8">You're all caught up!</h3>
-            <p className="text-secondary m-0">You don't have any notifications right now.</p>
-          </div>
+          <div className="text-center p-32"><div className="text-3xl mb-16">📭</div><h3 className="m-0 mb-8">You're all caught up!</h3></div>
         )}
       </div>
 
