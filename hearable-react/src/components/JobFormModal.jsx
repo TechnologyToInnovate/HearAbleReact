@@ -6,14 +6,16 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
   const { user } = useAuth();
   
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [skills, setSkills] = useState([]);
+  const [currentSkill, setCurrentSkill] = useState('');
+  
+  // --- JOB DETAILS STATE ---
   const [location, setLocation] = useState('');
   const [workModel, setWorkModel] = useState('On-site');
   const [type, setType] = useState('Full-time');
-  const [description, setDescription] = useState('');
-  
-  // --- SKILLS STATE ---
-  const [skills, setSkills] = useState([]);
-  const [currentSkill, setCurrentSkill] = useState('');
+  const [pay, setPay] = useState(''); 
+  const [payRate, setPayRate] = useState('per year'); // 🚨 NEW: Pay Rate Dropdown State
 
   useEffect(() => {
     if (isOpen) {
@@ -22,6 +24,8 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
         setLocation(initialData.location || '');
         setWorkModel(initialData.work_model || 'On-site');
         setType(initialData.type || 'Full-time');
+        setPay(initialData.pay || ''); 
+        setPayRate(initialData.pay_rate || 'per year'); // 🚨 Load existing rate
         setDescription(initialData.description || '');
         setSkills(initialData.skills || []);
       } else {
@@ -29,10 +33,11 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
         setTitle('');
         setWorkModel('On-site');
         setType('Full-time');
+        setPay('');
+        setPayRate('per year');
         setDescription('');
         setSkills([]);
         
-        // Auto-fetch the company's city to use as the default location!
         fetchCompanyCity();
       }
     }
@@ -40,17 +45,9 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
   async function fetchCompanyCity() {
     if (!user) return;
-    const { data } = await supabase
-      .from('companies')
-      .select('city')
-      .eq('id', user.id)
-      .maybeSingle();
-      
-    if (data && data.city) {
-      setLocation(data.city);
-    } else {
-      setLocation('');
-    }
+    const { data } = await supabase.from('companies').select('city').eq('id', user.id).maybeSingle();
+    if (data && data.city) setLocation(data.city);
+    else setLocation('');
   }
 
   const handleAddSkill = (e) => {
@@ -73,6 +70,8 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
       location,
       work_model: workModel,
       type,
+      pay, 
+      pay_rate: payRate, // 🚨 Pass pay rate to the database
       description,
       skills
     });
@@ -97,32 +96,50 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
               <input type="text" className="search-input w-full" placeholder="e.g. Senior Software Engineer" value={title} onChange={e => setTitle(e.target.value)} required />
             </div>
             
-            <div className="form-grid-2">
-              <div>
-                <label>City / Region</label>
-                <input type="text" className="search-input w-full" placeholder="e.g. Austin, TX" value={location} onChange={e => setLocation(e.target.value)} />
-              </div>
-              <div>
-                <label>Work Model</label>
-                <select className="search-input w-full" value={workModel} onChange={e => setWorkModel(e.target.value)}>
-                  <option value="On-site">On-site</option>
-                  <option value="Hybrid">Hybrid</option>
-                  <option value="Remote">Remote</option>
-                </select>
+            <div style={{ background: 'var(--card-bg)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <label style={{ display: 'block', marginBottom: '12px', fontWeight: '600' }}>Job Details</label>
+              
+              <div className="form-grid-2 gap-16">
+                <div>
+                  <label className="text-sm">City / Region</label>
+                  <input type="text" className="search-input w-full" placeholder="e.g. Austin, TX" value={location} onChange={e => setLocation(e.target.value)} />
+                </div>
+                
+                {/* 🚨 REORGANIZED PAY CONTAINER WITH DROPDOWN */}
+                <div>
+                  <label className="text-sm">Pay / Salary</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="text" className="search-input w-full" placeholder="e.g. $80,000" value={pay} onChange={e => setPay(e.target.value)} />
+                    <select className="search-input" style={{ width: '120px', flexShrink: 0, padding: '10px 8px' }} value={payRate} onChange={e => setPayRate(e.target.value)}>
+                      <option value="per hour">per hour</option>
+                      <option value="per day">per day</option>
+                      <option value="per week">per week</option>
+                      <option value="per month">per month</option>
+                      <option value="per year">per year</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm">Work Model</label>
+                  <select className="search-input w-full" value={workModel} onChange={e => setWorkModel(e.target.value)}>
+                    <option value="On-site">On-site</option>
+                    <option value="Hybrid">Hybrid</option>
+                    <option value="Remote">Remote</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm">Employment Type</label>
+                  <select className="search-input w-full" value={type} onChange={e => setType(e.target.value)}>
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Internship">Internship</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label>Employment Type</label>
-              <select className="search-input w-full" value={type} onChange={e => setType(e.target.value)}>
-                <option value="Full-time">Full-time</option>
-                <option value="Part-time">Part-time</option>
-                <option value="Contract">Contract</option>
-                <option value="Internship">Internship</option>
-              </select>
-            </div>
-
-            {/* 🚨 MOVED: Job Description is now above the skills */}
             <div>
               <label>Job Description *</label>
               <textarea 
@@ -135,7 +152,6 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
               />
             </div>
 
-            {/* 🚨 MOVED: Skills section is now at the bottom */}
             <div style={{ background: 'var(--bg-color)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Required Skills</label>
               <p className="text-sm text-secondary mb-12" style={{ marginTop: 0 }}>Add skills to help our matching algorithm find the best candidates.</p>
@@ -147,12 +163,7 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
                   placeholder="e.g. React, Python, Marketing..." 
                   value={currentSkill}
                   onChange={(e) => setCurrentSkill(e.target.value)}
-                  onKeyDown={(e) => { 
-                    if (e.key === 'Enter') { 
-                      e.preventDefault(); 
-                      handleAddSkill(e); 
-                    } 
-                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(e); } }}
                 />
                 <button type="button" className="btn-outline" onClick={handleAddSkill}>Add</button>
               </div>
@@ -162,13 +173,7 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
                   skills.map((skill, index) => (
                     <span key={index} className="badge" style={{ background: '#e0e7ff', color: '#3730a3', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {skill}
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveSkill(skill)} 
-                        style={{ background: 'none', border: 'none', color: '#312e81', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: 1 }}
-                      >
-                        ×
-                      </button>
+                      <button type="button" onClick={() => handleRemoveSkill(skill)} style={{ background: 'none', border: 'none', color: '#312e81', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: 1 }}>×</button>
                     </span>
                   ))
                 ) : (
@@ -184,7 +189,6 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
             </div>
           </form>
         </div>
-
       </div>
     </div>
   );

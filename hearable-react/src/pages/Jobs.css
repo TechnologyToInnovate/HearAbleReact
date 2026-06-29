@@ -1,26 +1,67 @@
 /* =========================================
-   9. JOBS SPLIT LAYOUT
+   JOBS SPLIT LAYOUT
    ========================================= */
-.jobs-split-layout { display: flex; flex-direction: row; gap: 24px; align-items: flex-start; width: 100%; }
+.jobs-split-layout { 
+  display: flex; 
+  flex-direction: row; 
+  gap: 24px; 
+  align-items: flex-start; 
+  width: 100%; 
+}
 
-.jobs-split-layout.active-split { display: flex; align-items: flex-start; gap: 24px; width: 100%; }
+.jobs-split-layout.active-split { 
+  display: flex; 
+  align-items: flex-start; 
+  gap: 24px; 
+  width: 100%; 
+}
 
+/* --- THE LEFT COLUMN (Job List) --- */
 .jobs-list-column {
   flex: 0 0 380px; 
-  max-height: calc(100vh - 120px); 
-  overflow-y: auto; padding-right: 8px; 
+  position: sticky;
+  top: 90px; 
+  height: calc(100vh - 110px); 
+  overflow-y: auto; 
+  padding-right: 8px; 
 }
 
+/* --- THE RIGHT COLUMN (Job Details Container) --- */
 .job-details-column {
-  flex: 1; min-width: 0; position: sticky; top: 90px; height: max-content;
+  flex: 1; 
+  min-width: 0; 
+  position: sticky;
+  top: 90px; 
+  height: calc(100vh - 110px); /* Locks the column exactly to the screen height */
+  padding-right: 12px;
+  /* 🚨 Removed overflow-y: auto from here so the outer box stays static! */
 }
 
-.jobs-list-column::-webkit-scrollbar { width: 6px; }
-.jobs-list-column::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 10px; }
+/* 🚨 Custom Clean Scrollbars (Updated to target our new inner container) */
+.jobs-list-column::-webkit-scrollbar,
+.job-details-scrollable::-webkit-scrollbar { 
+  width: 6px; 
+}
 
+.jobs-list-column::-webkit-scrollbar-thumb,
+.job-details-scrollable::-webkit-scrollbar-thumb { 
+  background-color: var(--border-color); 
+  border-radius: 10px; 
+}
+
+/* Mobile Responsiveness */
 @media (max-width: 768px) {
   .jobs-split-layout { flex-direction: column; }
   .jobs-split-layout.active-split { flex-direction: column-reverse; }
-  .jobs-list-column { flex: 1; width: 100%; max-height: none; overflow-y: visible; padding-right: 0; }
-  .job-details-column { width: 100%; position: static; }
+  
+  .jobs-list-column,
+  .job-details-column { 
+    flex: 1; 
+    width: 100%; 
+    position: static;
+    height: auto; 
+    max-height: none; 
+    overflow-y: visible; 
+    padding-right: 0; 
+  }
 }

@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import JobCard from '../components/JobCard';
 import JobFormModal from '../components/JobFormModal';
+import JobDetailsPane from '../components/JobDetailsPane'; // 🚨 NEW IMPORT
 
 export default function Jobs() {
   const navigate = useNavigate();
@@ -25,7 +26,6 @@ export default function Jobs() {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [showAddForm, setShowAddForm] = useState(false);
   const [isEditingJob, setIsEditingJob] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -136,16 +136,6 @@ export default function Jobs() {
     setIsSaving(false);
   }
 
-  async function handlePostJob(formData) {
-    if (!currentUser) return;
-    setIsSubmitting(true);
-    const { error } = await supabase.from('jobs').insert([{ ...formData, company_id: currentUser.id, skills: formData.skills || [] }]);
-    
-    if (!error) { setShowAddForm(false); fetchJobs(); } 
-    else { alert("Failed to post job."); console.error(error); }
-    setIsSubmitting(false);
-  }
-
   async function handleUpdateJob(formData) {
     setIsSubmitting(true);
     const { error } = await supabase.from('jobs').update(formData).eq('id', selectedJob.id);
@@ -181,7 +171,6 @@ export default function Jobs() {
   return (
     <div className="page-container-wide">
       
-      <JobFormModal isOpen={showAddForm} onClose={() => setShowAddForm(false)} onSubmit={handlePostJob} isSubmitting={isSubmitting} />
       <JobFormModal isOpen={isEditingJob} onClose={() => setIsEditingJob(false)} onSubmit={handleUpdateJob} initialData={selectedJob} isEditing={true} isSubmitting={isSubmitting} />
 
       <div className="search-box-wrapper mb-16 w-full">
@@ -201,7 +190,6 @@ export default function Jobs() {
             <option value="All">📅 Any Time</option><option value="24h">Past 24 Hours</option><option value="7d">Past Week</option><option value="30d">Past Month</option>
           </select>
         </div>
-        {role === 'company' && <button className="btn-black" onClick={() => setShowAddForm(true)}>+ Post a Job</button>}
       </div>
 
       {!selectedJobId ? (
@@ -227,136 +215,22 @@ export default function Jobs() {
           </div>
 
           <div className="job-details-column">
-            {selectedJob && (
-              <>
-                {(role === 'admin' || (role === 'company' && currentUser && selectedJob.company_id === currentUser.id)) && (
-                  <div className="flex-row gap-8 mb-16">
-                    {role === 'company' && <button onClick={() => setIsEditingJob(true)} className="btn-outline btn-sm">⚙️ Edit</button>}
-                    <button onClick={handleDeleteJob} className="btn-danger btn-sm">🗑️ Delete</button>
-                  </div>
-                )}
-                
-                <div className="card p-24">
-                  
-                  {/* TITLE & DATE */}
-                  <div className="flex-between-start mb-16">
-                    <h2 className="m-0" style={{ paddingRight: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                      {selectedJob.title}
-                      
-                      {selectedJob.matchScore > 0 && (
-                        <span style={{ 
-                          background: '#fffbeb', 
-                          color: '#b45309', 
-                          border: '1px solid #fde68a',
-                          padding: '4px 10px', 
-                          borderRadius: '12px', 
-                          fontSize: '0.85rem', 
-                          fontWeight: 'bold', 
-                          whiteSpace: 'nowrap'
-                        }}>
-                          🔥 {selectedJob.matchScore}% Match
-                        </span>
-                      )}
-                    </h2>
-                    
-                    <div className="text-right" style={{ flexShrink: 0 }}>
-                      <span className="text-sm text-secondary block" style={{ fontWeight: '500' }}>
-                        📅 Posted: {selectedJob.date}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* BADGES & COMPANY */}
-                  <div className="flex-col gap-12 mb-24">
-                    <div className="flex-row-wrap gap-12 align-center">
-                      {selectedJob.location && (
-                        <span className="text-secondary" style={{ fontWeight: '500' }}>
-                          📍 {selectedJob.location}
-                        </span>
-                      )}
-                      <span className="badge badge-info">
-                        {selectedJob.work_model || 'On-site'}
-                      </span>
-                      <span className="badge badge-neutral">
-                        {selectedJob.type}
-                      </span>
-                    </div>
-                    
-                    <div className="text-secondary" style={{ fontSize: '1.05rem', fontWeight: '500' }}>
-                      🏢 {selectedJob.company}
-                    </div>
-                  </div>
-                  
-                  <h4 className="mb-8">Job Description</h4>
-                  <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', margin: 0 }}>{selectedJob.description}</p>
-                  
-                  {/* 🚨 NEW: Displaying the required skills right under the description! */}
-                  {selectedJob.skills && selectedJob.skills.length > 0 && (
-                    <div className="mt-24">
-                      <h4 className="mb-12">Required Skills</h4>
-                      <div className="flex-row-wrap gap-8">
-                        {selectedJob.skills.map((skill, index) => (
-                          <span 
-                            key={index} 
-                            className="badge" 
-                            style={{ 
-                              background: 'var(--bg-color)', 
-                              border: '1px solid var(--border-color)', 
-                              color: 'var(--text-color)', 
-                              padding: '6px 12px',
-                              fontSize: '0.9rem' 
-                            }}
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="divider m-0 mt-32 flex-col gap-8">
-                    {role !== 'company' && role !== 'admin' && (
-                      <>
-                        <button 
-                          className={`btn-apply ${hasApplied ? 'success' : ''}`}
-                          onClick={handleApply} 
-                          disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}
-                        >
-                          {isApplying ? 'Sending Application...' : hasApplied ? '✓ Application Sent' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
-                        </button>
-
-                        <button 
-                          className="btn-outline w-full"
-                          onClick={handleSaveJob}
-                          disabled={isSaving}
-                        >
-                          {isSaving ? 'Processing...' : isSaved ? '⭐ Saved' : '☆ Save for Later'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {selectedCompany && (
-                    <div className="sub-card mt-24">
-                      <div className="flex-row gap-16 align-center mb-16">
-                        <div className="avatar" style={{ borderRadius: '8px', flexShrink: 0 }}>
-                          {selectedCompany.logo_url ? (
-                             <img src={selectedCompany.logo_url} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
-                          ) : '🏢'}
-                        </div>
-                        <div>
-                          <h4 className="m-0 mb-8">About {selectedCompany.name}</h4>
-                          <p className="text-sm text-secondary m-0">📍 {selectedCompany.address || "Location not specified"}</p>
-                        </div>
-                      </div>
-                      <button className="btn-outline w-full" onClick={() => navigate(`/company/${selectedCompany.id}`)}>
-                        View Full Company Profile
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+            {/* 🚨 REPLACED HUNDREDS OF LINES WITH OUR NEW COMPONENT */}
+            <JobDetailsPane
+              selectedJob={selectedJob}
+              selectedCompany={selectedCompany}
+              role={role}
+              currentUser={currentUser}
+              isApplying={isApplying}
+              hasApplied={hasApplied}
+              isSaved={isSaved}
+              isSaving={isSaving}
+              handleApply={handleApply}
+              handleSaveJob={handleSaveJob}
+              handleDeleteJob={handleDeleteJob}
+              setIsEditingJob={setIsEditingJob}
+              navigate={navigate}
+            />
           </div>
         </div>
       )}
