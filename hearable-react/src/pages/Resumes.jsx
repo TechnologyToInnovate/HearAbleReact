@@ -97,9 +97,8 @@ export default function Resumes() {
 
   return (
     <div className="page-container-wide">
-      <div className="flex-between align-center mb-24">
-        <h1 className="m-0">My Resumes</h1>
-      </div>
+      
+      {/* 🚨 REMOVED THE H1 HEADER HERE */}
 
       <div className="flex-row-wrap gap-16 mb-32">
         

@@ -178,7 +178,7 @@ export default function Jobs() {
       
       <div style={{ flexShrink: 0 }}>
         
-        {role === 'admin' ? (
+        {role === 'admin' && (
           <div className="flex-between align-center mb-16" style={{ flexWrap: 'wrap', gap: '16px' }}>
             <h1 className="m-0">Job Moderation</h1>
             <div className="flex-row gap-8" style={{ background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
@@ -198,8 +198,6 @@ export default function Jobs() {
               ))}
             </div>
           </div>
-        ) : (
-          <h1 className="mb-24 m-0">Explore Jobs</h1>
         )}
         
         <div className="search-box-wrapper mb-16 w-full">

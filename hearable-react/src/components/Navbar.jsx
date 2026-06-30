@@ -77,6 +77,11 @@ export default function Navbar() {
               <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Companies</Link></li>
             )}
 
+            {/* Standard User Only Link */}
+            {['user', 'pending_user', 'rejected_user'].includes(role) && (
+              <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Feedback</Link></li>
+            )}
+
             {role === 'company' && (
               <>
                 <li><Link to="/my-jobs" className={`nav-link ${location.pathname === '/my-jobs' ? 'active' : ''}`}>My Postings</Link></li>
@@ -88,6 +93,7 @@ export default function Navbar() {
               <>
                 <li><Link to="/users" className={`nav-link ${['/users', '/degrees', '/batches'].includes(location.pathname) ? 'active' : ''}`}>Manage Users</Link></li>
                 <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Manage Companies</Link></li>
+                <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Manage Feedbacks</Link></li>
               </>
             )}
           </ul>
@@ -99,7 +105,6 @@ export default function Navbar() {
             <div className="flex-row align-center gap-4">
               {['user', 'pending_user', 'rejected_user'].includes(role) && (
                 <>
-                  {/* 🚨 NEW: Resumes Button (Left of My Applications) */}
                   <button 
                     onClick={() => navigate('/resumes')} 
                     className="nav-icon-btn" 
@@ -193,14 +198,6 @@ export default function Navbar() {
                         <DropdownIcon path="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
                         Settings
                       </button>
-
-                      {/* 🚨 NEW: Feedback Link (Available for Admins & Users) */}
-                      {!isOnboarding && ['user', 'pending_user', 'rejected_user', 'admin'].includes(role) && (
-                        <button className="dropdown-btn" onClick={() => handleMenuClick('/feedbacks')}>
-                          <DropdownIcon path="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                          Feedback
-                        </button>
-                      )}
                       
                       <button className="dropdown-btn text-danger" onClick={handleSignOut}>
                         <DropdownIcon path="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
