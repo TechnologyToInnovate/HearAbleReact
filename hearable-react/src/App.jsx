@@ -2,9 +2,9 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './index.css';
 
-// 🚨 GLOBAL CONTEXT & COMPONENTS
+// GLOBAL CONTEXT & COMPONENTS
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Navbar from './components/Navbar'; // <-- IMPORT THE NEW NAVBAR
+import Navbar from './components/Navbar'; 
 
 // --- MAIN PAGES ---
 import Home from './pages/Home';
@@ -28,11 +28,11 @@ import Degrees from './pages/Degrees';
 import Batches from './pages/Batches';
 import Admins from './pages/Admins';
 
-// 🚨 MAIN ROUTING LOGIC
+// MAIN ROUTING LOGIC
 function AppRoutes() {
   const { role, setRole } = useAuth();
 
-  // AUTOMATIC OS DARK MODE DETECTION
+  // DEFAULT THEME CONFIGURATION
   useEffect(() => {
     const applyTheme = (isDark) => {
       if (isDark) {
@@ -43,28 +43,19 @@ function AppRoutes() {
     };
 
     const storedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
 
+    // Default to light mode if no theme is explicitly saved in local storage
     if (storedTheme) {
       applyTheme(storedTheme === 'dark');
     } else {
-      applyTheme(systemPrefersDark.matches);
+      applyTheme(false); 
     }
-
-    const handleSystemThemeChange = (e) => {
-      if (!localStorage.getItem('theme')) {
-        applyTheme(e.matches);
-      }
-    };
-
-    systemPrefersDark.addEventListener('change', handleSystemThemeChange);
-    return () => systemPrefersDark.removeEventListener('change', handleSystemThemeChange);
   }, []);
 
   return (
     <BrowserRouter>
       <div className="app-container">
-        {/* 🚨 THE NEW COMPONENT */}
+        
         <Navbar />
 
         <main className="main-content" style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto' }}>
