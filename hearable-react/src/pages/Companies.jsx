@@ -119,6 +119,7 @@ export default function Companies({ role }) {
 
   let filteredCompanies = companies.filter(company => {
     const matchesSearch = company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (company.email && company.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (company.city && company.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (company.country && company.country.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -303,16 +304,20 @@ export default function Companies({ role }) {
                     onClick={() => !company.isPreApprovedOnly && navigate(`/company/${company.id}`)}
                   >
                     <div className="flex-between-start mb-16">
-                      <div className="flex-row gap-16 align-center">
+                      <div className="flex-row gap-16 align-start">
                         <div style={{ width: '56px', height: '56px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                           {company.logo_url ? (
                             <img src={company.logo_url} alt={`${company.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
-                            <img src="https://placehold.co/100x100/e5e7eb/6b7280?text=Company" alt="Default Company" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
                           )}
                         </div>
                         <div>
                           <h3 className="text-lg" style={{ margin: '0 0 4px 0' }}>{company.name}</h3>
+                          {/* 🚨 NEW: Added Company Email Here */}
+                          <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8 }}>
+                            {company.email || 'Email not provided'}
+                          </p>
                           <p className="text-sm text-secondary" style={{ margin: 0 }}>
                             {locationText || company.address || 'Location not specified'}
                             {company.founded_year && ` • Est. ${company.founded_year}`}

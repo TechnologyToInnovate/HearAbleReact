@@ -121,6 +121,7 @@ export default function Users({ role }) {
   
   let processedUsers = users.filter(user => {
     const matchesSearch = (user.name && user.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (user.degreeText && user.degreeText.toLowerCase().includes(searchQuery.toLowerCase()));
 
     let matchesTab = true;
@@ -181,7 +182,7 @@ export default function Users({ role }) {
         </span>
         <input
           type="text"
-          placeholder="Search by name or degree..."
+          placeholder="Search by name, email, or degree..."
           className="search-input w-full"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -217,12 +218,16 @@ export default function Users({ role }) {
             <div key={user.id} className="card p-20 flex-col" style={{ height: '100%', opacity: user.status === 'Archived' ? 0.6 : 1 }}>
 
               <div className="flex-between-start mb-16">
-                <div className="flex-row gap-12 align-center">
-                  <div className="avatar" style={{ flexShrink: 0 }}>
+                <div className="flex-row gap-12 align-start">
+                  <div className="avatar" style={{ flexShrink: 0, marginTop: '4px' }}>
                     {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <div>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{user.name || 'Incomplete Profile'}</h3>
+                    {/* 🚨 NEW: Added User Email Here */}
+                    <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8 }}>
+                      {user.email || 'Email not provided'}
+                    </p>
                     <p className="text-sm text-secondary m-0">
                       {user.status === 'Pending' ? 'Awaiting Review' : `Status: ${user.status || 'Active'}`}
                     </p>

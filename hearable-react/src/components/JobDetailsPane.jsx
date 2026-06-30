@@ -14,7 +14,6 @@ export default function JobDetailsPane({
   handleDeleteJob,
   setIsEditingJob,
   navigate,
-  handleClose,
   handleUpdateJobStatus
 }) {
   if (!selectedJob) return null;
@@ -51,10 +50,6 @@ export default function JobDetailsPane({
             )}
 
             <button onClick={handleDeleteJob} className="btn-danger btn-sm">Delete</button>
-            
-            {handleClose && (
-              <button onClick={handleClose} className="btn-outline btn-sm" style={{ padding: '6px 10px' }}>Close</button>
-            )}
           </div>
         )}
 
