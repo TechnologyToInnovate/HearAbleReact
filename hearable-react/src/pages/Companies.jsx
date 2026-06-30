@@ -17,14 +17,11 @@ export default function Companies({ role }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Original Form Fields
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newCountry, setNewCountry] = useState('');
   const [newCity, setNewCity] = useState('');
   const [newPostalCode, setNewPostalCode] = useState('');
-
-  // 🚨 NEW: Added new form fields for pre-approval
   const [newIndustry, setNewIndustry] = useState('');
   const [newFoundedYear, setNewFoundedYear] = useState('');
   const [newWebsite, setNewWebsite] = useState('');
@@ -63,7 +60,7 @@ export default function Companies({ role }) {
         ...pc,
         id: pc.id || `pre-${pc.email}`,
         status: 'Pre-Approved',
-        description: pc.description || '⏳ Pre-approved account. Waiting for the company to sign up.',
+        description: pc.description || 'Pre-approved account. Waiting for the company to sign up.',
         isPreApprovedOnly: true,
         created_at: pc.created_at || new Date().toISOString()
       }));
@@ -77,7 +74,6 @@ export default function Companies({ role }) {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // 🚨 NEW: Insert the new fields into the database payload
     const { error } = await supabase.from('pre_approved_companies').insert([{
       email: newEmail.toLowerCase().trim(),
       name: newName,
@@ -93,7 +89,6 @@ export default function Companies({ role }) {
     if (!error) {
       alert(`Success! ${newEmail} is on the roster.`);
       
-      // Clear all fields
       setNewEmail(''); setNewName(''); setNewCountry(''); setNewCity(''); setNewPostalCode('');
       setNewIndustry(''); setNewFoundedYear(''); setNewWebsite(''); setNewDescription('');
       
@@ -119,32 +114,6 @@ export default function Companies({ role }) {
       setCompanies(companies.map(c => c.id === id ? { ...c, status: newStatus } : c));
     } else {
       alert("Failed to update status.");
-    }
-  }
-
-  async function handleDeleteCompany(e, company) {
-    e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to permanently remove ${company.name}? This action cannot be undone and will delete their login credentials.`)) return;
-
-    if (company.isPreApprovedOnly) {
-      const { error } = await supabase.from('pre_approved_companies').delete().eq('name', company.name);
-      if (!error) {
-        setCompanies(companies.filter(c => c.id !== company.id));
-      } else alert("Failed to remove pre-approved company.");
-      return;
-    }
-
-    const { error } = await supabase.rpc('admin_delete_company', { 
-      target_id: company.id, 
-      target_name: company.name 
-    });
-
-    if (!error) {
-      setCompanies(companies.filter(c => c.id !== company.id));
-      alert(`${company.name} has been completely removed from the system.`);
-    } else {
-      alert("Failed to delete company: " + error.message);
-      console.error(error);
     }
   }
 
@@ -189,7 +158,7 @@ export default function Companies({ role }) {
         <section className="card p-20 mb-32" style={{ maxWidth: '800px', margin: '0 auto 32px' }}>
           <div className="flex-between mb-24" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
             <h3 style={{ margin: 0 }}>Pre-Approve New Company</h3>
-            <button className="btn-outline btn-sm" onClick={() => setShowAddForm(false)}>← Cancel</button>
+            <button className="btn-outline btn-sm" onClick={() => setShowAddForm(false)}>Cancel</button>
           </div>
           <div className="mb-24" style={{ background: '#ecfdf5', color: '#047857', padding: '12px', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '0.9rem' }}>
             <strong>Admin Notice:</strong> Fill out the company's details here. When they sign up, this data will be automatically applied to their new profile.
@@ -206,7 +175,6 @@ export default function Companies({ role }) {
               </div>
             </div>
 
-            {/* 🚨 NEW: Added Company Info Row */}
             <div className="form-grid-3 mt-8">
               <div>
                 <label>Industry</label>
@@ -228,7 +196,6 @@ export default function Companies({ role }) {
               </div>
             </div>
 
-            {/* 🚨 NEW: Added Company Description */}
             <div className="mt-8">
               <label>About the Company</label>
               <textarea 
@@ -269,7 +236,7 @@ export default function Companies({ role }) {
           {role === 'admin' && (
             <div className="flex-between mb-24">
               <h1 style={{ margin: 0 }}>Manage Companies</h1>
-              <button className="btn-black" onClick={() => setShowAddForm(true)}>+ Add Company</button>
+              <button className="btn-black" onClick={() => setShowAddForm(true)}>Add Company</button>
             </div>
           )}
 
@@ -298,7 +265,9 @@ export default function Companies({ role }) {
 
           <div className="flex-row-wrap gap-16 mb-24">
             <div className="search-box-wrapper" style={{ flexGrow: 1 }}>
-              <span className="search-icon">🔍</span>
+              <span className="search-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              </span>
               <input
                 type="text"
                 placeholder={role === 'admin' ? `Search ${activeTab.toLowerCase()} companies...` : "Search companies..."}
@@ -339,13 +308,13 @@ export default function Companies({ role }) {
                           {company.logo_url ? (
                             <img src={company.logo_url} alt={`${company.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
-                            <img src="https://placehold.co/100x100/e5e7eb/6b7280?text=🏢" alt="Default Company" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <img src="https://placehold.co/100x100/e5e7eb/6b7280?text=Company" alt="Default Company" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           )}
                         </div>
                         <div>
                           <h3 className="text-lg" style={{ margin: '0 0 4px 0' }}>{company.name}</h3>
                           <p className="text-sm text-secondary" style={{ margin: 0 }}>
-                            📍 {locationText || company.address || 'Location not specified'}
+                            {locationText || company.address || 'Location not specified'}
                             {company.founded_year && ` • Est. ${company.founded_year}`}
                           </p>
                         </div>
@@ -361,7 +330,7 @@ export default function Companies({ role }) {
                             {currentStatus}
                           </span>
                           <span className="text-sm text-secondary" style={{ fontSize: '0.8rem' }}>
-                            📅 Joined: {new Date(company.created_at).toLocaleDateString()}
+                            Joined: {new Date(company.created_at).toLocaleDateString()}
                           </span>
                         </div>
                       )}
@@ -391,16 +360,6 @@ export default function Companies({ role }) {
                           View Company Profile
                         </button>
                       )}
-
-                      {role === 'admin' && (
-                        <button
-                          className="w-full"
-                          onClick={(e) => handleDeleteCompany(e, company)}
-                          style={{ background: 'var(--card-bg)', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 20px', fontWeight: '500', cursor: 'pointer' }}
-                        >
-                          🗑️ Remove Company
-                        </button>
-                      )}
                     </div>
                   </div>
                 );
@@ -408,7 +367,6 @@ export default function Companies({ role }) {
             </div>
           ) : (
             <div className="card text-center text-secondary p-20" style={{ padding: '48px 24px' }}>
-              <div className="text-3xl mb-16">🏢</div>
               <h3 className="mb-8">No matching companies found</h3>
               <p>Try adjusting your search or tab filters.</p>
             </div>

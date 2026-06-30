@@ -20,13 +20,13 @@ export default function JobCard({ job, isSelected, onClick }) {
             padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', 
             fontWeight: 'bold', whiteSpace: 'nowrap', flexShrink: 0
           }}>
-            🔥 {job.matchScore}% Match
+            {job.matchScore}% Match
           </span>
         )}
       </div>
       
       <div className="text-secondary mb-12" style={{ fontSize: '0.95rem', fontWeight: '500' }}>
-        🏢 {job.company}
+        {job.company}
       </div>
       
       <div className="flex-row-wrap gap-8 align-center">

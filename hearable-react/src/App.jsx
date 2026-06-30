@@ -20,6 +20,8 @@ import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
+import Resumes from './pages/Resumes';
+import Feedbacks from './pages/Feedbacks';
 
 // --- ADMIN PAGES ---
 import Degrees from './pages/Degrees';
@@ -72,7 +74,7 @@ function AppRoutes() {
             <Route path="/" element={role === 'needs_onboarding' ? <Navigate to="/onboarding" /> : <Home role={role} />} />
             <Route path="/jobs" element={role === 'needs_onboarding' ? <Navigate to="/onboarding" /> : <Jobs />} />
             <Route path="/my-jobs" element={role === 'company' ? <MyJobs /> : <Navigate to="/" />} />
-            
+
             <Route path="/user-jobs" element={['user', 'pending_user', 'rejected_user'].includes(role) ? <UserJobs /> : <Navigate to="/" />} />
 
             <Route path="/companies" element={role === 'needs_onboarding' ? <Navigate to="/onboarding" /> : <Companies role={role} />} />
@@ -87,6 +89,8 @@ function AppRoutes() {
             <Route path="/degrees" element={role === 'admin' ? <Degrees role={role} /> : <Navigate to="/" />} />
             <Route path="/batches" element={role === 'admin' ? <Batches role={role} /> : <Navigate to="/" />} />
             <Route path="/admins" element={role === 'admin' ? <Admins role={role} /> : <Navigate to="/" />} />
+            <Route path="/resumes" element={<Resumes />} />
+            <Route path="/feedback" element={<Feedbacks />} />
 
             <Route path="/settings" element={role === 'guest' ? <Navigate to="/login" /> : <Settings role={role} setRole={setRole} />} />
             <Route path="/notifications" element={role === 'guest' ? <Navigate to="/login" /> : <Notifications />} />

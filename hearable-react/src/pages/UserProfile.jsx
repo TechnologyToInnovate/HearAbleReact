@@ -89,7 +89,7 @@ export default function UserProfile() {
             {isOwnProfile && (
               <div style={{ marginTop: '56px' }}>
                 <button className="btn-outline" onClick={() => setShowEditModal(true)}>
-                  ⚙️ Edit Profile
+                  Edit Profile
                 </button>
               </div>
             )}
@@ -133,7 +133,7 @@ export default function UserProfile() {
               <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Education</span>
                 <strong style={{ fontSize: '1rem', display: 'block' }}>
-                  🎓 {user.degrees?.name ? (user.degrees?.abbreviation ? `${user.degrees.abbreviation} - ${user.degrees.name}` : user.degrees.name) : 'Degree not specified'}
+                  {user.degrees?.name ? (user.degrees?.abbreviation ? `${user.degrees.abbreviation} - ${user.degrees.name}` : user.degrees.name) : 'Degree not specified'}
                 </strong>
                 {user.batches?.batch_number && (
                   <span className="badge badge-neutral mt-8" style={{ display: 'inline-block' }}>
@@ -145,14 +145,14 @@ export default function UserProfile() {
               <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Location</span>
                 <strong style={{ fontSize: '1rem', display: 'block' }}>
-                  📍 {locationText || 'Not specified'}
+                  {locationText || 'Not specified'}
                 </strong>
               </div>
 
               <div>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Contact Number</span>
                 <strong style={{ fontSize: '1rem', display: 'block' }}>
-                  📞 {user.contact_number || 'Not specified'}
+                  {user.contact_number || 'Not specified'}
                 </strong>
               </div>
 

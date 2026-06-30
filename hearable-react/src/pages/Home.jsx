@@ -223,7 +223,7 @@ export default function Home({ role }) {
                     <div>
                       <h4 className="text-lg m-0 mb-8">{job.title}</h4>
                       <p className="text-sm text-secondary m-0 mt-8 mb-12">
-                        📍 {job.location}
+                        {job.location}
                       </p>
                       <TagList tags={[job.work_model || 'On-site', job.type]} />
                     </div>
@@ -254,7 +254,7 @@ export default function Home({ role }) {
                   {companyProfile?.name ? companyProfile.name.charAt(0).toUpperCase() : 'C'}
                 </div>
                 <h3 className="m-0 mb-8">{companyProfile?.name}</h3>
-                <p className="text-sm text-secondary m-0 mb-24">📍 {companyProfile?.address}</p>
+                <p className="text-sm text-secondary m-0 mb-24">{companyProfile?.address}</p>
                 <button className="btn-black w-full" disabled={!companyProfile?.id} onClick={() => navigate(`/company/${companyProfile?.id}`)}>
                   {companyProfile?.id ? 'View Company Profile' : 'No Profile Found'}
                 </button>

@@ -14,32 +14,50 @@ export default function JobDetailsPane({
   handleDeleteJob,
   setIsEditingJob,
   navigate,
-  handleClose 
+  handleClose,
+  handleUpdateJobStatus
 }) {
   if (!selectedJob) return null;
 
   const isOwner = currentUser && selectedJob.company_id === currentUser.id;
   const isAdmin = role === 'admin';
+  const editCount = selectedJob.edit_count || 0;
 
   return (
-    // 🚨 1. The main card is now a fixed-height Flexbox column!
     <div className="card" style={{ padding: 0, position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       
-      {/* 🚨 2. THE STATIC HEADER (Never scrolls) */}
       <div style={{ flexShrink: 0, backgroundColor: 'var(--card-bg)', zIndex: 10, padding: '24px', borderBottom: '1px solid var(--border-color)' }}>
         
-        {/* EDIT / DELETE CONTROLS */}
         {(isAdmin || (role === 'company' && isOwner)) && (
-          <div className="flex-row gap-8 mb-16" style={{ justifyContent: 'flex-end' }}>
-            <button onClick={() => setIsEditingJob(true)} className="btn-outline btn-sm">⚙️ Edit</button>
-            <button onClick={handleDeleteJob} className="btn-danger btn-sm">🗑️ Delete</button>
+          <div className="flex-row gap-8 mb-16" style={{ justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+            
+            {isAdmin && selectedJob.status === 'Pending' && handleUpdateJobStatus && (
+              <>
+                <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Approved')} style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 12px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                  Approve Post
+                </button>
+                <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Rejected')} style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                  Reject
+                </button>
+              </>
+            )}
+
+            {role === 'company' && isOwner && editCount < 1 && (
+              <button onClick={() => setIsEditingJob(true)} className="btn-outline btn-sm">Edit</button>
+            )}
+
+            {role === 'company' && isOwner && editCount >= 1 && (
+              <span className="text-secondary text-sm mr-8" style={{ fontStyle: 'italic' }}>Edit limit reached</span>
+            )}
+
+            <button onClick={handleDeleteJob} className="btn-danger btn-sm">Delete</button>
+            
             {handleClose && (
-              <button onClick={handleClose} className="btn-outline btn-sm" style={{ padding: '6px 10px' }}>✕</button>
+              <button onClick={handleClose} className="btn-outline btn-sm" style={{ padding: '6px 10px' }}>Close</button>
             )}
           </div>
         )}
 
-        {/* BIGGER TITLE, SCORE & DATE */}
         <div className="flex-between-start mb-8">
           <h1 className="m-0" style={{ fontSize: '2rem', paddingRight: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             {selectedJob.title}
@@ -50,7 +68,18 @@ export default function JobDetailsPane({
                 padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem', 
                 fontWeight: 'bold', whiteSpace: 'nowrap'
               }}>
-                🔥 {selectedJob.matchScore}% Match
+                {selectedJob.matchScore}% Match
+              </span>
+            )}
+
+            {(isAdmin || (role === 'company' && isOwner)) && (
+              <span style={{
+                padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', whiteSpace: 'nowrap',
+                backgroundColor: selectedJob.status === 'Approved' ? '#dcfce7' : selectedJob.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
+                color: selectedJob.status === 'Approved' ? '#166534' : selectedJob.status === 'Rejected' ? '#991b1b' : '#854d0e',
+                border: `1px solid ${selectedJob.status === 'Approved' ? '#bbf7d0' : selectedJob.status === 'Rejected' ? '#fecaca' : '#fde047'}`
+              }}>
+                {selectedJob.status === 'Approved' ? 'Published' : selectedJob.status || 'Pending'}
               </span>
             )}
           </h1>
@@ -59,16 +88,19 @@ export default function JobDetailsPane({
             <span className="text-sm text-secondary block" style={{ fontWeight: '500' }}>
               Posted: {selectedJob.date}
             </span>
+            {editCount > 0 && (
+              <span className="text-sm text-secondary block" style={{ fontStyle: 'italic', marginTop: '4px' }}>
+                (Edited)
+              </span>
+            )}
           </div>
         </div>
         
-        {/* COMPANY NAME & LOCATION */}
         <div className="text-secondary mb-24" style={{ fontSize: '1.1rem', fontWeight: '500' }}>
           {selectedJob.company}{selectedJob.location && ` • ${selectedJob.location}`}
         </div>
         
-        {/* ACTION BUTTONS (Apply / Save / Review) */}
-        {role === 'company' && isOwner && selectedJob.applicantCount !== undefined ? (
+        {(isAdmin || (role === 'company' && isOwner)) && selectedJob.applicantCount !== undefined ? (
           <div className="flex-col gap-8">
             <button 
               className="btn-black w-full" 
@@ -86,7 +118,7 @@ export default function JobDetailsPane({
               onClick={handleApply} 
               disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}
             >
-              {isApplying ? 'Sending Application...' : hasApplied ? '✓ Application Sent' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
+              {isApplying ? 'Sending Application...' : hasApplied ? 'Application Sent' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
             </button>
 
             <button className="btn-outline w-full" onClick={handleSaveJob} disabled={isSaving}>
@@ -96,14 +128,9 @@ export default function JobDetailsPane({
         ) : null}
       </div>
 
-      {/* 🚨 3. THE SCROLLABLE BODY (Takes up the remaining height and handles the scrolling internally) */}
       <div className="job-details-scrollable" style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
-        
-        {/* JOB DETAILS */}
         <h3 className="mb-12" style={{ fontSize: '1.4rem', marginTop: 0 }}>Job Details</h3>
         <div className="mb-24" style={{ background: 'var(--bg-color)', padding: '24px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-          
-          {/* Pay Area */}
           {selectedJob.pay && (
             <div style={{ paddingBottom: '20px', borderBottom: '1px solid var(--border-color)', marginBottom: '20px' }}>
               <div style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '12px', color: 'var(--text-color)' }}>Pay</div>
@@ -114,8 +141,6 @@ export default function JobDetailsPane({
               </div>
             </div>
           )}
-          
-          {/* Job Type Circles */}
           <div>
             <div style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '12px', color: 'var(--text-color)' }}>Job Type</div>
             <div className="flex-row-wrap gap-12">
@@ -131,7 +156,6 @@ export default function JobDetailsPane({
 
         {selectedJob.location && <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '32px 0' }} />}
         
-        {/* LOCATION */}
         {selectedJob.location && (
           <div className="mb-32">
             <h3 className="mb-8" style={{ fontSize: '1.4rem' }}>Location</h3>
@@ -141,7 +165,6 @@ export default function JobDetailsPane({
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '32px 0' }} />
         
-        {/* JOB DESCRIPTION */}
         <div className="mb-32">
           <h3 className="mb-8" style={{ fontSize: '1.4rem' }}>Job Description</h3>
           <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', margin: 0 }}>{selectedJob.description}</p>
@@ -149,7 +172,6 @@ export default function JobDetailsPane({
 
         {selectedJob.skills && selectedJob.skills.length > 0 && <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '32px 0' }} />}
         
-        {/* REQUIRED SKILLS */}
         {selectedJob.skills && selectedJob.skills.length > 0 && (
           <div className="mt-24">
             <h3 className="mb-12" style={{ fontSize: '1.4rem' }}>Required Skills</h3>
@@ -163,7 +185,6 @@ export default function JobDetailsPane({
           </div>
         )}
 
-        {/* COMPANY SUB-CARD */}
         {selectedCompany && !(role === 'company' && isOwner) && (
           <>
             <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '32px 0' }} />
@@ -187,7 +208,6 @@ export default function JobDetailsPane({
             </div>
           </>
         )}
-
       </div>
     </div>
   );

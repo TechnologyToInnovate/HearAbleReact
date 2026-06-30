@@ -84,7 +84,7 @@ export default function UserJobs() {
       <div className="flex-between align-center mb-24">
         <h1 className="m-0">My Job Tracker</h1>
         <button className="btn-outline btn-sm" onClick={() => navigate('/jobs')}>
-          🔍 Find More Jobs
+          Find More Jobs
         </button>
       </div>
 

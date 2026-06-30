@@ -128,7 +128,7 @@ export default function Notifications() {
         <div className="flex-row gap-12">
           {role === 'admin' && (
             <button className="btn-black btn-sm" onClick={() => setShowAnnounceModal(true)}>
-              📢 New Broadcast
+              New Broadcast
             </button>
           )}
           {notifications.length > 0 && (

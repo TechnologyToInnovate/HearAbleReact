@@ -21,7 +21,6 @@ export default function Users({ role }) {
     fetchUsers();
   }, [role, navigate]);
 
-  // Auto-switch to "Oldest First" when viewing Pending users
   useEffect(() => {
     if (activeTab === 'Pending') {
       setSortBy('date_asc');
@@ -73,7 +72,6 @@ export default function Users({ role }) {
   }
 
   async function handleUpdateStatus(userId, newStatus) {
-    // Stamp the approval date if they are approved
     const updatePayload = { status: newStatus };
     if (newStatus === 'Approved') {
       updatePayload.approved_at = new Date().toISOString();
@@ -90,7 +88,7 @@ export default function Users({ role }) {
       if (newStatus === 'Approved') {
         await supabase.from('notifications').insert([{
           user_id: userId,
-          title: 'Account Approved! 🚀',
+          title: 'Account Approved!',
           message: 'An administrator has approved your account. You now have full access to apply for jobs!',
           link: '/jobs'
         }]);
@@ -101,17 +99,19 @@ export default function Users({ role }) {
     }
   }
 
-  async function handleDeleteUser(userId, userName) {
-    if (!window.confirm(`Are you sure you want to permanently remove ${userName || 'this user'}? This action cannot be undone and will delete their login credentials.`)) return;
+  async function handleArchiveUser(userId, userName) {
+    if (!window.confirm(`Are you sure you want to archive ${userName || 'this user'}? They will be hidden from the active platform.`)) return;
 
-    // 🚨 THE FIX: This now calls our secure Postgres function!
-    const { error } = await supabase.rpc('admin_delete_user', { target_id: userId });
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status: 'Archived' }) 
+      .eq('id', userId);
 
     if (!error) {
-      setUsers(users.filter(u => u.id !== userId));
-      alert(`${userName || 'User'} has been completely removed from the system.`);
+      setUsers(users.map(u => u.id === userId ? { ...u, status: 'Archived' } : u));
+      alert(`${userName || 'User'} has been archived.`);
     } else {
-      alert("Failed to delete user: " + error.message);
+      alert("Failed to archive user: " + error.message);
       console.error(error);
     }
   }
@@ -127,6 +127,7 @@ export default function Users({ role }) {
     if (activeTab === 'Pending') matchesTab = user.status === 'Pending';
     if (activeTab === 'Approved') matchesTab = user.status === 'Approved';
     if (activeTab === 'Rejected') matchesTab = user.status === 'Rejected';
+    if (activeTab === 'Archived') matchesTab = user.status === 'Archived'; 
 
     const matchesDegree = filterDegree === 'All' || user.degreeText === filterDegree;
     const matchesBatch = filterBatch === 'All' || user.batchText === filterBatch;
@@ -134,12 +135,11 @@ export default function Users({ role }) {
     return matchesSearch && matchesTab && matchesDegree && matchesBatch;
   });
 
-  // Time-based sorting logic
   processedUsers.sort((a, b) => {
     if (sortBy === 'name_asc') return (a.name || '').localeCompare(b.name || '');
     if (sortBy === 'name_desc') return (b.name || '').localeCompare(a.name || '');
-    if (sortBy === 'date_asc') return new Date(a.created_at || 0) - new Date(b.created_at || 0); // Oldest first
-    if (sortBy === 'date_desc') return new Date(b.created_at || 0) - new Date(a.created_at || 0); // Newest first
+    if (sortBy === 'date_asc') return new Date(a.created_at || 0) - new Date(b.created_at || 0); 
+    if (sortBy === 'date_desc') return new Date(b.created_at || 0) - new Date(a.created_at || 0); 
     return 0;
   });
 
@@ -149,13 +149,13 @@ export default function Users({ role }) {
       <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
         <h1 style={{ margin: 0 }}>Manage Users</h1>
         <div className="flex-row gap-12">
-          <button className="btn-outline btn-sm" onClick={() => navigate('/degrees')}>🎓 Manage Degrees</button>
-          <button className="btn-outline btn-sm" onClick={() => navigate('/batches')}>📅 Manage Batches</button>
+          <button className="btn-outline btn-sm" onClick={() => navigate('/degrees')}>Manage Degrees</button>
+          <button className="btn-outline btn-sm" onClick={() => navigate('/batches')}>Manage Batches</button>
         </div>
       </div>
 
       <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
-        {['All', 'Pending', 'Approved', 'Rejected'].map(tab => (
+        {['All', 'Pending', 'Approved', 'Rejected', 'Archived'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -176,7 +176,9 @@ export default function Users({ role }) {
       </div>
 
       <div className="search-box-wrapper mb-16" style={{ width: '100%' }}>
-        <span className="search-icon">🔍</span>
+        <span className="search-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </span>
         <input
           type="text"
           placeholder="Search by name or degree..."
@@ -212,7 +214,7 @@ export default function Users({ role }) {
       ) : processedUsers.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
           {processedUsers.map(user => (
-            <div key={user.id} className="card p-20 flex-col" style={{ height: '100%' }}>
+            <div key={user.id} className="card p-20 flex-col" style={{ height: '100%', opacity: user.status === 'Archived' ? 0.6 : 1 }}>
 
               <div className="flex-between-start mb-16">
                 <div className="flex-row gap-12 align-center">
@@ -230,13 +232,13 @@ export default function Users({ role }) {
                 <div className="flex-col align-end gap-8">
                   <span style={{
                     padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold',
-                    backgroundColor: user.status === 'Approved' ? '#dcfce7' : user.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
-                    color: user.status === 'Approved' ? '#166534' : user.status === 'Rejected' ? '#991b1b' : '#854d0e'
+                    backgroundColor: user.status === 'Approved' ? '#dcfce7' : user.status === 'Rejected' ? '#fef2f2' : user.status === 'Archived' ? '#f3f4f6' : '#fef9c3',
+                    color: user.status === 'Approved' ? '#166534' : user.status === 'Rejected' ? '#991b1b' : user.status === 'Archived' ? '#374151' : '#854d0e'
                   }}>
                     {user.status || 'Active'}
                   </span>
                   <span className="text-sm text-secondary" style={{ fontSize: '0.8rem' }}>
-                    📅 Joined: {user.joinDate}
+                    Joined: {user.joinDate}
                   </span>
                 </div>
               </div>
@@ -253,26 +255,34 @@ export default function Users({ role }) {
               </div>
 
               <div className="flex-col gap-8">
-                <div className="flex-row gap-8">
-                  {user.status !== 'Approved' && (
-                    <button className="btn-outline flex-grow btn-sm" onClick={() => handleUpdateStatus(user.id, 'Approved')} style={{ background: '#ecfdf5', borderColor: '#34d399', color: '#065f46' }}>✓ Approve</button>
-                  )}
-                  {user.status !== 'Rejected' && (
-                    <button className="btn-outline flex-grow btn-sm" onClick={() => handleUpdateStatus(user.id, 'Rejected')} style={{ background: '#fef2f2', borderColor: '#f87171', color: '#991b1b' }}>✕ Reject</button>
-                  )}
-                </div>
+                {user.status !== 'Archived' && (
+                  <div className="flex-row gap-8">
+                    {user.status !== 'Approved' && (
+                      <button className="btn-outline flex-grow btn-sm" onClick={() => handleUpdateStatus(user.id, 'Approved')} style={{ background: '#ecfdf5', borderColor: '#34d399', color: '#065f46' }}>Approve</button>
+                    )}
+                    {user.status !== 'Rejected' && (
+                      <button className="btn-outline flex-grow btn-sm" onClick={() => handleUpdateStatus(user.id, 'Rejected')} style={{ background: '#fef2f2', borderColor: '#f87171', color: '#991b1b' }}>Reject</button>
+                    )}
+                  </div>
+                )}
 
                 <button className="btn-outline w-full btn-sm mb-4" onClick={() => navigate(`/user/${user.id}`)}>
                   View Full Profile
                 </button>
 
-                <button
-                  className="w-full"
-                  onClick={() => handleDeleteUser(user.id, user.name)}
-                  style={{ background: 'white', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', padding: '8px 16px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
-                >
-                  🗑️ Remove User
-                </button>
+                {user.status === 'Archived' ? (
+                  <div className="badge badge-neutral w-full" style={{ padding: '8px', textAlign: 'center', display: 'block' }}>
+                    User Archived
+                  </div>
+                ) : (
+                  <button
+                    className="w-full"
+                    onClick={() => handleArchiveUser(user.id, user.name)}
+                    style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 16px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }}
+                  >
+                    Archive User
+                  </button>
+                )}
               </div>
 
             </div>
@@ -280,7 +290,6 @@ export default function Users({ role }) {
         </div>
       ) : (
         <div className="card text-center text-secondary p-32 mt-32">
-          <div className="text-3xl mb-16">👥</div>
           <h3 className="mb-8">No users found</h3>
           <p>Try adjusting your search or filters.</p>
         </div>
