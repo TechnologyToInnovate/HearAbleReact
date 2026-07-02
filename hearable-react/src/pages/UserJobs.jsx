@@ -25,10 +25,9 @@ export default function UserJobs() {
   async function fetchUserJobs() {
     setIsLoading(true);
 
-    // 🚨 UPDATED: Fetch job_skills relational data
     const { data: appsData } = await supabase
       .from('applications')
-      .select('*, jobs(*, companies(name, logo_url), job_skills(skills(id, name)))')
+      .select('*, jobs(*, companies(name, logo_url, is_deaf_accessible), job_skills(skills(id, name)))')
       .eq('applicant_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -39,16 +38,16 @@ export default function UserJobs() {
           ...app.jobs,
           skills: app.jobs.job_skills ? app.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
           company: app.jobs.companies?.name || 'Unknown Company',
+          is_deaf_accessible: app.jobs.companies?.is_deaf_accessible || false, // 🚨 NEW
           date: new Date(app.jobs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         }
       }));
       setApplications(mappedApps);
     }
 
-    // 🚨 UPDATED: Fetch job_skills relational data
     const { data: savedData } = await supabase
       .from('saved_jobs')
-      .select('*, jobs(*, companies(name, logo_url), job_skills(skills(id, name)))')
+      .select('*, jobs(*, companies(name, logo_url, is_deaf_accessible), job_skills(skills(id, name)))')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -59,6 +58,7 @@ export default function UserJobs() {
           ...saved.jobs,
           skills: saved.jobs.job_skills ? saved.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
           company: saved.jobs.companies?.name || 'Unknown Company',
+          is_deaf_accessible: saved.jobs.companies?.is_deaf_accessible || false, // 🚨 NEW
           date: new Date(saved.jobs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         }
       }));

@@ -117,6 +117,20 @@ export default function Companies({ role }) {
     }
   }
 
+  // 🚨 NEW: Function to toggle the accessibility certification
+  async function handleToggleDeafAccessibility(e, id, currentStatus) {
+    e.stopPropagation();
+    const newStatus = !currentStatus;
+    
+    const { error } = await supabase.from('companies').update({ is_deaf_accessible: newStatus }).eq('id', id);
+    
+    if (!error) {
+      setCompanies(companies.map(c => c.id === id ? { ...c, is_deaf_accessible: newStatus } : c));
+    } else {
+      alert("Failed to update accessibility status.");
+    }
+  }
+
   let filteredCompanies = companies.filter(company => {
     const matchesSearch = company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (company.email && company.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -313,8 +327,15 @@ export default function Companies({ role }) {
                           )}
                         </div>
                         <div>
-                          <h3 className="text-lg" style={{ margin: '0 0 4px 0' }}>{company.name}</h3>
-                          {/* 🚨 NEW: Added Company Email Here */}
+                          {/* 🚨 NEW: Accessibility Badge inside the List */}
+                          <h3 className="text-lg" style={{ margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            {company.name}
+                            {company.is_deaf_accessible && (
+                              <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                Deaf Accessible
+                              </span>
+                            )}
+                          </h3>
                           <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8 }}>
                             {company.email || 'Email not provided'}
                           </p>
@@ -347,17 +368,33 @@ export default function Companies({ role }) {
 
                     <div className="flex-col gap-8">
                       {role === 'admin' && !company.isPreApprovedOnly && (
-                        <div className="flex-row gap-8 mb-8">
-                          {currentStatus !== 'Active' && (
-                            <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Active')} style={{ borderColor: '#86efac', color: '#166534', background: '#ecfdf5' }}>Set Active</button>
-                          )}
-                          {currentStatus !== 'Inactive' && (
-                            <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Inactive')} style={{ borderColor: '#fde047', color: '#854d0e', background: '#fefce8' }}>Set Inactive</button>
-                          )}
-                          {currentStatus !== 'Archived' && (
-                            <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Archived')} style={{ borderColor: '#d1d5db', color: '#374151', background: '#f9fafb' }}>Archive</button>
-                          )}
-                        </div>
+                        <>
+                          <div className="flex-row gap-8 mb-8">
+                            {currentStatus !== 'Active' && (
+                              <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Active')} style={{ borderColor: '#86efac', color: '#166534', background: '#ecfdf5' }}>Set Active</button>
+                            )}
+                            {currentStatus !== 'Inactive' && (
+                              <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Inactive')} style={{ borderColor: '#fde047', color: '#854d0e', background: '#fefce8' }}>Set Inactive</button>
+                            )}
+                            {currentStatus !== 'Archived' && (
+                              <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Archived')} style={{ borderColor: '#d1d5db', color: '#374151', background: '#f9fafb' }}>Archive</button>
+                            )}
+                          </div>
+                          {/* 🚨 NEW: Accessibility Toggle Button */}
+                          <div className="flex-row gap-8 mb-8">
+                            <button 
+                              className="btn-outline flex-grow btn-sm" 
+                              onClick={(e) => handleToggleDeafAccessibility(e, company.id, company.is_deaf_accessible)} 
+                              style={{ 
+                                borderColor: company.is_deaf_accessible ? '#93c5fd' : '#d1d5db', 
+                                color: company.is_deaf_accessible ? '#1d4ed8' : '#4b5563', 
+                                background: company.is_deaf_accessible ? '#eff6ff' : '#f3f4f6' 
+                              }}
+                            >
+                              {company.is_deaf_accessible ? 'Revoke Deaf Access' : 'Set Deaf Accessible'}
+                            </button>
+                          </div>
+                        </>
                       )}
 
                       {!company.isPreApprovedOnly && (

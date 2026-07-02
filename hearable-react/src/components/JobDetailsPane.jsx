@@ -1,5 +1,5 @@
 import React from 'react';
-import SkillBadge from './SkillBadge'; // 🚨 NEW: Import the component
+import SkillBadge from './SkillBadge'; 
 
 export default function JobDetailsPane({
   selectedJob,
@@ -22,9 +22,6 @@ export default function JobDetailsPane({
   const isOwner = currentUser && selectedJob.company_id === currentUser.id;
   const isAdmin = role === 'admin';
   const editCount = selectedJob.edit_count || 0;
-
-  // 🚨 NEW: Only show company actions if they are on the "My Jobs" page 
-  // (We know they are on My Jobs because setIsEditingJob is passed as a prop)
   const showCompanyActions = role === 'company' && isOwner && setIsEditingJob;
 
   return (
@@ -32,7 +29,6 @@ export default function JobDetailsPane({
       
       <div style={{ flexShrink: 0, backgroundColor: 'var(--card-bg)', zIndex: 10, padding: '24px', borderBottom: '1px solid var(--border-color)' }}>
         
-        {/* 🚨 UPDATED: Using the new showCompanyActions logic */}
         {(isAdmin || showCompanyActions) && (
           <div className="flex-row gap-8 mb-16" style={{ justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
             
@@ -52,10 +48,7 @@ export default function JobDetailsPane({
                 onClick={() => setIsEditingJob(true)} 
                 className="btn-outline btn-sm"
                 disabled={editCount >= 3}
-                style={{ 
-                  opacity: editCount >= 3 ? 0.6 : 1, 
-                  cursor: editCount >= 3 ? 'not-allowed' : 'pointer' 
-                }}
+                style={{ opacity: editCount >= 3 ? 0.6 : 1, cursor: editCount >= 3 ? 'not-allowed' : 'pointer' }}
               >
                 {editCount >= 3 ? 'Edit Limit Reached' : `Edit (${editCount}/3)`}
               </button>
@@ -72,8 +65,7 @@ export default function JobDetailsPane({
             {selectedJob.matchScore > 0 && (
               <span style={{ 
                 background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a',
-                padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem', 
-                fontWeight: 'bold', whiteSpace: 'nowrap'
+                padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', whiteSpace: 'nowrap'
               }}>
                 {selectedJob.matchScore}% Match
               </span>
@@ -92,42 +84,32 @@ export default function JobDetailsPane({
           </h1>
           
           <div className="text-right" style={{ flexShrink: 0, marginTop: '8px' }}>
-            <span className="text-sm text-secondary block" style={{ fontWeight: '500' }}>
-              Posted: {selectedJob.date}
-            </span>
-            {isAdmin && editCount > 0 && (
-              <span className="text-sm text-secondary block" style={{ fontStyle: 'italic', marginTop: '4px' }}>
-                (Edited {editCount}/3)
-              </span>
-            )}
+            <span className="text-sm text-secondary block" style={{ fontWeight: '500' }}>Posted: {selectedJob.date}</span>
+            {isAdmin && editCount > 0 && <span className="text-sm text-secondary block" style={{ fontStyle: 'italic', marginTop: '4px' }}>(Edited {editCount}/3)</span>}
           </div>
         </div>
         
-        <div className="text-secondary mb-24" style={{ fontSize: '1.1rem', fontWeight: '500' }}>
-          {selectedJob.company}{selectedJob.location && ` • ${selectedJob.location}`}
+        {/* 🚨 NEW: Accessibility badge next to the company sub-heading */}
+        <div className="text-secondary mb-24 flex-row gap-12 align-center" style={{ fontSize: '1.1rem', fontWeight: '500', flexWrap: 'wrap' }}>
+          <span>{selectedJob.company}{selectedJob.location && ` • ${selectedJob.location}`}</span>
+          {selectedJob.is_deaf_accessible && (
+            <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+              ✓ Certified Deaf Accessible
+            </span>
+          )}
         </div>
         
         {(isAdmin || showCompanyActions) && selectedJob.applicantCount !== undefined ? (
           <div className="flex-col gap-8">
-            <button 
-              className="btn-black w-full" 
-              onClick={() => navigate('/applicants', { state: { filterJobId: selectedJob.id } })} 
-              disabled={selectedJob.applicantCount === 0} 
-              style={{ opacity: selectedJob.applicantCount === 0 ? 0.5 : 1, padding: '14px', fontSize: '1.05rem' }}
-            >
+            <button className="btn-black w-full" onClick={() => navigate('/applicants', { state: { filterJobId: selectedJob.id } })} disabled={selectedJob.applicantCount === 0} style={{ opacity: selectedJob.applicantCount === 0 ? 0.5 : 1, padding: '14px', fontSize: '1.05rem' }}>
               {selectedJob.applicantCount === 0 ? 'No Applicants Yet' : `Review ${selectedJob.applicantCount} Applicants`}
             </button>
           </div>
         ) : (role !== 'company' && role !== 'admin') ? (
           <div className="flex-col gap-8">
-            <button 
-              className={`btn-apply ${hasApplied ? 'success' : ''}`}
-              onClick={handleApply} 
-              disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}
-            >
+            <button className={`btn-apply ${hasApplied ? 'success' : ''}`} onClick={handleApply} disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}>
               {isApplying ? 'Sending Application...' : hasApplied ? 'Application Sent' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
             </button>
-
             <button className="btn-outline w-full" onClick={handleSaveJob} disabled={isSaving}>
               {isSaving ? 'Processing...' : isSaved ? 'Saved' : 'Save for Later'}
             </button>
@@ -151,12 +133,8 @@ export default function JobDetailsPane({
           <div>
             <div style={{ fontSize: '1.15rem', fontWeight: '700', marginBottom: '12px', color: 'var(--text-color)' }}>Job Type</div>
             <div className="flex-row-wrap gap-12">
-              <span className="badge" style={{ background: 'var(--card-bg)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '8px 16px', fontSize: '0.95rem', fontWeight: '600' }}>
-                {selectedJob.type}
-              </span>
-              <span className="badge" style={{ background: 'var(--card-bg)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '8px 16px', fontSize: '0.95rem', fontWeight: '600' }}>
-                {selectedJob.work_model || 'On-site'}
-              </span>
+              <span className="badge" style={{ background: 'var(--card-bg)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '8px 16px', fontSize: '0.95rem', fontWeight: '600' }}>{selectedJob.type}</span>
+              <span className="badge" style={{ background: 'var(--card-bg)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '24px', padding: '8px 16px', fontSize: '0.95rem', fontWeight: '600' }}>{selectedJob.work_model || 'On-site'}</span>
             </div>
           </div>
         </div>
@@ -183,7 +161,6 @@ export default function JobDetailsPane({
           <div className="mt-24">
             <h3 className="mb-12" style={{ fontSize: '1.4rem' }}>Required Skills</h3>
             <div className="flex-row-wrap gap-8">
-              {/* 🚨 UPDATED: Utilizing the new SkillBadge component */}
               {selectedJob.skills.map((skill, index) => (
                 <SkillBadge key={skill.id || index} skill={skill} />
               ))}
@@ -204,7 +181,15 @@ export default function JobDetailsPane({
                   )}
                 </div>
                 <div>
-                  <h3 className="m-0 mb-8" style={{ fontSize: '1.25rem' }}>About {selectedCompany.name}</h3>
+                  {/* 🚨 NEW: Accessibility badge applied to the About section */}
+                  <h3 className="m-0 mb-8" style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    About {selectedCompany.name}
+                    {selectedCompany.is_deaf_accessible && (
+                      <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+                        Deaf Accessible
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-sm text-secondary m-0">{selectedCompany.address || selectedCompany.city || "Location not specified"}</p>
                 </div>
               </div>

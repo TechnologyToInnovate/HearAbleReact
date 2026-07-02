@@ -3,13 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import EditCompanyModal from '../components/EditCompanyModal';
 import JobCard from '../components/JobCard';
-import { useAuth } from '../context/AuthContext'; // 🚨 Global Auth
+import { useAuth } from '../context/AuthContext'; 
 
 export default function CompanyProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // 🚨 Replaced manual checkCurrentUser with instant context user
   const { user: currentUser } = useAuth(); 
   
   const [company, setCompany] = useState(null);
@@ -75,7 +74,6 @@ export default function CompanyProfile() {
           <div className="flex-between-start" style={{ marginTop: '-40px' }}>
             
             <div className="flex-row gap-24 align-center">
-              {/* Restored exact original layout for the avatar to prevent clipping issues */}
               <div className="avatar-lg" style={{ width: '100px', height: '100px', border: '4px solid var(--card-bg)', borderRadius: '16px', background: 'var(--bg-color)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {company.logo_url ? (
                   <img src={company.logo_url} alt={`${company.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -85,7 +83,16 @@ export default function CompanyProfile() {
               </div>
 
               <div style={{ marginTop: '40px' }}>
-                <h1 style={{ margin: '0 0 8px 0', fontSize: '2rem' }}>{company.name}</h1>
+                {/* 🚨 NEW: Added Certified Deaf Accessible Badge */}
+                <h1 style={{ margin: '0 0 8px 0', fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  {company.name}
+                  {company.is_deaf_accessible && (
+                    <span style={{ fontSize: '1rem', background: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe', padding: '4px 12px', borderRadius: '20px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      ✓ Certified Deaf Accessible
+                    </span>
+                  )}
+                </h1>
+                
                 <div className="flex-row-wrap gap-16 text-secondary text-sm">
                   {(locationText || company.address) && <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📍 {locationText || company.address}</span>}
                   {company.website && (
@@ -146,7 +153,6 @@ export default function CompanyProfile() {
           <div className="card p-24">
             <h3 className="mb-16 m-0">Company Details</h3>
             <div className="flex-col gap-16">
-              {/* Restored proper block styling so titles and data don't collapse together */}
               <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Industry</span>
                 <strong style={{ fontSize: '1rem' }}>{company.industry || 'Not specified'}</strong>
@@ -167,7 +173,6 @@ export default function CompanyProfile() {
             <div className="card p-24" style={{ marginTop: '24px' }}>
               <h3 className="mb-16 m-0">Representative</h3>
               <div className="flex-row gap-16 align-center">
-                {/* Restored the specific 56px sizing for this card */}
                 <div className="avatar" style={{ width: '56px', height: '56px', border: '1px solid var(--border-color)', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {company.contact_person_pic ? (
                     <img src={company.contact_person_pic} alt={company.contact_person_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

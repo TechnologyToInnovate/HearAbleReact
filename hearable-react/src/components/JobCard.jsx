@@ -25,12 +25,17 @@ export default function JobCard({ job, isSelected, onClick }) {
         )}
       </div>
       
-      <div className="text-secondary mb-12" style={{ fontSize: '0.95rem', fontWeight: '500' }}>
-        {job.company}
+      {/* 🚨 NEW: Added the accessibility badge next to the company name */}
+      <div className="text-secondary mb-12 flex-row gap-8 align-center" style={{ fontSize: '0.95rem', fontWeight: '500' }}>
+        <span>{job.company}</span>
+        {job.is_deaf_accessible && (
+          <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+            ✓ Deaf Accessible
+          </span>
+        )}
       </div>
       
       <div className="flex-row-wrap gap-8 align-center">
-        {/* 🚨 Pay is now inside a clean pill-shaped badge without the emoji */}
         {job.pay && (
           <span className="badge" style={{ 
             background: 'var(--bg-color)', 

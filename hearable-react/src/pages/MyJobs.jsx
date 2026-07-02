@@ -61,6 +61,7 @@ export default function MyJobs() {
           ...job,
           skills: formattedSkills,
           company: companyData.name,
+          is_deaf_accessible: companyData.is_deaf_accessible || false, // 🚨 NEW: Mapping added here
           applicantCount: applicantCount,
           date: new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         };
@@ -113,7 +114,6 @@ export default function MyJobs() {
     
     const currentEditCount = selectedJob.edit_count || 0;
     
-    // 🚨 FIX: Changed validation limit from >= 1 to >= 3
     if (currentEditCount >= 3) {
       alert("This job post has already reached its edit limit.");
       setIsSubmitting(false);
