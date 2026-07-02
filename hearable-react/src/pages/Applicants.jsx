@@ -4,7 +4,6 @@ import { supabase } from '../supabaseClient';
 import StatusBadge from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 
-// 🚨 FIX: Removed 'role' from props, we now pull it securely from context!
 export default function Applicants() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,13 +44,16 @@ export default function Applicants() {
         const profile = profilesData.find(p => p.id === app.applicant_id) || {};
         const company = companiesData.find(c => c.id === job.company_id) || {};
         
+        // 🚨 UPDATED: Combine first and last name here
+        const applicantFullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Unknown Candidate';
+
         return {
           ...app,
           job_title: job.title || 'Unknown Job',
           company_id: job.company_id,
           company_name: company.name || 'Unknown Company',
           company_logo: company.logo_url || '',
-          applicant_name: profile.name || 'Unknown Candidate',
+          applicant_name: applicantFullName,
           applicant_pic: profile.profile_pic || ''
         };
       });

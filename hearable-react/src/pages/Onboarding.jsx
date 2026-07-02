@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { useAuth } from '../context/AuthContext'; 
+import { useAuth } from '../context/AuthContext';
+import SkillBadge from '../components/SkillBadge'; // 🚨 IMPORT ADDED
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -10,7 +11,6 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
@@ -25,13 +25,12 @@ export default function Onboarding() {
   const [batchOptions, setBatchOptions] = useState([]);
   const [databaseSkills, setDatabaseSkills] = useState([]); 
 
-  // SKILLS STATE
   const [selectedSkills, setSelectedSkills] = useState([]); 
   const [showSkillModal, setShowSkillModal] = useState(false);
   const [skillInput, setSkillInput] = useState(''); 
 
   useEffect(() => {
-    if (role !== 'needs_onboarding' && role !== 'guest') {
+    if (role !== 'needs_onboarding') {
       navigate('/');
     }
   }, [role, navigate]);
@@ -71,19 +70,30 @@ export default function Onboarding() {
     if (!user) return;
     setIsSubmitting(true);
     
-    const { error: profileError } = await supabase
+    const payload = {
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      contact_number: contactNumber.trim() || null,
+      country: country.trim() || null,
+      city: city.trim() || null,
+      postal_code: postalCode.trim() || null,
+      batch_id: batch || null,
+      degree_id: degree || null 
+    };
+
+    let { data: updatedProfile, error: profileError } = await supabase
       .from('profiles')
-      .update({ 
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        contact_number: contactNumber.trim(),
-        country: country.trim(),
-        city: city.trim(),
-        postal_code: postalCode.trim(),
-        batch_id: batch,
-        degree_id: degree 
-      })
-      .eq('id', user.id); 
+      .update(payload)
+      .eq('id', user.id)
+      .select();
+
+    if (!profileError && (!updatedProfile || updatedProfile.length === 0)) {
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert([{ ...payload, id: user.id, status: 'Pending' }]);
+        
+      if (insertError) profileError = insertError;
+    }
 
     if (profileError) { 
       alert("Error saving profile. Please try again."); 
@@ -97,7 +107,6 @@ export default function Onboarding() {
         profile_id: user.id,
         skill_id: skill.id
       }));
-      
       await supabase.from('profile_skills').insert(profileSkillsData);
     }
 
@@ -215,10 +224,12 @@ export default function Onboarding() {
 
               <div className="flex-row-wrap gap-8 mt-8">
                 {selectedSkills.map(skill => (
-                  <span key={skill.id} className="badge badge-primary" style={{ padding: '8px 16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {skill.name} 
-                    <button onClick={() => removeSkill(skill.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem', padding: 0 }}>✕</button>
-                  </span>
+                  // 🚨 INTEGRATION: Using SkillBadge here
+                  <SkillBadge 
+                    key={skill.id} 
+                    skill={skill} 
+                    onRemove={() => removeSkill(skill.id)} 
+                  />
                 ))}
                 {selectedSkills.length === 0 && (
                   <span className="text-secondary text-sm italic">No skills added yet. Click "+ Add Skill" to select from the list.</span>

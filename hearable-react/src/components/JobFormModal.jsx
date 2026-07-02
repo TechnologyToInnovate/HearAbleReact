@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import SkillBadge from './SkillBadge';
 
 export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, isEditing, isSubmitting }) {
   const { user } = useAuth();
@@ -8,16 +9,17 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   
-  // --- JOB DETAILS STATE ---
   const [location, setLocation] = useState('');
   const [workModel, setWorkModel] = useState('On-site');
   const [type, setType] = useState('Full-time');
   const [pay, setPay] = useState(''); 
   const [payRate, setPayRate] = useState('per year'); 
 
-  // --- SKILLS STATE ---
   const [databaseSkills, setDatabaseSkills] = useState([]);
-  const [selectedSkills, setSelectedSkills] = useState([]); // Array of { id, name }
+  const [selectedSkills, setSelectedSkills] = useState([]); 
+  
+  // 🚨 NEW: Added modal state to match the other forms
+  const [showSkillModal, setShowSkillModal] = useState(false);
   const [skillInput, setSkillInput] = useState('');
 
   useEffect(() => {
@@ -38,7 +40,6 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
         setPayRate(initialData.pay_rate || 'per year');
         setDescription(initialData.description || '');
         
-        // Load existing skills (now passed as an array of objects from MyJobs.jsx)
         setSelectedSkills(initialData.skills || []);
       } else {
         setTitle('');
@@ -61,15 +62,18 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
     else setLocation('');
   }
 
-  const handleAddSkill = (e) => {
-    const selectedId = e.target.value;
-    if (!selectedId) return;
+  // 🚨 NEW: Updated to act as a save button for the popup modal
+  const saveSkill = () => {
+    if (!skillInput) return;
 
-    const skillObj = databaseSkills.find(s => s.id === selectedId);
+    const skillObj = databaseSkills.find(s => s.id === skillInput);
+    
     if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) {
       setSelectedSkills([...selectedSkills, skillObj]);
     }
+    
     setSkillInput('');
+    setShowSkillModal(false);
   };
 
   const handleRemoveSkill = (idToRemove) => {
@@ -86,7 +90,7 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
       pay, 
       pay_rate: payRate, 
       description,
-      skills: selectedSkills // Passing the array of objects back to MyJobs.jsx
+      skills: selectedSkills 
     });
   };
 
@@ -98,11 +102,34 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+      
+      {/* 🚨 THE NEW SKILL POPUP MODAL */}
+      {showSkillModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '20px' }}>
+          <div className="card p-24 flex-col gap-16" style={{ width: '100%', maxWidth: '500px', background: 'var(--bg-color)', overflow: 'visible' }}>
+            <div className="flex-between mb-8">
+              <h3 style={{ margin: 0 }}>Add Required Skill</h3>
+              <button type="button" onClick={() => setShowSkillModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
+            </div>
+            
+            <label style={{ display: 'block', fontWeight: '500' }}>Select a skill to add</label>
+            <select className="search-input w-full" value={skillInput} onChange={e => setSkillInput(e.target.value)}>
+              <option value="" disabled>-- Choose a skill --</option>
+              {availableSkills.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            
+            <button type="button" className="btn-black w-full mt-8" onClick={saveSkill} disabled={!skillInput}>Add Skill</button>
+          </div>
+        </div>
+      )}
+
       <div className="card p-0" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
         
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0 }}>{isEditing ? 'Edit Job Posting' : 'Post a New Job'}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
         </div>
         
         <div style={{ padding: '24px', overflowY: 'auto' }}>
@@ -169,26 +196,27 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
             </div>
 
             <div style={{ background: 'var(--bg-color)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Required Skills</label>
-              <p className="text-sm text-secondary mb-12" style={{ marginTop: 0 }}>Select skills to help our matching algorithm find the best candidates.</p>
               
-              <select className="search-input w-full mb-16" value={skillInput} onChange={handleAddSkill}>
-                <option value="" disabled>-- Choose a skill to add --</option>
-                {availableSkills.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+              {/* 🚨 CHANGED: Replaced inline select with consistent Add button layout */}
+              <div className="flex-between align-center mb-16">
+                <div>
+                  <label style={{ display: 'block', fontWeight: '600' }}>Required Skills</label>
+                  <p className="text-sm text-secondary m-0 mt-4">Select skills to help our matching algorithm find candidates.</p>
+                </div>
+                <button type="button" className="btn-outline btn-sm" onClick={() => setShowSkillModal(true)}>+ Add Skill</button>
+              </div>
               
               <div className="flex-row-wrap gap-8">
                 {selectedSkills.length > 0 ? (
                   selectedSkills.map((skill) => (
-                    <span key={skill.id} className="badge" style={{ background: '#e0e7ff', color: '#3730a3', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {skill.name}
-                      <button type="button" onClick={() => handleRemoveSkill(skill.id)} style={{ background: 'none', border: 'none', color: '#312e81', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: 1 }}>×</button>
-                    </span>
+                    <SkillBadge 
+                      key={skill.id} 
+                      skill={skill} 
+                      onRemove={() => handleRemoveSkill(skill.id)} 
+                    />
                   ))
                 ) : (
-                  <span className="text-sm text-secondary italic">No skills added yet.</span>
+                  <span className="text-sm text-secondary italic">No skills added yet. Click "+ Add Skill" to select from the list.</span>
                 )}
               </div>
             </div>

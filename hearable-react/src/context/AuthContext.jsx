@@ -59,7 +59,6 @@ export const AuthProvider = ({ children }) => {
       // User Check
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
       
-      // 🚨 FIX: Changed validation to look for first_name instead of name
       if (!profileData || !profileData.first_name || !profileData.degree_id) {
         setRole('needs_onboarding');
       } else if (profileData.status === 'Pending') {
@@ -78,6 +77,9 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signOut = async () => {
+    // 🚨 FIX: Immediately wipe local state to prevent race conditions during redirect
+    setUser(null);
+    setRole('guest');
     await supabase.auth.signOut();
   };
 

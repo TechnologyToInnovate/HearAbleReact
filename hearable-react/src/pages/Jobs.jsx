@@ -48,7 +48,12 @@ export default function Jobs() {
   async function fetchJobs() {
     setIsLoading(true);
     
-    const { data: jobsData } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+    // 🚨 UPDATED: Added job_skills relation to the query
+    const { data: jobsData } = await supabase
+      .from('jobs')
+      .select('*, job_skills(skills(id, name))')
+      .order('created_at', { ascending: false });
+      
     const { data: companiesData } = await supabase.from('companies').select('*');
     const { data: appsData } = await supabase.from('applications').select('job_id');
 
@@ -57,8 +62,15 @@ export default function Jobs() {
         const company = companiesData?.find(c => c.id === job.company_id);
         const applicantCount = appsData ? appsData.filter(app => app.job_id === job.id).length : 0;
         
+        // 🚨 UPDATED: Map the skills correctly
+        const mappedSkills = job.job_skills ? job.job_skills.map(js => ({
+          id: js.skills.id,
+          name: js.skills.name
+        })) : [];
+        
         return {
           ...job,
+          skills: mappedSkills,
           company: company ? company.name : 'Unknown Company',
           applicantCount: applicantCount,
           date: new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

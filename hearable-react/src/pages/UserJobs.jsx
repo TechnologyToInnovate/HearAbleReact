@@ -25,9 +25,10 @@ export default function UserJobs() {
   async function fetchUserJobs() {
     setIsLoading(true);
 
+    // 🚨 UPDATED: Fetch job_skills relational data
     const { data: appsData } = await supabase
       .from('applications')
-      .select('*, jobs(*, companies(name, logo_url))')
+      .select('*, jobs(*, companies(name, logo_url), job_skills(skills(id, name)))')
       .eq('applicant_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -36,6 +37,7 @@ export default function UserJobs() {
         ...app,
         job: {
           ...app.jobs,
+          skills: app.jobs.job_skills ? app.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
           company: app.jobs.companies?.name || 'Unknown Company',
           date: new Date(app.jobs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         }
@@ -43,9 +45,10 @@ export default function UserJobs() {
       setApplications(mappedApps);
     }
 
+    // 🚨 UPDATED: Fetch job_skills relational data
     const { data: savedData } = await supabase
       .from('saved_jobs')
-      .select('*, jobs(*, companies(name, logo_url))')
+      .select('*, jobs(*, companies(name, logo_url), job_skills(skills(id, name)))')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -54,6 +57,7 @@ export default function UserJobs() {
         ...saved,
         job: {
           ...saved.jobs,
+          skills: saved.jobs.job_skills ? saved.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
           company: saved.jobs.companies?.name || 'Unknown Company',
           date: new Date(saved.jobs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         }
@@ -69,13 +73,12 @@ export default function UserJobs() {
     displayList = savedJobs;
   } else if (activeTab === 'Applied') {
     displayList = applications;
-  } else if (activeTab === 'Interviews') { // 🚨 Renamed
+  } else if (activeTab === 'Interviews') { 
     displayList = applications.filter(app => app.status === 'Interviewing' || app.status === 'Approved');
   } else if (activeTab === 'Archived') {
     displayList = applications.filter(app => app.status === 'Rejected' || app.status === 'Archived');
   }
 
-  // 🚨 Renamed in the tabs array
   const tabs = ['Saved', 'Applied', 'Interviews', 'Archived'];
 
   return (
@@ -92,7 +95,6 @@ export default function UserJobs() {
           let count = 0;
           if (tab === 'Saved') count = savedJobs.length;
           if (tab === 'Applied') count = applications.length;
-          // 🚨 Renamed check here
           if (tab === 'Interviews') count = applications.filter(a => a.status === 'Interviewing' || a.status === 'Approved').length;
           if (tab === 'Archived') count = applications.filter(a => a.status === 'Rejected' || a.status === 'Archived').length;
 

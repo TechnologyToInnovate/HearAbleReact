@@ -40,7 +40,6 @@ export default function MyJobs() {
     
     const { data: companyData } = await supabase.from('companies').select('*').eq('id', currentUser.id).single();
     
-    // 🚨 UPDATE: Fetch relational job_skills alongside the core jobs
     const { data: jobsData } = await supabase
       .from('jobs')
       .select('*, job_skills(skills(id, name))')
@@ -53,7 +52,6 @@ export default function MyJobs() {
       const mappedJobs = jobsData.map(job => {
         const applicantCount = appsData ? appsData.filter(app => app.job_id === job.id).length : 0;
         
-        // Map the junction table data into a clean array of skill objects
         const formattedSkills = job.job_skills ? job.job_skills.map(js => ({
           id: js.skills.id,
           name: js.skills.name
@@ -82,10 +80,8 @@ export default function MyJobs() {
 
     setIsSubmitting(true);
     
-    // 1. Separate the skills array from the core job details
     const { skills, ...jobDetails } = formData;
     
-    // 2. Insert the core job and use `.select().single()` to immediately get the newly generated job ID
     const { data: newJob, error: jobError } = await supabase.from('jobs').insert([{ 
       ...jobDetails, 
       company_id: currentUser.id, 
@@ -98,7 +94,6 @@ export default function MyJobs() {
       return;
     }
 
-    // 3. Map the selected skill IDs into the junction table for this specific new job
     if (skills && skills.length > 0) {
       const jobSkillsData = skills.map(skill => ({
         job_id: newJob.id,
@@ -117,7 +112,9 @@ export default function MyJobs() {
     setIsSubmitting(true);
     
     const currentEditCount = selectedJob.edit_count || 0;
-    if (currentEditCount >= 1) {
+    
+    // 🚨 FIX: Changed validation limit from >= 1 to >= 3
+    if (currentEditCount >= 3) {
       alert("This job post has already reached its edit limit.");
       setIsSubmitting(false);
       return;
@@ -125,7 +122,6 @@ export default function MyJobs() {
 
     const { skills, ...jobDetails } = formData;
 
-    // 1. Update the core job details
     const { error: jobError } = await supabase.from('jobs').update({
       ...jobDetails,
       edit_count: currentEditCount + 1
@@ -137,7 +133,6 @@ export default function MyJobs() {
       return;
     }
 
-    // 2. Clear out old skills and insert the new ones
     await supabase.from('job_skills').delete().eq('job_id', selectedJob.id);
     
     if (skills && skills.length > 0) {
@@ -156,8 +151,6 @@ export default function MyJobs() {
   async function handleDeleteJob() {
     if (!window.confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) return;
     
-    // Because we added 'ON DELETE CASCADE' in SQL earlier, deleting the job 
-    // will automatically wipe its job_skills and applications!
     const { error } = await supabase.from('jobs').delete().eq('id', selectedJob.id);
     
     if (!error) { 

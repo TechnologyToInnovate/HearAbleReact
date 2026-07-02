@@ -13,7 +13,6 @@ export default function Login({ setRole }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
-  // 🚨 NEW: Added success state for the password reset functionality
   const [successMsg, setSuccessMsg] = useState('');
 
   // Clear errors when toggling between Sign In and Sign Up
@@ -47,7 +46,6 @@ export default function Login({ setRole }) {
           setRole('admin');
           navigate('/');
         } else if (preApprovedData) {
-          // 🚨 FIX: Now inserts ALL new fields during company creation
           await supabase.from('companies').insert([{
             id: data.user.id,
             name: preApprovedData.name,
@@ -74,7 +72,6 @@ export default function Login({ setRole }) {
     }
   }
 
-  // 🚨 NEW: Handles the Forgot Password flow
   async function handleForgotPassword() {
     if (!email) {
       setErrorMsg('Please enter your email address in the field above first.');
@@ -115,7 +112,9 @@ export default function Login({ setRole }) {
       }
 
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-      if (!profileData || !profileData.name || profileData.name === 'New User' || !profileData.degree_id) {
+      
+      // 🚨 FIX: Now checking for first_name instead of name
+      if (!profileData || !profileData.first_name || !profileData.degree_id) {
         setRole('needs_onboarding');
         navigate('/onboarding');
       } else if (profileData.status === 'Pending') {
@@ -167,7 +166,6 @@ export default function Login({ setRole }) {
             </div>
           )}
 
-          {/* 🚨 NEW: Success message for the password reset */}
           {successMsg && (
             <div style={{ background: '#f0fdf4', color: '#166534', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px', border: '1px solid #bbf7d0' }}>
               {successMsg}
@@ -190,7 +188,6 @@ export default function Login({ setRole }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <label style={{ margin: 0, fontSize: '0.9rem', fontWeight: '500' }}>Password</label>
                 
-                {/* 🚨 THE NEW FORGOT PASSWORD BUTTON */}
                 {isLogin && (
                   <button 
                     type="button" 

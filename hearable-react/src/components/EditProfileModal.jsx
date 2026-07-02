@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import SkillBadge from './SkillBadge'; // 🚨 IMPORT ADDED
 
 export default function EditProfileModal({ isOpen, onClose, userId, onSuccess }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Form State
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [headline, setHeadline] = useState(''); 
@@ -19,12 +19,10 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   
-  // DROPDOWN OPTIONS STATE
   const [degreeOptions, setDegreeOptions] = useState([]);
   const [batchOptions, setBatchOptions] = useState([]);
   const [databaseSkills, setDatabaseSkills] = useState([]); 
 
-  // SKILLS STATE
   const [selectedSkills, setSelectedSkills] = useState([]); 
   const [showSkillModal, setShowSkillModal] = useState(false);
   const [skillInput, setSkillInput] = useState(''); 
@@ -250,10 +248,12 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
                 {selectedSkills.length === 0 ? <p className="text-secondary text-sm m-0">No skills added.</p> : (
                   <div className="flex-row-wrap gap-8">
                     {selectedSkills.map(skill => (
-                      <span key={skill.id} className="badge badge-primary" style={{ padding: '8px 16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {skill.name} 
-                        <button type="button" onClick={() => removeSkill(skill.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem', padding: 0 }}>✕</button>
-                      </span>
+                      // 🚨 INTEGRATION: Using SkillBadge here
+                      <SkillBadge 
+                        key={skill.id} 
+                        skill={skill} 
+                        onRemove={() => removeSkill(skill.id)} 
+                      />
                     ))}
                   </div>
                 )}

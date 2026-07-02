@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import EditProfileModal from '../components/EditProfileModal';
 import { useAuth } from '../context/AuthContext';
+import SkillBadge from '../components/SkillBadge'; // 🚨 IMPORT ADDED
 
 export default function UserProfile() {
   const { id } = useParams();
@@ -61,7 +62,6 @@ export default function UserProfile() {
   const isOwnProfile = currentUser?.id === user.id;
   const locationText = [user.city, user.country].filter(Boolean).join(', ');
   
-  // 🚨 NEW: Combine first and last name for display
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Incomplete Profile';
   const avatarInitial = user.first_name ? user.first_name.charAt(0).toUpperCase() : 'U';
 
@@ -113,9 +113,8 @@ export default function UserProfile() {
             {user.skills && user.skills.length > 0 ? (
               <div className="flex-row-wrap gap-12">
                 {user.skills.map((skill, index) => (
-                  <span key={index} className="badge badge-primary" style={{ padding: '8px 16px', fontSize: '0.95rem' }}>
-                    {skill}
-                  </span>
+                  // 🚨 INTEGRATION: Using SkillBadge instead of a hardcoded span
+                  <SkillBadge key={index} skill={skill} />
                 ))}
               </div>
             ) : (

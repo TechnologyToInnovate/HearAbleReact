@@ -1,4 +1,5 @@
 import React from 'react';
+import SkillBadge from './SkillBadge'; // 🚨 NEW: Import the component
 
 export default function JobDetailsPane({
   selectedJob,
@@ -22,12 +23,17 @@ export default function JobDetailsPane({
   const isAdmin = role === 'admin';
   const editCount = selectedJob.edit_count || 0;
 
+  // 🚨 NEW: Only show company actions if they are on the "My Jobs" page 
+  // (We know they are on My Jobs because setIsEditingJob is passed as a prop)
+  const showCompanyActions = role === 'company' && isOwner && setIsEditingJob;
+
   return (
     <div className="card" style={{ padding: 0, position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       
       <div style={{ flexShrink: 0, backgroundColor: 'var(--card-bg)', zIndex: 10, padding: '24px', borderBottom: '1px solid var(--border-color)' }}>
         
-        {(isAdmin || (role === 'company' && isOwner)) && (
+        {/* 🚨 UPDATED: Using the new showCompanyActions logic */}
+        {(isAdmin || showCompanyActions) && (
           <div className="flex-row gap-8 mb-16" style={{ justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
             
             {isAdmin && selectedJob.status === 'Pending' && handleUpdateJobStatus && (
@@ -41,12 +47,18 @@ export default function JobDetailsPane({
               </>
             )}
 
-            {role === 'company' && isOwner && editCount < 1 && (
-              <button onClick={() => setIsEditingJob(true)} className="btn-outline btn-sm">Edit</button>
-            )}
-
-            {role === 'company' && isOwner && editCount >= 1 && (
-              <span className="text-secondary text-sm mr-8" style={{ fontStyle: 'italic' }}>Edit limit reached</span>
+            {showCompanyActions && (
+              <button 
+                onClick={() => setIsEditingJob(true)} 
+                className="btn-outline btn-sm"
+                disabled={editCount >= 3}
+                style={{ 
+                  opacity: editCount >= 3 ? 0.6 : 1, 
+                  cursor: editCount >= 3 ? 'not-allowed' : 'pointer' 
+                }}
+              >
+                {editCount >= 3 ? 'Edit Limit Reached' : `Edit (${editCount}/3)`}
+              </button>
             )}
 
             <button onClick={handleDeleteJob} className="btn-danger btn-sm">Delete</button>
@@ -67,7 +79,7 @@ export default function JobDetailsPane({
               </span>
             )}
 
-            {(isAdmin || (role === 'company' && isOwner)) && (
+            {(isAdmin || showCompanyActions) && (
               <span style={{
                 padding: '4px 10px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', whiteSpace: 'nowrap',
                 backgroundColor: selectedJob.status === 'Approved' ? '#dcfce7' : selectedJob.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
@@ -83,9 +95,9 @@ export default function JobDetailsPane({
             <span className="text-sm text-secondary block" style={{ fontWeight: '500' }}>
               Posted: {selectedJob.date}
             </span>
-            {editCount > 0 && (
+            {isAdmin && editCount > 0 && (
               <span className="text-sm text-secondary block" style={{ fontStyle: 'italic', marginTop: '4px' }}>
-                (Edited)
+                (Edited {editCount}/3)
               </span>
             )}
           </div>
@@ -95,7 +107,7 @@ export default function JobDetailsPane({
           {selectedJob.company}{selectedJob.location && ` • ${selectedJob.location}`}
         </div>
         
-        {(isAdmin || (role === 'company' && isOwner)) && selectedJob.applicantCount !== undefined ? (
+        {(isAdmin || showCompanyActions) && selectedJob.applicantCount !== undefined ? (
           <div className="flex-col gap-8">
             <button 
               className="btn-black w-full" 
@@ -171,16 +183,15 @@ export default function JobDetailsPane({
           <div className="mt-24">
             <h3 className="mb-12" style={{ fontSize: '1.4rem' }}>Required Skills</h3>
             <div className="flex-row-wrap gap-8">
+              {/* 🚨 UPDATED: Utilizing the new SkillBadge component */}
               {selectedJob.skills.map((skill, index) => (
-                <span key={index} className="badge" style={{ background: 'var(--bg-color)', border: '1px solid var(--border-color)', color: 'var(--text-color)', padding: '6px 12px', fontSize: '0.9rem' }}>
-                  {skill}
-                </span>
+                <SkillBadge key={skill.id || index} skill={skill} />
               ))}
             </div>
           </div>
         )}
 
-        {selectedCompany && !(role === 'company' && isOwner) && (
+        {selectedCompany && !showCompanyActions && (
           <>
             <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '32px 0' }} />
             <div className="sub-card">
