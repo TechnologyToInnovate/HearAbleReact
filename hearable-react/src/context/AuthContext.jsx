@@ -58,7 +58,9 @@ export const AuthProvider = ({ children }) => {
 
       // User Check
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle();
-      if (!profileData || !profileData.name || profileData.name === 'New User' || !profileData.degree_id) {
+      
+      // 🚨 FIX: Changed validation to look for first_name instead of name
+      if (!profileData || !profileData.first_name || !profileData.degree_id) {
         setRole('needs_onboarding');
       } else if (profileData.status === 'Pending') {
         setRole('pending_user');

@@ -26,13 +26,20 @@ export default function UserProfile() {
       .select(`
         *,
         degrees ( name, abbreviation ),
-        batches ( batch_number )
+        batches ( batch_number ),
+        profile_skills (
+          skills ( name )
+        )
       `)
       .eq('id', id)
       .maybeSingle();
     
     if (data) {
-      setUser(data);
+      const formattedUser = {
+        ...data,
+        skills: data.profile_skills ? data.profile_skills.map(ps => ps.skills.name) : []
+      };
+      setUser(formattedUser);
     }
     setIsLoading(false);
   }
@@ -53,6 +60,10 @@ export default function UserProfile() {
 
   const isOwnProfile = currentUser?.id === user.id;
   const locationText = [user.city, user.country].filter(Boolean).join(', ');
+  
+  // 🚨 NEW: Combine first and last name for display
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Incomplete Profile';
+  const avatarInitial = user.first_name ? user.first_name.charAt(0).toUpperCase() : 'U';
 
   return (
     <div className="page-container-wide">
@@ -64,22 +75,19 @@ export default function UserProfile() {
         onSuccess={fetchUser} 
       />
 
-      {/* --- 1. HERO SECTION (Mirrors Company Profile) --- */}
       <div className="card p-0 mb-32" style={{ overflow: 'hidden' }}>
-        {/* Banner Background */}
         <div style={{ height: '120px', backgroundColor: 'var(--primary-color)', opacity: 0.9 }}></div>
         
         <div style={{ padding: '0 32px 32px 32px', position: 'relative' }}>
           <div className="flex-between-start" style={{ marginTop: '-40px' }}>
             
             <div className="flex-row gap-24 align-center">
-              {/* Overlapping Avatar - 50% border radius for users instead of 16px for companies */}
               <div className="avatar-lg" style={{ width: '100px', height: '100px', border: '4px solid var(--card-bg)', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3.5rem', flexShrink: 0 }}>
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                {avatarInitial}
               </div>
 
               <div style={{ marginTop: '40px' }}>
-                <h1 style={{ margin: '0 0 8px 0', fontSize: '2rem' }}>{user.name}</h1>
+                <h1 style={{ margin: '0 0 8px 0', fontSize: '2rem' }}>{fullName}</h1>
                 <p className="text-lg text-primary m-0" style={{ fontWeight: '600' }}>
                   {user.headline || 'Talent Profile'}
                 </p>
@@ -98,10 +106,7 @@ export default function UserProfile() {
         </div>
       </div>
 
-      {/* --- 2. PROFILE BODY (2-Column Dashboard Layout) --- */}
       <div className="dashboard-layout">
-        
-        {/* LEFT MAIN COLUMN */}
         <div className="flex-col gap-32">
           <div className="card p-24">
             <h3 className="mb-16 m-0">Skills & Expertise</h3>
@@ -119,15 +124,11 @@ export default function UserProfile() {
               </p>
             )}
           </div>
-          
-          {/* Space reserved for future additions (e.g., Portfolio, Experience) */}
         </div>
 
-        {/* RIGHT SIDEBAR COLUMN (Sticky) */}
         <div style={{ position: 'sticky', top: '90px' }}>
           <div className="card p-24">
             <h3 className="mb-16 m-0">Details</h3>
-            
             <div className="flex-col gap-16">
               
               <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
@@ -159,7 +160,6 @@ export default function UserProfile() {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

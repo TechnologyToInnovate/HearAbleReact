@@ -7,36 +7,47 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [skills, setSkills] = useState([]);
-  const [currentSkill, setCurrentSkill] = useState('');
   
   // --- JOB DETAILS STATE ---
   const [location, setLocation] = useState('');
   const [workModel, setWorkModel] = useState('On-site');
   const [type, setType] = useState('Full-time');
   const [pay, setPay] = useState(''); 
-  const [payRate, setPayRate] = useState('per year'); // 🚨 NEW: Pay Rate Dropdown State
+  const [payRate, setPayRate] = useState('per year'); 
+
+  // --- SKILLS STATE ---
+  const [databaseSkills, setDatabaseSkills] = useState([]);
+  const [selectedSkills, setSelectedSkills] = useState([]); // Array of { id, name }
+  const [skillInput, setSkillInput] = useState('');
 
   useEffect(() => {
+    async function fetchDatabaseSkills() {
+      const { data } = await supabase.from('skills').select('*').order('name');
+      if (data) setDatabaseSkills(data);
+    }
+    
     if (isOpen) {
+      fetchDatabaseSkills();
+      
       if (isEditing && initialData) {
         setTitle(initialData.title || '');
         setLocation(initialData.location || '');
         setWorkModel(initialData.work_model || 'On-site');
         setType(initialData.type || 'Full-time');
         setPay(initialData.pay || ''); 
-        setPayRate(initialData.pay_rate || 'per year'); // 🚨 Load existing rate
+        setPayRate(initialData.pay_rate || 'per year');
         setDescription(initialData.description || '');
-        setSkills(initialData.skills || []);
+        
+        // Load existing skills (now passed as an array of objects from MyJobs.jsx)
+        setSelectedSkills(initialData.skills || []);
       } else {
-        // Reset form for a new job
         setTitle('');
         setWorkModel('On-site');
         setType('Full-time');
         setPay('');
         setPayRate('per year');
         setDescription('');
-        setSkills([]);
+        setSelectedSkills([]);
         
         fetchCompanyCity();
       }
@@ -51,16 +62,18 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
   }
 
   const handleAddSkill = (e) => {
-    e.preventDefault();
-    const skillTrimmed = currentSkill.trim();
-    if (skillTrimmed && !skills.includes(skillTrimmed)) {
-      setSkills([...skills, skillTrimmed]);
+    const selectedId = e.target.value;
+    if (!selectedId) return;
+
+    const skillObj = databaseSkills.find(s => s.id === selectedId);
+    if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) {
+      setSelectedSkills([...selectedSkills, skillObj]);
     }
-    setCurrentSkill('');
+    setSkillInput('');
   };
 
-  const handleRemoveSkill = (skillToRemove) => {
-    setSkills(skills.filter(s => s !== skillToRemove));
+  const handleRemoveSkill = (idToRemove) => {
+    setSelectedSkills(selectedSkills.filter(s => s.id !== idToRemove));
   };
 
   const handleSubmit = (e) => {
@@ -71,13 +84,17 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
       work_model: workModel,
       type,
       pay, 
-      pay_rate: payRate, // 🚨 Pass pay rate to the database
+      pay_rate: payRate, 
       description,
-      skills
+      skills: selectedSkills // Passing the array of objects back to MyJobs.jsx
     });
   };
 
   if (!isOpen) return null;
+  
+  const availableSkills = databaseSkills.filter(
+    dbSkill => !selectedSkills.some(selected => selected.id === dbSkill.id)
+  );
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
@@ -105,7 +122,6 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
                   <input type="text" className="search-input w-full" placeholder="e.g. Austin, TX" value={location} onChange={e => setLocation(e.target.value)} />
                 </div>
                 
-                {/* 🚨 REORGANIZED PAY CONTAINER WITH DROPDOWN */}
                 <div>
                   <label className="text-sm">Pay / Salary</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -154,26 +170,21 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
             <div style={{ background: 'var(--bg-color)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>Required Skills</label>
-              <p className="text-sm text-secondary mb-12" style={{ marginTop: 0 }}>Add skills to help our matching algorithm find the best candidates.</p>
+              <p className="text-sm text-secondary mb-12" style={{ marginTop: 0 }}>Select skills to help our matching algorithm find the best candidates.</p>
               
-              <div className="flex-row gap-8 mb-16">
-                <input 
-                  type="text" 
-                  className="search-input flex-grow" 
-                  placeholder="e.g. React, Python, Marketing..." 
-                  value={currentSkill}
-                  onChange={(e) => setCurrentSkill(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddSkill(e); } }}
-                />
-                <button type="button" className="btn-outline" onClick={handleAddSkill}>Add</button>
-              </div>
+              <select className="search-input w-full mb-16" value={skillInput} onChange={handleAddSkill}>
+                <option value="" disabled>-- Choose a skill to add --</option>
+                {availableSkills.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
               
               <div className="flex-row-wrap gap-8">
-                {skills.length > 0 ? (
-                  skills.map((skill, index) => (
-                    <span key={index} className="badge" style={{ background: '#e0e7ff', color: '#3730a3', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {skill}
-                      <button type="button" onClick={() => handleRemoveSkill(skill)} style={{ background: 'none', border: 'none', color: '#312e81', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: 1 }}>×</button>
+                {selectedSkills.length > 0 ? (
+                  selectedSkills.map((skill) => (
+                    <span key={skill.id} className="badge" style={{ background: '#e0e7ff', color: '#3730a3', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {skill.name}
+                      <button type="button" onClick={() => handleRemoveSkill(skill.id)} style={{ background: 'none', border: 'none', color: '#312e81', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: 1 }}>×</button>
                     </span>
                   ))
                 ) : (

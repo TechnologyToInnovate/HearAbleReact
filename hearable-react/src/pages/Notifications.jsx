@@ -1,169 +1,359 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Notifications() {
-  const navigate = useNavigate();
   const { user, role } = useAuth();
+  const navigate = useNavigate();
   
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('All');
+  
+  // --- STANDARD NOTIFICATIONS STATE ---
+  const [pendingDeletes, setPendingDeletes] = useState({});
+  const pendingDeletesRef = useRef(pendingDeletes);
 
   // --- ADMIN ANNOUNCEMENT STATE ---
-  const [showAnnounceModal, setShowAnnounceModal] = useState(false);
-  const [annTitle, setAnnTitle] = useState('');
-  const [annMessage, setAnnMessage] = useState('');
-  const [annTarget, setAnnTarget] = useState('all');
-  const [isSending, setIsSending] = useState(false);
-  const [annMsg, setAnnMsg] = useState({ type: '', text: '' });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  
+  const [broadcastRole, setBroadcastRole] = useState('everyone'); 
+  const [broadcastAudience, setBroadcastAudience] = useState('all'); 
+  
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastHistory, setBroadcastHistory] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   useEffect(() => {
-    if (role === 'guest' || role === 'needs_onboarding') { navigate('/'); return; }
-    if (user) fetchNotifications();
-  }, [user, role, navigate]);
+    pendingDeletesRef.current = pendingDeletes;
+  }, [pendingDeletes]);
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (role === 'admin' && activeTab === 'Announcements') {
+      fetchBroadcastHistory();
+    }
+  }, [role, activeTab]);
+
+  useEffect(() => {
+    return () => {
+      Object.entries(pendingDeletesRef.current).forEach(([id, timeoutId]) => {
+        clearTimeout(timeoutId);
+        supabase.from('notifications').delete().eq('id', id).then();
+      });
+    };
+  }, []);
+
+  let tabs = [];
+  if (role === 'admin') {
+    tabs = ['All', 'Reports', 'Feedbacks', 'Users', 'Companies', 'Announcements'];
+  } else if (role === 'company') {
+    tabs = ['All', 'My Post', 'Announcements'];
+  } else {
+    tabs = ['All', 'Jobs', 'Announcements'];
+  }
 
   async function fetchNotifications() {
     setIsLoading(true);
-    const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-    if (data) setNotifications(data);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      setNotifications(data);
+    }
     setIsLoading(false);
   }
 
-  async function handleMarkAsRead(id) {
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    if (!error) setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
-  }
-
-  async function handleClearAll() {
-    if (!window.confirm("Are you sure you want to clear all notifications?")) return;
-    const { error } = await supabase.from('notifications').delete().eq('user_id', user.id);
-    if (!error) setNotifications([]);
-  }
-
-  async function handleNotificationClick(notification) {
-    if (!notification.is_read) await handleMarkAsRead(notification.id);
-    if (notification.link) navigate(notification.link);
-  }
-
-  // 🚨 ADMIN BROADCAST FUNCTION
-  async function handleSendAnnouncement(e) {
-    e.preventDefault();
-    if (!window.confirm(`Are you sure you want to send this announcement to ${annTarget === 'all' ? 'everyone' : annTarget}?`)) return;
+  async function fetchBroadcastHistory() {
+    setIsHistoryLoading(true);
+    const { data } = await supabase
+      .from('system_announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
     
-    setIsSending(true);
-    setAnnMsg({ type: '', text: '' });
+    if (data) setBroadcastHistory(data);
+    setIsHistoryLoading(false);
+  }
 
-    const { error } = await supabase.rpc('admin_create_announcement', {
-      announcement_title: annTitle.trim(),
-      announcement_message: annMessage.trim(),
-      announcement_link: null, // Hardcoded to null since the field is removed
-      target_audience: annTarget
+  async function handleMarkAsRead(id, link) {
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+    if (link) navigate(link);
+  }
+
+  const commitDelete = async (id) => {
+    const { error } = await supabase.from('notifications').delete().eq('id', id);
+    
+    if (error) {
+      console.error("Error deleting notification:", error.message);
+      alert("Failed to delete notification: " + error.message);
+      setPendingDeletes(prev => {
+        const newDeletes = { ...prev };
+        delete newDeletes[id];
+        return newDeletes;
+      });
+    } else {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setPendingDeletes(prev => {
+        const newDeletes = { ...prev };
+        delete newDeletes[id];
+        return newDeletes;
+      });
+    }
+  };
+
+  const handleDelete = (id) => {
+    const timeoutId = setTimeout(() => {
+      commitDelete(id);
+    }, 5000);
+    setPendingDeletes(prev => ({ ...prev, [id]: timeoutId }));
+  };
+
+  const handleUndo = (id) => {
+    clearTimeout(pendingDeletes[id]);
+    setPendingDeletes(prev => {
+      const newDeletes = { ...prev };
+      delete newDeletes[id];
+      return newDeletes;
+    });
+  };
+
+  async function handleSendBroadcast(e) {
+    e.preventDefault();
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) return;
+    if (!window.confirm(`Are you sure you want to broadcast this announcement?`)) return;
+
+    setIsBroadcasting(true);
+
+    const { error } = await supabase.rpc('create_broadcast_announcement', {
+      p_title: broadcastTitle.trim(),
+      p_message: broadcastMessage.trim(),
+      p_audience: broadcastAudience,
+      p_target_role: broadcastRole
     });
 
-    setIsSending(false);
-
     if (error) {
-      setAnnMsg({ type: 'error', text: 'Failed to broadcast: ' + error.message });
+      alert("Error broadcasting announcement: " + error.message);
+      console.error(error);
     } else {
-      alert('Announcement successfully broadcasted! 🚀');
-      setAnnTitle(''); setAnnMessage(''); setAnnTarget('all');
-      setShowAnnounceModal(false);
+      setBroadcastTitle('');
+      setBroadcastMessage('');
+      setBroadcastAudience('all');
+      setBroadcastRole('everyone');
+      setIsModalOpen(false);
+      fetchBroadcastHistory();
+      
+      // Refresh notifications so the admin immediately sees their own broadcast in the inbox below
       fetchNotifications();
     }
+    setIsBroadcasting(false);
   }
 
+  const filteredNotifications = notifications.filter(n => {
+    if (activeTab === 'All') return true;
+    
+    const nType = n.type || 'announcement'; 
+    
+    if (activeTab === 'Jobs' || activeTab === 'My Post') return nType === 'job';
+    if (activeTab === 'Reports') return nType === 'report';
+    if (activeTab === 'Feedbacks') return nType === 'feedback';
+    if (activeTab === 'Users') return nType === 'user';
+    if (activeTab === 'Companies') return nType === 'company';
+    if (activeTab === 'Announcements') return nType === 'announcement';
+    
+    return true;
+  });
+
   return (
-    <div className="page-container" style={{ maxWidth: '800px' }}>
-
-      {/* 🚨 THE ADMIN MODAL POPUP */}
-      {showAnnounceModal && role === 'admin' && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div className="card p-0" style={{ width: '100%', maxWidth: '600px', background: 'var(--bg-color)', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><span>📢</span> Send Broadcast</h2>
-              <button onClick={() => setShowAnnounceModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
-            </div>
-
-            <div style={{ padding: '24px' }}>
-              {annMsg.text && <div style={{ color: '#dc2626', marginBottom: '16px' }}>{annMsg.text}</div>}
-              
-              <form onSubmit={handleSendAnnouncement} className="flex-col gap-16">
-                <div className="form-grid-2">
-                  <div>
-                    <label>Title *</label>
-                    <input type="text" className="search-input w-full" value={annTitle} onChange={e => setAnnTitle(e.target.value)} required />
-                  </div>
-                  <div>
-                    <label>Target Audience *</label>
-                    <select className="search-input w-full" value={annTarget} onChange={e => setAnnTarget(e.target.value)}>
-                      <option value="all">Everyone</option>
-                      <option value="applicants">Applicants Only</option>
-                      <option value="companies">Companies Only</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label>Message *</label>
-                  <textarea className="search-input w-full" value={annMessage} onChange={e => setAnnMessage(e.target.value)} style={{ height: '100px', resize: 'vertical' }} required />
-                </div>
-                
-                <div className="mt-8 flex-row gap-12">
-                  <button type="submit" className="btn-black flex-grow" disabled={isSending}>
-                    {isSending ? 'Broadcasting...' : '🚀 Send Announcement'}
-                  </button>
-                  <button type="button" className="btn-outline" onClick={() => setShowAnnounceModal(false)}>Cancel</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- HEADER --- */}
+    <div className="page-container-wide">
       <div className="flex-between align-center mb-24">
-        <h1 className="m-0">{role === 'admin' ? 'Your Notifications' : 'Notifications'}</h1>
-        
-        <div className="flex-row gap-12">
-          {role === 'admin' && (
-            <button className="btn-black btn-sm" onClick={() => setShowAnnounceModal(true)}>
-              New Broadcast
-            </button>
-          )}
-          {notifications.length > 0 && (
-            <button className="btn-outline btn-sm" onClick={handleClearAll} style={{ color: '#dc2626', borderColor: '#fca5a5', background: '#fef2f2' }}>
-              Clear All
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="card p-0" style={{ overflow: 'hidden' }}>
-        {isLoading ? (
-          <p className="text-center text-secondary p-32 m-0">Loading your notifications...</p>
-        ) : notifications.length > 0 ? (
-          <div className="flex-col">
-            {notifications.map((notif, index) => (
-              <div key={notif.id} onClick={() => handleNotificationClick(notif)} style={{ padding: '20px 24px', borderBottom: index !== notifications.length - 1 ? '1px solid var(--border-color)' : 'none', backgroundColor: notif.is_read ? 'transparent' : 'var(--bg-color)', cursor: notif.link ? 'pointer' : 'default', display: 'flex', gap: '16px' }}>
-                <div style={{ flexShrink: 0, marginTop: '6px' }}>
-                  <span style={{ display: 'block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: notif.is_read ? 'transparent' : 'var(--primary-color)' }}></span>
-                </div>
-                <div className="w-full">
-                  <div className="flex-between-start mb-8">
-                    <h4 className="m-0" style={{ fontWeight: notif.is_read ? '500' : '700' }}>{notif.title}</h4>
-                    <span className="text-sm text-secondary block ml-16">{new Date(notif.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <p className="text-secondary m-0" style={{ lineHeight: '1.5' }}>{notif.message}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center p-32"><div className="text-3xl mb-16">📭</div><h3 className="m-0 mb-8">You're all caught up!</h3></div>
+        <h1 className="m-0">Notifications</h1>
+        {role === 'admin' && activeTab === 'Announcements' && (
+          <button className="btn-black btn-sm" onClick={() => setIsModalOpen(true)}>
+            + Create Announcement
+          </button>
         )}
       </div>
 
+      <div className="flex-row gap-8 mb-32" style={{ overflowX: 'auto', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>
+        {tabs.map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '8px 24px',
+              border: 'none',
+              background: 'none',
+              borderBottom: activeTab === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
+              color: activeTab === tab ? 'var(--primary-color)' : 'var(--secondary-text)',
+              fontWeight: activeTab === tab ? '600' : '400',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* --- 1. ADMIN ANNOUNCEMENTS MANAGEMENT --- */}
+      {role === 'admin' && activeTab === 'Announcements' && (
+        <div className="mb-32">
+          
+          {isModalOpen && (
+            <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px' }}>
+                <div className="modal-header">
+                  <h3 className="m-0">New Broadcast Announcement</h3>
+                  <button className="close-btn" onClick={() => setIsModalOpen(false)}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <form onSubmit={handleSendBroadcast} className="flex-col gap-16">
+                    <div>
+                      <label className="block mb-8 text-sm font-bold">Announcement Title *</label>
+                      <input type="text" className="search-input" placeholder="e.g., Scheduled Platform Maintenance" value={broadcastTitle} onChange={(e) => setBroadcastTitle(e.target.value)} required />
+                    </div>
+                    
+                    <div className="flex-row gap-16" style={{ flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: '200px' }}>
+                        <label className="block mb-8 text-sm font-bold">Target Audience *</label>
+                        <select className="search-input" value={broadcastRole} onChange={(e) => setBroadcastRole(e.target.value)}>
+                          <option value="everyone">All Roles</option>
+                          <option value="users">Standard Users Only</option>
+                          <option value="admins">Admins Only</option>
+                          <option value="companies">Companies Only</option>
+                        </select>
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: '200px' }}>
+                        <label className="block mb-8 text-sm font-bold">Account Status *</label>
+                        <select className="search-input" value={broadcastAudience} onChange={(e) => setBroadcastAudience(e.target.value)}>
+                          <option value="all">All Accounts (Current & New)</option>
+                          <option value="existing">Existing Accounts Only</option>
+                          <option value="new">New Accounts Only</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block mb-8 text-sm font-bold">Message Content *</label>
+                      <textarea className="search-input" rows="5" placeholder="Write the full announcement details here..." value={broadcastMessage} onChange={(e) => setBroadcastMessage(e.target.value)} required />
+                    </div>
+
+                    <div className="flex-row gap-12 mt-8" style={{ justifyContent: 'flex-end' }}>
+                      <button type="button" className="btn-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
+                      <button type="submit" className="btn-black" disabled={isBroadcasting}>
+                        {isBroadcasting ? 'Broadcasting...' : 'Send Announcement'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="card p-0" style={{ overflow: 'hidden' }}>
+            <div className="p-20" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-color)' }}>
+              <h3 className="m-0">Broadcast History</h3>
+            </div>
+            {isHistoryLoading ? (
+              <p className="text-secondary text-center p-32 m-0">Loading history...</p>
+            ) : broadcastHistory.length > 0 ? (
+              <div className="flex-col">
+                {broadcastHistory.map((item, index) => (
+                  <div key={item.id} className="p-20" style={{ borderBottom: index !== broadcastHistory.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                    <div className="flex-between-start mb-8">
+                      <h4 className="text-lg m-0">{item.title}</h4>
+                      <div className="flex-row gap-8">
+                        <span className="badge badge-neutral text-sm" style={{ textTransform: 'capitalize' }}>Audience: {item.target_role === 'everyone' ? 'All Roles' : item.target_role}</span>
+                        <span className="badge badge-info text-sm" style={{ textTransform: 'capitalize' }}>Status: {item.audience} Accounts</span>
+                      </div>
+                    </div>
+                    <p className="text-secondary m-0 mb-12 text-sm">{item.message}</p>
+                    <span className="text-sm text-secondary" style={{ fontSize: '0.75rem' }}>Sent: {new Date(item.created_at).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-secondary text-center p-32 m-0">No announcements have been sent yet.</p>
+            )}
+          </div>
+          
+          <div className="divider"></div>
+          <h2 className="m-0 mb-16">My Inbox</h2>
+        </div>
+      )}
+
+      {/* --- 2. STANDARD INBOX FEED (Shows for everyone, including Admins) --- */}
+      {isLoading ? (
+        <p className="text-secondary text-center p-32">Loading notifications...</p>
+      ) : filteredNotifications.length > 0 ? (
+        <div className="flex-col gap-16">
+          {filteredNotifications.map(notification => {
+            const isPendingDelete = pendingDeletes.hasOwnProperty(notification.id);
+
+            if (isPendingDelete) {
+              return (
+                <div key={notification.id} className="card flex-between align-center p-16" style={{ background: 'var(--bg-color)', borderStyle: 'dashed' }}>
+                  <span className="text-secondary font-bold">Notification deleted</span>
+                  <button 
+                    onClick={() => handleUndo(notification.id)}
+                    style={{ background: 'transparent', color: 'var(--primary-color)', border: 'none', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Undo
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div key={notification.id} className={`card p-20 ${!notification.is_read ? 'selected-card' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="flex-between-start">
+                  <div onClick={() => handleMarkAsRead(notification.id, notification.link)} style={{ cursor: notification.link ? 'pointer' : 'default', flex: 1 }}>
+                    <div className="flex-row align-center gap-8 mb-8">
+                      {!notification.is_read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--primary-color)' }}></span>}
+                      <h3 className="m-0 text-lg" style={{ color: !notification.is_read ? 'var(--text-color)' : 'var(--secondary-text)' }}>
+                        {notification.title}
+                      </h3>
+                    </div>
+                    <p className="m-0 text-secondary" style={{ lineHeight: '1.5' }}>{notification.message}</p>
+                    <span className="text-sm text-secondary mt-12 block">
+                      {new Date(notification.created_at).toLocaleDateString()} at {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <button onClick={() => handleDelete(notification.id)} className="nav-icon-btn" title="Delete Notification" style={{ flexShrink: 0, marginLeft: '16px' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="card text-center text-secondary p-32">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, marginBottom: '16px' }}>
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <h3 className="m-0 mb-8">No notifications</h3>
+          <p className="m-0">You are all caught up in this category.</p>
+        </div>
+      )}
     </div>
   );
 }

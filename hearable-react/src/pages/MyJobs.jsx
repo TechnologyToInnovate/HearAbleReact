@@ -39,14 +39,29 @@ export default function MyJobs() {
     if (!currentUser) { setIsLoading(false); return; }
     
     const { data: companyData } = await supabase.from('companies').select('*').eq('id', currentUser.id).single();
-    const { data: jobsData } = await supabase.from('jobs').select('*').eq('company_id', currentUser.id).order('created_at', { ascending: false });
+    
+    // 🚨 UPDATE: Fetch relational job_skills alongside the core jobs
+    const { data: jobsData } = await supabase
+      .from('jobs')
+      .select('*, job_skills(skills(id, name))')
+      .eq('company_id', currentUser.id)
+      .order('created_at', { ascending: false });
+      
     const { data: appsData } = await supabase.from('applications').select('job_id');
 
     if (jobsData && companyData) {
       const mappedJobs = jobsData.map(job => {
         const applicantCount = appsData ? appsData.filter(app => app.job_id === job.id).length : 0;
+        
+        // Map the junction table data into a clean array of skill objects
+        const formattedSkills = job.job_skills ? job.job_skills.map(js => ({
+          id: js.skills.id,
+          name: js.skills.name
+        })) : [];
+
         return {
           ...job,
+          skills: formattedSkills,
           company: companyData.name,
           applicantCount: applicantCount,
           date: new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -67,20 +82,34 @@ export default function MyJobs() {
 
     setIsSubmitting(true);
     
-    const { error } = await supabase.from('jobs').insert([{ 
-      ...formData, 
-      company_id: currentUser.id, 
-      skills: formData.skills || [],
-      status: 'Pending' 
-    }]);
+    // 1. Separate the skills array from the core job details
+    const { skills, ...jobDetails } = formData;
     
-    if (!error) { 
-      setShowAddForm(false); 
-      fetchMyJobs(); 
-      alert("Job posted successfully! It is now pending admin approval.");
-    } else {
-      alert("Failed to post job.");
+    // 2. Insert the core job and use `.select().single()` to immediately get the newly generated job ID
+    const { data: newJob, error: jobError } = await supabase.from('jobs').insert([{ 
+      ...jobDetails, 
+      company_id: currentUser.id, 
+      status: 'Pending' 
+    }]).select().single();
+    
+    if (jobError) {
+      alert("Failed to post job: " + jobError.message);
+      setIsSubmitting(false);
+      return;
     }
+
+    // 3. Map the selected skill IDs into the junction table for this specific new job
+    if (skills && skills.length > 0) {
+      const jobSkillsData = skills.map(skill => ({
+        job_id: newJob.id,
+        skill_id: skill.id
+      }));
+      await supabase.from('job_skills').insert(jobSkillsData);
+    }
+    
+    setShowAddForm(false); 
+    fetchMyJobs(); 
+    alert("Job posted successfully! It is now pending admin approval.");
     setIsSubmitting(false);
   }
 
@@ -94,21 +123,49 @@ export default function MyJobs() {
       return;
     }
 
-    const { error } = await supabase.from('jobs').update({
-      ...formData,
+    const { skills, ...jobDetails } = formData;
+
+    // 1. Update the core job details
+    const { error: jobError } = await supabase.from('jobs').update({
+      ...jobDetails,
       edit_count: currentEditCount + 1
     }).eq('id', selectedJob.id);
     
-    if (!error) { setIsEditingJob(false); fetchMyJobs(); } 
-    else alert("Failed to update job.");
+    if (jobError) {
+      alert("Failed to update job: " + jobError.message);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 2. Clear out old skills and insert the new ones
+    await supabase.from('job_skills').delete().eq('job_id', selectedJob.id);
+    
+    if (skills && skills.length > 0) {
+      const jobSkillsData = skills.map(skill => ({
+        job_id: selectedJob.id,
+        skill_id: skill.id
+      }));
+      await supabase.from('job_skills').insert(jobSkillsData);
+    }
+
+    setIsEditingJob(false); 
+    fetchMyJobs(); 
     setIsSubmitting(false);
   }
 
   async function handleDeleteJob() {
     if (!window.confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) return;
+    
+    // Because we added 'ON DELETE CASCADE' in SQL earlier, deleting the job 
+    // will automatically wipe its job_skills and applications!
     const { error } = await supabase.from('jobs').delete().eq('id', selectedJob.id);
-    if (!error) { setJobs(jobs.filter(job => job.id !== selectedJob.id)); setSelectedJobId(null); } 
-    else alert("Failed to delete job.");
+    
+    if (!error) { 
+      setJobs(jobs.filter(job => job.id !== selectedJob.id)); 
+      setSelectedJobId(null); 
+    } else {
+      alert("Failed to delete job.");
+    }
   }
 
   const filteredJobs = jobs.filter(job => {

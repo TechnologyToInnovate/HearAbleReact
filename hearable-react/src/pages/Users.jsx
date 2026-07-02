@@ -45,6 +45,8 @@ export default function Users({ role }) {
 
       const mappedProfiles = profiles.map(p => ({
         ...p,
+        // 🚨 NEW: Create a dynamic 'name' property on the fly so searching and sorting still works
+        name: [p.first_name, p.last_name].filter(Boolean).join(' '), 
         degreeText: p.degrees ? (p.degrees.abbreviation ? `${p.degrees.abbreviation} - ${p.degrees.name}` : p.degrees.name) : null,
         batchText: p.batches ? String(p.batches.batch_number) : null,
         joinDate: p.created_at ? new Date(p.created_at).toLocaleDateString() : 'Unknown'
@@ -150,6 +152,7 @@ export default function Users({ role }) {
       <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
         <h1 style={{ margin: 0 }}>Manage Users</h1>
         <div className="flex-row gap-12">
+          <button className="btn-outline btn-sm" onClick={() => navigate('/skills')}>Manage Skills</button>
           <button className="btn-outline btn-sm" onClick={() => navigate('/degrees')}>Manage Degrees</button>
           <button className="btn-outline btn-sm" onClick={() => navigate('/batches')}>Manage Batches</button>
         </div>
@@ -220,11 +223,10 @@ export default function Users({ role }) {
               <div className="flex-between-start mb-16">
                 <div className="flex-row gap-12 align-start">
                   <div className="avatar" style={{ flexShrink: 0, marginTop: '4px' }}>
-                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    {user.first_name ? user.first_name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <div>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{user.name || 'Incomplete Profile'}</h3>
-                    {/* 🚨 NEW: Added User Email Here */}
                     <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8 }}>
                       {user.email || 'Email not provided'}
                     </p>

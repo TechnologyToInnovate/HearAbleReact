@@ -1,27 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { useAuth } from '../context/AuthContext'; // 🚨 NEW: Global Auth
-
-const MOCK_SKILL_DATABASE = [
-  "JavaScript", "Python", "React", "Node.js", "UI/UX Design", 
-  "Data Analysis", "Project Management", "Marketing", "SQL", 
-  "AWS", "Machine Learning", "Graphic Design", "Sales", "Java", 
-  "C++", "C#", "TypeScript", "Figma", "Digital Marketing", "SEO"
-];
-
-async function fetchSuggestions(query, database) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const results = database.filter(item => item.toLowerCase().includes(query.toLowerCase()));
-      resolve(results);
-    }, 150); 
-  });
-}
+import { useAuth } from '../context/AuthContext'; 
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { user, role } = useAuth(); // 🚨 Replaces manual session checks
+  const { user, role } = useAuth(); 
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,125 +17,120 @@ export default function Onboarding() {
   const [degree, setDegree] = useState(''); 
   const [batch, setBatch] = useState('');   
   
-  // LOCATION
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   
-  // DROPDOWN OPTIONS STATE
   const [degreeOptions, setDegreeOptions] = useState([]);
   const [batchOptions, setBatchOptions] = useState([]);
+  const [databaseSkills, setDatabaseSkills] = useState([]); 
 
-  // SKILLS
-  const [skills, setSkills] = useState([]);
+  // SKILLS STATE
+  const [selectedSkills, setSelectedSkills] = useState([]); 
   const [showSkillModal, setShowSkillModal] = useState(false);
-  const [skillInput, setSkillInput] = useState('');
-  const [skillSuggestions, setSkillSuggestions] = useState([]);
-  const [showSkillDropdown, setShowSkillDropdown] = useState(false);
+  const [skillInput, setSkillInput] = useState(''); 
 
-  // 1. Initial access check (Drastically simplified via AuthContext)
   useEffect(() => {
     if (role !== 'needs_onboarding' && role !== 'guest') {
       navigate('/');
     }
   }, [role, navigate]);
 
-  // 2. Fetch official degrees and batches for the dropdowns
   useEffect(() => {
     async function fetchOptions() {
-      const [degRes, batchRes] = await Promise.all([
+      const [degRes, batchRes, skillsRes] = await Promise.all([
         supabase.from('degrees').select('*').order('name'),
-        supabase.from('batches').select('*').order('batch_number', { ascending: false })
+        supabase.from('batches').select('*').order('batch_number', { ascending: false }),
+        supabase.from('skills').select('*').order('name') 
       ]);
       if (degRes.data) setDegreeOptions(degRes.data);
       if (batchRes.data) setBatchOptions(batchRes.data);
+      if (skillsRes.data) setDatabaseSkills(skillsRes.data);
     }
     fetchOptions();
   }, []);
 
-  // 3. Skill suggestions logic
-  useEffect(() => {
-    if (skillInput.length < 2) { setSkillSuggestions([]); setShowSkillDropdown(false); return; }
-    const delay = setTimeout(async () => {
-      const res = await fetchSuggestions(skillInput, MOCK_SKILL_DATABASE);
-      setSkillSuggestions(res); setShowSkillDropdown(res.length > 0);
-    }, 200);
-    return () => clearTimeout(delay);
-  }, [skillInput]);
-
   const saveSkill = () => {
-    if (skillInput.trim()) {
-      if (!skills.includes(skillInput.trim())) setSkills([...skills, skillInput.trim()]);
-      setSkillInput('');
-      setShowSkillModal(false); 
-      setShowSkillDropdown(false);
+    if (!skillInput) return;
+
+    const skillObj = databaseSkills.find(s => s.id === skillInput);
+    
+    if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) {
+      setSelectedSkills([...selectedSkills, skillObj]);
     }
+    
+    setSkillInput('');
+    setShowSkillModal(false);
   };
   
-  const removeSkill = (index) => setSkills(skills.filter((_, i) => i !== index));
+  const removeSkill = (idToRemove) => {
+    setSelectedSkills(selectedSkills.filter(skill => skill.id !== idToRemove));
+  };
 
   async function handleSubmit() {
     if (!user) return;
     setIsSubmitting(true);
-    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
-
-    const { error } = await supabase
+    
+    const { error: profileError } = await supabase
       .from('profiles')
       .update({ 
-        first_name: firstName.trim(), 
+        first_name: firstName.trim(),
         last_name: lastName.trim(),
-        name: fullName, 
         contact_number: contactNumber.trim(),
         country: country.trim(),
         city: city.trim(),
         postal_code: postalCode.trim(),
         batch_id: batch,
-        degree_id: degree, 
-        skills 
+        degree_id: degree 
       })
-      .eq('id', user.id); // Uses global user
+      .eq('id', user.id); 
+
+    if (profileError) { 
+      alert("Error saving profile. Please try again."); 
+      console.error(profileError);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (selectedSkills.length > 0) {
+      const profileSkillsData = selectedSkills.map(skill => ({
+        profile_id: user.id,
+        skill_id: skill.id
+      }));
+      
+      await supabase.from('profile_skills').insert(profileSkillsData);
+    }
 
     setIsSubmitting(false);
-    
-    if (!error) { 
-      // Forces a full app reload to completely re-evaluate the user's role from 'needs_onboarding' to 'pending_user'
-      window.location.href = '/'; 
-    } else { 
-      alert("Error saving profile. Please try again."); 
-      console.error(error);
-    }
+    window.location.href = '/'; 
   }
 
-  const handleKeyDown = (e, action) => { if (e.key === 'Enter') { e.preventDefault(); action(); } };
-  
   const isStep1Valid = firstName.trim() && lastName.trim() && degree && batch;
+
+  const availableSkills = databaseSkills.filter(
+    dbSkill => !selectedSkills.some(selected => selected.id === dbSkill.id)
+  );
 
   return (
     <div className="page-container" style={{ maxWidth: '700px', marginTop: '48px' }}>
       
       {showSkillModal && (
-        <div className="modal-overlay">
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: '20px' }}>
           <div className="card p-24 flex-col gap-16" style={{ width: '100%', maxWidth: '500px', background: 'var(--bg-color)', overflow: 'visible' }}>
             <div className="flex-between mb-8">
               <h3 style={{ margin: 0 }}>Add New Skill</h3>
-              <button className="close-btn" onClick={() => setShowSkillModal(false)}>✕</button>
+              <button onClick={() => setShowSkillModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
             </div>
             
-            <div style={{ position: 'relative' }}>
-              <input type="text" className="search-input w-full" value={skillInput} onChange={e => setSkillInput(e.target.value)} onKeyDown={(e) => handleKeyDown(e, saveSkill)} placeholder="Search or type a skill..." autoFocus />
-              
-              {showSkillDropdown && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', marginTop: '4px', maxHeight: '150px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                  {skillSuggestions.map((skill, idx) => (
-                    <div key={idx} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border-color)' }} onMouseDown={() => { setSkillInput(skill); setShowSkillDropdown(false); }}>
-                      {skill}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <label style={{ display: 'block', fontWeight: '500' }}>Select a skill to add</label>
+            <select className="search-input w-full" value={skillInput} onChange={e => setSkillInput(e.target.value)}>
+              <option value="" disabled>-- Choose a skill --</option>
+              {availableSkills.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
             
-            <button className="btn-black w-full mt-8" onClick={saveSkill}>Save Skill</button>
+            <button className="btn-black w-full mt-8" onClick={saveSkill} disabled={!skillInput}>Add Skill</button>
           </div>
         </div>
       )}
@@ -229,16 +208,22 @@ export default function Onboarding() {
 
           {step === 3 && (
             <div className="flex-col gap-24">
-              <h3 style={{ margin: 0 }}>Skills</h3>
-              <div className="flex-row-wrap gap-8">
-                {skills.map((item, idx) => (
-                  <span key={idx} className="badge badge-primary" style={{ padding: '8px 16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {item} 
-                    <button onClick={() => removeSkill(idx)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem', padding: 0 }}>✕</button>
+              <div className="flex-between align-center">
+                <h3 style={{ margin: 0 }}>Skills</h3>
+                <button type="button" className="btn-outline btn-sm" onClick={() => setShowSkillModal(true)}>+ Add Skill</button>
+              </div>
+
+              <div className="flex-row-wrap gap-8 mt-8">
+                {selectedSkills.map(skill => (
+                  <span key={skill.id} className="badge badge-primary" style={{ padding: '8px 16px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {skill.name} 
+                    <button onClick={() => removeSkill(skill.id)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem', padding: 0 }}>✕</button>
                   </span>
                 ))}
+                {selectedSkills.length === 0 && (
+                  <span className="text-secondary text-sm italic">No skills added yet. Click "+ Add Skill" to select from the list.</span>
+                )}
               </div>
-              <button className="btn-outline w-full" style={{ borderStyle: 'dashed' }} onClick={() => setShowSkillModal(true)}>+ Add Skill</button>
             </div>
           )}
         </div>
