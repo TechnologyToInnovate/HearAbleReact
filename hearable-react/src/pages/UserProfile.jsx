@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import EditProfileModal from '../components/EditProfileModal';
 import { useAuth } from '../context/AuthContext';
-import SkillBadge from '../components/SkillBadge'; // 🚨 IMPORT ADDED
+
+// 🚨 NEW IMPORTS
+import EditProfileModal from '../components/modals/EditProfileModal';
+import SkillBadge from '../components/common/SkillBadge';
+import Avatar from '../components/common/Avatar';
+import { formatFullName, formatLocation } from '../utils/formatUtils';
 
 export default function UserProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
   const { user: currentUser } = useAuth();
   
   const [user, setUser] = useState(null);
@@ -21,17 +24,9 @@ export default function UserProfile() {
 
   async function fetchUser() {
     setIsLoading(true);
-    
     const { data } = await supabase
       .from('profiles')
-      .select(`
-        *,
-        degrees ( name, abbreviation ),
-        batches ( batch_number ),
-        profile_skills (
-          skills ( name )
-        )
-      `)
+      .select(`*, degrees ( name, abbreviation ), batches ( batch_number ), profile_skills ( skills ( name ) )`)
       .eq('id', id)
       .maybeSingle();
     
@@ -45,35 +40,22 @@ export default function UserProfile() {
     setIsLoading(false);
   }
 
-  if (isLoading) {
-    return <div className="page-container-wide text-center mt-32"><p className="text-secondary">Loading profile...</p></div>;
-  }
-
-  if (!user) {
-    return (
-      <div className="page-container-wide text-center mt-32">
-        <h2>👤</h2>
-        <p className="text-secondary">User not found.</p>
-        <button className="btn-outline mt-16" onClick={() => navigate('/')}>Go Home</button>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="page-container-wide text-center mt-32"><p className="text-secondary">Loading profile...</p></div>;
+  if (!user) return (
+    <div className="page-container-wide text-center mt-32">
+      <h2>👤</h2><p className="text-secondary">User not found.</p><button className="btn-outline mt-16" onClick={() => navigate('/')}>Go Home</button>
+    </div>
+  );
 
   const isOwnProfile = currentUser?.id === user.id;
-  const locationText = [user.city, user.country].filter(Boolean).join(', ');
   
-  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Incomplete Profile';
-  const avatarInitial = user.first_name ? user.first_name.charAt(0).toUpperCase() : 'U';
+  // 🚨 Use our formatting utilities
+  const locationText = formatLocation(user.city, user.country, '');
+  const fullName = formatFullName(user.first_name, user.last_name);
 
   return (
     <div className="page-container-wide">
-      
-      <EditProfileModal 
-        isOpen={showEditModal} 
-        onClose={() => setShowEditModal(false)} 
-        userId={user.id}
-        onSuccess={fetchUser} 
-      />
+      <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} userId={user.id} onSuccess={fetchUser} />
 
       <div className="card p-0 mb-32" style={{ overflow: 'hidden' }}>
         <div style={{ height: '120px', backgroundColor: 'var(--primary-color)', opacity: 0.9 }}></div>
@@ -82,9 +64,8 @@ export default function UserProfile() {
           <div className="flex-between-start" style={{ marginTop: '-40px' }}>
             
             <div className="flex-row gap-24 align-center">
-              <div className="avatar-lg" style={{ width: '100px', height: '100px', border: '4px solid var(--card-bg)', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3.5rem', flexShrink: 0 }}>
-                {avatarInitial}
-              </div>
+              {/* 🚨 Clean Avatar Component */}
+              <Avatar src={user.profile_pic} fallbackName={user.first_name} size="lg" type="user" />
 
               <div style={{ marginTop: '40px' }}>
                 <h1 style={{ margin: '0 0 8px 0', fontSize: '2rem' }}>{fullName}</h1>
@@ -96,12 +77,9 @@ export default function UserProfile() {
 
             {isOwnProfile && (
               <div style={{ marginTop: '56px' }}>
-                <button className="btn-outline" onClick={() => setShowEditModal(true)}>
-                  Edit Profile
-                </button>
+                <button className="btn-outline" onClick={() => setShowEditModal(true)}>Edit Profile</button>
               </div>
             )}
-
           </div>
         </div>
       </div>
@@ -113,14 +91,11 @@ export default function UserProfile() {
             {user.skills && user.skills.length > 0 ? (
               <div className="flex-row-wrap gap-12">
                 {user.skills.map((skill, index) => (
-                  // 🚨 INTEGRATION: Using SkillBadge instead of a hardcoded span
                   <SkillBadge key={index} skill={skill} />
                 ))}
               </div>
             ) : (
-              <p className="text-secondary m-0" style={{ lineHeight: '1.7' }}>
-                No skills added yet.
-              </p>
+              <p className="text-secondary m-0" style={{ lineHeight: '1.7' }}>No skills added yet.</p>
             )}
           </div>
         </div>
@@ -129,33 +104,23 @@ export default function UserProfile() {
           <div className="card p-24">
             <h3 className="mb-16 m-0">Details</h3>
             <div className="flex-col gap-16">
-              
               <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Education</span>
                 <strong style={{ fontSize: '1rem', display: 'block' }}>
                   {user.degrees?.name ? (user.degrees?.abbreviation ? `${user.degrees.abbreviation} - ${user.degrees.name}` : user.degrees.name) : 'Degree not specified'}
                 </strong>
                 {user.batches?.batch_number && (
-                  <span className="badge badge-neutral mt-8" style={{ display: 'inline-block' }}>
-                    Batch {user.batches.batch_number}
-                  </span>
+                  <span className="badge badge-neutral mt-8" style={{ display: 'inline-block' }}>Batch {user.batches.batch_number}</span>
                 )}
               </div>
-
               <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Location</span>
-                <strong style={{ fontSize: '1rem', display: 'block' }}>
-                  {locationText || 'Not specified'}
-                </strong>
+                <strong style={{ fontSize: '1rem', display: 'block' }}>{locationText || 'Not specified'}</strong>
               </div>
-
               <div>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Contact Number</span>
-                <strong style={{ fontSize: '1rem', display: 'block' }}>
-                  {user.contact_number || 'Not specified'}
-                </strong>
+                <strong style={{ fontSize: '1rem', display: 'block' }}>{user.contact_number || 'Not specified'}</strong>
               </div>
-
             </div>
           </div>
         </div>

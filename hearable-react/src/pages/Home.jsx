@@ -3,15 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
-import StatCard from '../components/StatCard';
-import CompanyOnboardingModal from '../components/CompanyOnboardingModal'; 
-import AdminOverview from '../components/AdminOverview';
-import RecentApplicantsCard from '../components/RecentApplicantsCard';
-import RecentJobsCard from '../components/RecentJobsCard';
+// 🚨 UPDATED IMPORT PATHS (Mapped to your new component folders)
+import StatCard from '../components/dashboard/StatCard';
+import AdminOverview from '../components/dashboard/AdminOverview';
+import RecentApplicantsCard from '../components/dashboard/RecentApplicantsCard';
+import RecentJobsCard from '../components/jobs/RecentJobsCard'; 
+import CompanyOnboardingModal from '../components/modals/CompanyOnboardingModal'; 
 
-export default function Home({ role }) {
+import Avatar from '../components/common/Avatar';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { formatFullName } from '../utils/formatUtils';
+
+export default function Home() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   
   const [recentJobs, setRecentJobs] = useState([]);
   const [recentApplicants, setRecentApplicants] = useState([]);
@@ -83,12 +88,11 @@ export default function Home({ role }) {
           .limit(4);
 
         if (appsData) {
-          // Format applicants' names safely
           const mappedApps = appsData.map(app => ({
             ...app,
             profiles: {
               ...app.profiles,
-              name: [app.profiles?.first_name, app.profiles?.last_name].filter(Boolean).join(' ') || 'Unknown User'
+              name: formatFullName(app.profiles?.first_name, app.profiles?.last_name, 'Unknown User')
             }
           }));
           setRecentApplicants(mappedApps);
@@ -117,7 +121,6 @@ export default function Home({ role }) {
       if (userData) {
         setUserProfile(userData);
 
-        // 🚨 UPDATED: Check for missing first_name instead of "New User" string
         if (!userData.first_name || !userData.degree_id) {
           navigate('/onboarding');
           return; 
@@ -135,6 +138,10 @@ export default function Home({ role }) {
   function handleCompanyOnboardingComplete() {
     setShowCompanyOnboarding(false);
     fetchDashboardData();
+  }
+
+  if (isLoading && role === 'admin') {
+     return <div className="page-container-wide mt-32"><LoadingSpinner message="Loading dashboard..." /></div>;
   }
 
   return (
@@ -168,7 +175,6 @@ export default function Home({ role }) {
       <div className={role === 'admin' ? "flex-col" : "dashboard-layout"}>
         
         <div className="w-full">
-          
           {role === 'admin' && (
             <AdminOverview 
               adminStats={adminStats}
@@ -202,15 +208,17 @@ export default function Home({ role }) {
           <div className="flex-col gap-32" style={{ position: 'sticky', top: '24px' }}>
             {role === 'guest' ? (
               <div className="card text-center p-24">
-                <div className="avatar avatar-lg mb-16" style={{ margin: '0 auto', background: 'var(--text-color)', color: 'var(--bg-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>U</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                  <Avatar fallbackName="Guest" size="lg" type="user" />
+                </div>
                 <h3 className="m-0 mb-8">Join Hearable</h3>
                 <p className="text-sm text-secondary m-0 mb-24">Create an account to apply to jobs and get noticed by companies.</p>
                 <button className="btn-black w-full" onClick={() => navigate('/login')}>Sign Up Now</button>
               </div>
             ) : role === 'company' ? (
               <div className="card text-center p-24">
-                <div className="avatar avatar-lg mb-16" style={{ margin: '0 auto', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                  {companyProfile?.name ? companyProfile.name.charAt(0).toUpperCase() : 'C'}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                  <Avatar src={companyProfile?.logo_url} fallbackName={companyProfile?.name || 'Company'} size="lg" type="company" />
                 </div>
                 <h3 className="m-0 mb-8">{companyProfile?.name}</h3>
                 <p className="text-sm text-secondary m-0 mb-24">{companyProfile?.address}</p>
@@ -220,12 +228,17 @@ export default function Home({ role }) {
               </div>
             ) : (
               <div className="card text-center p-24">
-                {/* 🚨 UPDATED: Combine first and last name for display */}
-                <div className="avatar avatar-lg mb-16" style={{ margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                  {userProfile?.first_name ? userProfile.first_name.charAt(0).toUpperCase() : 'U'}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                  {/* 🚨 Uses formatFullName to pass the full name into Avatar for 2-letter initials */}
+                  <Avatar 
+                    src={userProfile?.profile_pic} 
+                    fallbackName={formatFullName(userProfile?.first_name, userProfile?.last_name, 'User')} 
+                    size="lg" 
+                    type="user" 
+                  />
                 </div>
                 <h3 className="m-0 mb-8">
-                  {[userProfile?.first_name, userProfile?.last_name].filter(Boolean).join(' ') || 'Incomplete Profile'}
+                  {formatFullName(userProfile?.first_name, userProfile?.last_name, 'Incomplete Profile')}
                 </h3>
                 <p className="text-sm text-secondary m-0 mb-24">{userProfile?.headline || 'Talent Profile'}</p>
                 <button className="btn-black w-full" disabled={!userProfile?.id} onClick={() => navigate(`/user/${userProfile?.id}`)}>

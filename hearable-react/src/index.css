@@ -11,5 +11,4 @@
 @import './styles/components.css';
 
 /* Component Specific Styles */
-@import './components/Navbar.css';
 @import './pages/Jobs.css';

@@ -1,5 +1,8 @@
 import React from 'react';
 
+// 🚨 UPDATED IMPORT PATH (Points to the common folder)
+import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
+
 export default function JobCard({ job, isSelected, onClick }) {
   return (
     <div 
@@ -25,14 +28,11 @@ export default function JobCard({ job, isSelected, onClick }) {
         )}
       </div>
       
-      {/* 🚨 NEW: Added the accessibility badge next to the company name */}
       <div className="text-secondary mb-12 flex-row gap-8 align-center" style={{ fontSize: '0.95rem', fontWeight: '500' }}>
         <span>{job.company}</span>
-        {job.is_deaf_accessible && (
-          <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-            ✓ Deaf Accessible
-          </span>
-        )}
+        
+        {/* 🚨 Uses the newly mapped DeafAccessibleBadge */}
+        {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
       </div>
       
       <div className="flex-row-wrap gap-8 align-center">

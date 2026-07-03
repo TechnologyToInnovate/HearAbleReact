@@ -1,6 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// 🚨 UPDATED IMPORT PATHS
+import StatusBadge from '../common/StatusBadge';
+import { formatFullName } from '../../utils/formatUtils';
+
 export default function RecentApplicantsCard({ recentApplicants, isLoading }) {
   const navigate = useNavigate();
 
@@ -18,17 +22,14 @@ export default function RecentApplicantsCard({ recentApplicants, isLoading }) {
           {recentApplicants.map((app, index) => (
             <div key={app.id} className="flex-between align-center" style={{ padding: '20px 0', borderBottom: index !== recentApplicants.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
               <div>
-                <h4 className="text-lg m-0 mb-4">{app.profiles?.name || 'Incomplete Profile'}</h4>
+                <h4 className="text-lg m-0 mb-4">
+                  {formatFullName(app.profiles?.first_name, app.profiles?.last_name, 'Incomplete Profile')}
+                </h4>
                 <p className="text-sm text-secondary m-0 mb-8">{app.profiles?.email}</p>
                 <span className="text-sm font-bold text-primary">Applied for: {app.jobs?.title}</span>
               </div>
-              <span style={{
-                padding: '4px 10px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold',
-                backgroundColor: app.status === 'Accepted' ? '#dcfce7' : app.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
-                color: app.status === 'Accepted' ? '#166534' : app.status === 'Rejected' ? '#991b1b' : '#854d0e'
-              }}>
-                {app.status || 'Pending'}
-              </span>
+              
+              <StatusBadge status={app.status || 'Pending'} />
             </div>
           ))}
         </div>

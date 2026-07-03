@@ -1,7 +1,6 @@
 import React from 'react';
 
 export default function SkillBadge({ skill, onRemove, customStyle }) {
-  // Gracefully handle both string arrays and object arrays { id, name }
   const skillName = typeof skill === 'string' ? skill : (skill?.name || 'Unknown Skill');
   
   return (
@@ -22,7 +21,6 @@ export default function SkillBadge({ skill, onRemove, customStyle }) {
     >
       {skillName}
       
-      {/* If an onRemove function is passed, show the 'X' button */}
       {onRemove && (
         <button 
           type="button" 

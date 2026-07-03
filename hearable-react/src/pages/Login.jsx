@@ -12,10 +12,8 @@ export default function Login({ setRole }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Clear errors when toggling between Sign In and Sign Up
   useEffect(() => {
     setErrorMsg('');
     setSuccessMsg('');
@@ -23,19 +21,14 @@ export default function Login({ setRole }) {
 
   async function handleAuth(e) {
     e.preventDefault();
-    setLoading(true);
-    setErrorMsg('');
-    setSuccessMsg('');
+    setLoading(true); setErrorMsg(''); setSuccessMsg('');
 
     try {
       if (isLogin) {
-        // --- SIGN IN LOGIC ---
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        
         await routeUserAfterLogin(data.user);
       } else {
-        // --- SIGN UP LOGIC ---
         const { data: adminData } = await supabase.from('admins').select('email').eq('email', email.toLowerCase()).maybeSingle();
         const { data: preApprovedData } = await supabase.from('pre_approved_companies').select('*').eq('email', email.toLowerCase()).maybeSingle();
 
@@ -43,101 +36,65 @@ export default function Login({ setRole }) {
         if (error) throw error;
 
         if (adminData || email.toLowerCase() === 'admin@hearable.com') {
-          setRole('admin');
-          navigate('/');
+          setRole('admin'); navigate('/');
         } else if (preApprovedData) {
           await supabase.from('companies').insert([{
-            id: data.user.id,
-            name: preApprovedData.name,
-            country: preApprovedData.country,
-            city: preApprovedData.city,
-            postal_code: preApprovedData.postal_code,
-            industry: preApprovedData.industry,          
-            founded_year: preApprovedData.founded_year,  
-            website: preApprovedData.website,            
-            description: preApprovedData.description,    
+            id: data.user.id, name: preApprovedData.name, country: preApprovedData.country,
+            city: preApprovedData.city, postal_code: preApprovedData.postal_code,
+            industry: preApprovedData.industry, founded_year: preApprovedData.founded_year,  
+            website: preApprovedData.website, description: preApprovedData.description,    
             status: 'Approved'
           }]);
-          setRole('company');
-          navigate('/');
+          setRole('company'); navigate('/');
         } else {
-          setRole('needs_onboarding');
-          navigate('/onboarding');
+          setRole('needs_onboarding'); navigate('/onboarding');
         }
       }
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setErrorMsg(err.message); } 
+    finally { setLoading(false); }
   }
 
   async function handleForgotPassword() {
-    if (!email) {
-      setErrorMsg('Please enter your email address in the field above first.');
-      return;
-    }
+    if (!email) return setErrorMsg('Please enter your email address in the field above first.');
     
-    setLoading(true);
-    setErrorMsg('');
-    setSuccessMsg('');
+    setLoading(true); setErrorMsg(''); setSuccessMsg('');
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/settings`,
     });
     
     setLoading(false);
-    
-    if (error) {
-      setErrorMsg(error.message);
-    } else {
-      setSuccessMsg('Password reset link sent! Please check your email inbox.');
-    }
+    if (error) setErrorMsg(error.message);
+    else setSuccessMsg('Password reset link sent! Please check your email inbox.');
   }
 
   async function routeUserAfterLogin(user) {
     try {
       const { data: adminData } = await supabase.from('admins').select('email').eq('email', user.email).maybeSingle();
-      if (adminData || user.email === 'admin@hearable.com') {
-        setRole('admin');
-        navigate('/');
-        return;
-      }
+      if (adminData || user.email === 'admin@hearable.com') { setRole('admin'); navigate('/'); return; }
 
       const { data: companyData } = await supabase.from('companies').select('id').eq('id', user.id).maybeSingle();
-      if (companyData) {
-        setRole('company');
-        navigate('/');
-        return;
-      }
+      if (companyData) { setRole('company'); navigate('/'); return; }
 
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
       
-      // 🚨 FIX: Now checking for first_name instead of name
       if (!profileData || !profileData.first_name || !profileData.degree_id) {
-        setRole('needs_onboarding');
-        navigate('/onboarding');
+        setRole('needs_onboarding'); navigate('/onboarding');
       } else if (profileData.status === 'Pending') {
-        setRole('pending_user');
-        navigate('/');
+        setRole('pending_user'); navigate('/');
       } else if (profileData.status === 'Rejected') {
-        setRole('rejected_user');
-        navigate('/');
+        setRole('rejected_user'); navigate('/');
       } else {
-        setRole('user');
-        navigate('/');
+        setRole('user'); navigate('/');
       }
-    } catch (error) {
-      console.error("Routing error:", error);
-    }
+    } catch (error) { console.error("Routing error:", error); }
   }
 
   return (
-    <div className="page-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-      <div className="card p-0" style={{ width: '100%', maxWidth: '400px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
+    <div className="page-container flex-col align-center" style={{ justifyContent: 'center', minHeight: '80vh' }}>
+      <div className="card p-0 w-full" style={{ maxWidth: '400px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
         
-        {/* Toggle Header */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
+        <div className="flex-row" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <button 
             onClick={() => setIsLogin(true)} 
             style={{ flex: 1, padding: '16px', border: 'none', background: 'none', fontSize: '1rem', fontWeight: isLogin ? '600' : '400', color: isLogin ? 'var(--primary-color)' : 'var(--secondary-text)', borderBottom: isLogin ? '2px solid var(--primary-color)' : '2px solid transparent', cursor: 'pointer' }}
@@ -152,65 +109,37 @@ export default function Login({ setRole }) {
           </button>
         </div>
 
-        <div style={{ padding: '32px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <h2 style={{ margin: '0 0 8px 0' }}>{isLogin ? 'Welcome Back' : 'Create an Account'}</h2>
+        <div className="p-32">
+          <div className="text-center mb-24">
+            <h2 className="m-0 mb-8">{isLogin ? 'Welcome Back' : 'Create an Account'}</h2>
             <p className="text-secondary text-sm m-0">
               {isLogin ? 'Enter your details to access your account.' : 'Join the Hearable network today.'}
             </p>
           </div>
 
-          {errorMsg && (
-            <div style={{ background: '#fef2f2', color: '#dc2626', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px', border: '1px solid #fecaca' }}>
-              {errorMsg}
-            </div>
-          )}
-
-          {successMsg && (
-            <div style={{ background: '#f0fdf4', color: '#166534', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px', border: '1px solid #bbf7d0' }}>
-              {successMsg}
-            </div>
-          )}
+          {errorMsg && <div className="mb-16" style={{ background: '#fef2f2', color: '#dc2626', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #fecaca' }}>{errorMsg}</div>}
+          {successMsg && <div className="mb-16" style={{ background: '#f0fdf4', color: '#166534', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #bbf7d0' }}>{successMsg}</div>}
 
           <form onSubmit={handleAuth} className="flex-col gap-16">
             <div>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: '500' }}>Email Address</label>
-              <input 
-                type="email" 
-                className="search-input w-full" 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-                required 
-              />
+              <label className="block mb-8 text-sm font-bold">Email Address</label>
+              <input type="email" className="search-input w-full" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ margin: 0, fontSize: '0.9rem', fontWeight: '500' }}>Password</label>
-                
+              <div className="flex-between align-center mb-8">
+                <label className="m-0 text-sm font-bold">Password</label>
                 {isLogin && (
-                  <button 
-                    type="button" 
-                    onClick={handleForgotPassword} 
-                    style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.8rem', cursor: 'pointer', padding: 0, fontWeight: '500' }}
-                  >
+                  <button type="button" onClick={handleForgotPassword} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.8rem', cursor: 'pointer', padding: 0, fontWeight: '500' }}>
                     Forgot Password?
                   </button>
                 )}
               </div>
-              
-              <input 
-                type="password" 
-                className="search-input w-full" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                required 
-                minLength="6"
-              />
-              {!isLogin && <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '4px' }}>Must be at least 6 characters.</p>}
+              <input type="password" className="search-input w-full" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" />
+              {!isLogin && <p className="text-secondary mt-8" style={{ fontSize: '0.75rem' }}>Must be at least 6 characters.</p>}
             </div>
 
-            <button type="submit" className="btn-black w-full mt-8" disabled={loading} style={{ padding: '12px' }}>
+            <button type="submit" className="btn-black w-full mt-16" disabled={loading} style={{ padding: '12px' }}>
               {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
             </button>
           </form>

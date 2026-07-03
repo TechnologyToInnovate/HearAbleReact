@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import EditCompanyModal from '../components/EditCompanyModal';
-import JobCard from '../components/JobCard';
-import { useAuth } from '../context/AuthContext'; 
+import { useAuth } from '../context/AuthContext';
+
+// 🚨 NEW IMPORTS
+import EditCompanyModal from '../components/modals/EditCompanyModal';
+import JobCard from '../components/jobs/JobCard';
+import Avatar from '../components/common/Avatar';
+import DeafAccessibleBadge from '../components/common/DeafAccessibleBadge';
+import { formatLocation } from '../utils/formatUtils';
+import { formatStandardDate } from '../utils/dateUtils';
 
 export default function CompanyProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
   const { user: currentUser } = useAuth(); 
   
   const [company, setCompany] = useState(null);
   const [companyJobs, setCompanyJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
   const [isEditing, setIsEditing] = useState(false);
   const [refreshData, setRefreshData] = useState(0);
 
@@ -36,12 +40,12 @@ export default function CompanyProfile() {
           const mappedJobs = jobsData.map(job => ({
             ...job,
             company: companyData.name,
-            date: new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            // 🚨 Use our date utility here
+            date: formatStandardDate(job.created_at)
           }));
           setCompanyJobs(mappedJobs);
         }
       }
-      
       setIsLoading(false);
     }
     fetchCompanyData();
@@ -51,18 +55,15 @@ export default function CompanyProfile() {
   if (!company) return <div className="page-container-wide text-center mt-32"><h2>🏢</h2><p className="text-secondary">Company not found.</p></div>;
 
   const isOwnProfile = currentUser?.id === id;
-  const locationText = [company.city, company.country].filter(Boolean).join(', ');
+  // 🚨 Use our formatting utility
+  const locationText = formatLocation(company.city, company.country, '');
 
   return (
     <div className="page-container-wide">
-
       {isEditing && (
         <EditCompanyModal 
           companyId={company.id}
-          onClose={() => {
-            setIsEditing(false);
-            setRefreshData(prev => prev + 1);
-          }} 
+          onClose={() => { setIsEditing(false); setRefreshData(prev => prev + 1); }} 
         />
       )}
 
@@ -74,23 +75,14 @@ export default function CompanyProfile() {
           <div className="flex-between-start" style={{ marginTop: '-40px' }}>
             
             <div className="flex-row gap-24 align-center">
-              <div className="avatar-lg" style={{ width: '100px', height: '100px', border: '4px solid var(--card-bg)', borderRadius: '16px', background: 'var(--bg-color)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {company.logo_url ? (
-                  <img src={company.logo_url} alt={`${company.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <img src="https://placehold.co/200x200/e5e7eb/6b7280?text=🏢" alt="Default Company" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                )}
-              </div>
+              {/* 🚨 Clean Avatar Component */}
+              <Avatar src={company.logo_url} fallbackName={company.name} size="lg" type="company" />
 
               <div style={{ marginTop: '40px' }}>
-                {/* 🚨 NEW: Added Certified Deaf Accessible Badge */}
                 <h1 style={{ margin: '0 0 8px 0', fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   {company.name}
-                  {company.is_deaf_accessible && (
-                    <span style={{ fontSize: '1rem', background: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe', padding: '4px 12px', borderRadius: '20px', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      ✓ Certified Deaf Accessible
-                    </span>
-                  )}
+                  {/* 🚨 Clean Badge Component */}
+                  {company.is_deaf_accessible && <DeafAccessibleBadge size="lg" showText={true} />}
                 </h1>
                 
                 <div className="flex-row-wrap gap-16 text-secondary text-sm">
@@ -108,12 +100,9 @@ export default function CompanyProfile() {
 
             {isOwnProfile && (
               <div style={{ marginTop: '56px' }}>
-                <button className="btn-outline" onClick={() => setIsEditing(true)}>
-                  ⚙️ Edit Profile
-                </button>
+                <button className="btn-outline" onClick={() => setIsEditing(true)}>⚙️ Edit Profile</button>
               </div>
             )}
-
           </div>
         </div>
       </div>
@@ -133,12 +122,7 @@ export default function CompanyProfile() {
             {companyJobs.length > 0 ? (
               <div className="flex-col gap-16">
                 {companyJobs.map(job => (
-                  <JobCard 
-                    key={job.id} 
-                    job={job} 
-                    isSelected={false} 
-                    onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })} 
-                  />
+                  <JobCard key={job.id} job={job} isSelected={false} onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })} />
                 ))}
               </div>
             ) : (
@@ -173,35 +157,18 @@ export default function CompanyProfile() {
             <div className="card p-24" style={{ marginTop: '24px' }}>
               <h3 className="mb-16 m-0">Representative</h3>
               <div className="flex-row gap-16 align-center">
-                <div className="avatar" style={{ width: '56px', height: '56px', border: '1px solid var(--border-color)', borderRadius: '50%', background: 'var(--primary-color)', color: 'white', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {company.contact_person_pic ? (
-                    <img src={company.contact_person_pic} alt={company.contact_person_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                      {company.contact_person_name ? company.contact_person_name.charAt(0).toUpperCase() : '👤'}
-                    </span>
-                  )}
-                </div>
+                <Avatar src={company.contact_person_pic} fallbackName={company.contact_person_name} size="md" type="user" />
                 <div style={{ overflow: 'hidden' }}>
                   <strong style={{ display: 'block', fontSize: '1.05rem', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {company.contact_person_name || 'Contact Person'}
                   </strong>
-                  {company.contact_person_email && (
-                    <span className="text-sm text-secondary" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' }}>
-                      ✉️ {company.contact_person_email}
-                    </span>
-                  )}
-                  {company.contact_person_number && (
-                    <span className="text-sm text-secondary" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      📞 {company.contact_person_number}
-                    </span>
-                  )}
+                  {company.contact_person_email && <span className="text-sm text-secondary" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' }}>✉️ {company.contact_person_email}</span>}
+                  {company.contact_person_number && <span className="text-sm text-secondary" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>📞 {company.contact_person_number}</span>}
                 </div>
               </div>
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

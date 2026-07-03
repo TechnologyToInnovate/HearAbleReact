@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import JobCard from '../components/JobCard';
-import JobDetailsPane from '../components/JobDetailsPane';
 import { useAuth } from '../context/AuthContext';
+
+import { useJobs } from '../hooks/useJobs';
+import JobCard from '../components/jobs/JobCard';
+import JobDetailsPane from '../components/jobs/JobDetailsPane';
+import SearchBar from '../components/common/SearchBar';
+import JobFilters from '../components/common/JobFilters';
 import './Jobs.css'; 
 
 export default function Jobs() {
@@ -11,11 +15,9 @@ export default function Jobs() {
   const location = useLocation();
   const { user: currentUser, role } = useAuth();
 
-  const [jobs, setJobs] = useState([]);
-  const [companies, setCompanies] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedJobId, setSelectedJobId] = useState(null);
+  const { jobs, companies, isLoading, setJobs } = useJobs();
 
+  const [selectedJobId, setSelectedJobId] = useState(null);
   const [savedJobs, setSavedJobs] = useState([]);
   const [appliedJobs, setAppliedJobs] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -25,17 +27,11 @@ export default function Jobs() {
   const [filterModality, setFilterModality] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [filterDate, setFilterDate] = useState('All');
-  
   const [adminStatusFilter, setAdminStatusFilter] = useState('Approved'); 
 
   useEffect(() => {
-    fetchJobs();
-    if (currentUser) {
-      fetchUserData();
-    }
-    if (location.state && location.state.selectedJobId) {
-      setSelectedJobId(location.state.selectedJobId);
-    }
+    if (currentUser) fetchUserData();
+    if (location.state?.selectedJobId) setSelectedJobId(location.state.selectedJobId);
   }, [currentUser, location.state]);
 
   useEffect(() => {
@@ -45,45 +41,8 @@ export default function Jobs() {
     }
   }, [isLoading, jobs, selectedJobId, adminStatusFilter]);
 
-  async function fetchJobs() {
-    setIsLoading(true);
-    
-    const { data: jobsData } = await supabase
-      .from('jobs')
-      .select('*, job_skills(skills(id, name))')
-      .order('created_at', { ascending: false });
-      
-    const { data: companiesData } = await supabase.from('companies').select('*');
-    const { data: appsData } = await supabase.from('applications').select('job_id');
-
-    if (jobsData) {
-      const formattedJobs = jobsData.map(job => {
-        const company = companiesData?.find(c => c.id === job.company_id);
-        const applicantCount = appsData ? appsData.filter(app => app.job_id === job.id).length : 0;
-        
-        const mappedSkills = job.job_skills ? job.job_skills.map(js => ({
-          id: js.skills.id,
-          name: js.skills.name
-        })) : [];
-        
-        return {
-          ...job,
-          skills: mappedSkills,
-          company: company ? company.name : 'Unknown Company',
-          is_deaf_accessible: company ? company.is_deaf_accessible : false, // 🚨 NEW: Added mapping
-          applicantCount: applicantCount,
-          date: new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        };
-      });
-      setJobs(formattedJobs);
-      setCompanies(companiesData || []);
-    }
-    setIsLoading(false);
-  }
-
   async function fetchUserData() {
     if (['guest', 'company', 'admin'].includes(role)) return;
-
     const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', currentUser.id);
     const { data: applied } = await supabase.from('applications').select('job_id').eq('user_id', currentUser.id);
     
@@ -130,15 +89,11 @@ export default function Jobs() {
 
   async function handleUpdateJobStatus(jobId, newStatus) {
     if (role !== 'admin') return;
-    
     const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId);
     
     if (!error) {
       setJobs(jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
-      
-      if (newStatus === 'Rejected' && adminStatusFilter === 'Pending') {
-        setSelectedJobId(null);
-      }
+      if (newStatus === 'Rejected' && adminStatusFilter === 'Pending') setSelectedJobId(null);
     } else {
       alert("Failed to update job status.");
     }
@@ -146,7 +101,7 @@ export default function Jobs() {
 
   async function handleDeleteJob() {
     if (role !== 'admin') return;
-    if (!window.confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) return;
+    if (!window.confirm("Are you sure you want to delete this job posting?")) return;
     
     const { error } = await supabase.from('jobs').delete().eq('id', selectedJobId);
     if (!error) { 
@@ -158,11 +113,8 @@ export default function Jobs() {
   }
 
   const filteredJobs = jobs.filter(job => {
-    if (role !== 'admin') {
-      if (job.status !== 'Approved') return false; 
-    } else {
-      if (adminStatusFilter !== 'All' && job.status !== adminStatusFilter) return false;
-    }
+    if (role !== 'admin' && job.status !== 'Approved') return false; 
+    if (role === 'admin' && adminStatusFilter !== 'All' && job.status !== adminStatusFilter) return false;
 
     const matchesSearch = (job.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (job.company || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -185,18 +137,17 @@ export default function Jobs() {
   const selectedCompanyData = selectedJobData ? companies.find(c => c.id === selectedJobData.company_id) : null;
 
   return (
-    <div className="page-container-wide" style={{ paddingBottom: 0, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="page-container-wide" style={{ paddingBottom: '24px' }}>
       
-      <div style={{ flexShrink: 0 }}>
-        
+      {/* HEADER, SEARCH, & FILTERS */}
+      <div>
         {role === 'admin' && (
           <div className="flex-between align-center mb-16" style={{ flexWrap: 'wrap', gap: '16px' }}>
             <h1 className="m-0">Job Moderation</h1>
             <div className="flex-row gap-8" style={{ background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               {['Pending', 'Approved', 'Rejected', 'All'].map(tab => (
                 <button
-                  key={tab}
-                  onClick={() => { setAdminStatusFilter(tab); setSelectedJobId(null); }}
+                  key={tab} onClick={() => { setAdminStatusFilter(tab); setSelectedJobId(null); }}
                   style={{
                     padding: '6px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600',
                     background: adminStatusFilter === tab ? 'var(--card-bg)' : 'transparent',
@@ -211,58 +162,52 @@ export default function Jobs() {
           </div>
         )}
         
-        <div className="search-box-wrapper mb-16 w-full">
-          <span className="search-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          </span>
-          <input 
-            type="text" 
-            placeholder="Search by job title or company..." 
-            className="search-input" 
+        <div className="mb-16">
+          <SearchBar 
             value={searchQuery} 
             onChange={(e) => setSearchQuery(e.target.value)} 
+            placeholder="Search by job title or company..." 
           />
         </div>
         
-        <div className="flex-row-wrap gap-8 mb-24">
-          <select className="search-input text-sm" style={{ width: 'auto' }} value={filterModality} onChange={(e) => setFilterModality(e.target.value)}>
-            <option value="All">Modalities</option>
-            <option value="On-site">On-site</option>
-            <option value="Hybrid">Hybrid</option>
-            <option value="Remote">Remote</option>
-          </select>
-          <select className="search-input text-sm" style={{ width: 'auto' }} value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-            <option value="All">Types</option>
-            <option value="Full-time">Full-time</option>
-            <option value="Part-time">Part-time</option>
-            <option value="Contract">Contract</option>
-            <option value="Internship">Internship</option>
-          </select>
-          <select className="search-input text-sm" style={{ width: 'auto' }} value={filterDate} onChange={(e) => setFilterDate(e.target.value)}>
-            <option value="All">Any Time</option>
-            <option value="24h">Past 24 Hours</option>
-            <option value="7d">Past Week</option>
-            <option value="30d">Past Month</option>
-          </select>
+        <div className="mb-24">
+          <JobFilters 
+            filterModality={filterModality} setFilterModality={setFilterModality}
+            filterType={filterType} setFilterType={setFilterType}
+            filterDate={filterDate} setFilterDate={setFilterDate}
+          />
         </div>
       </div>
 
-      <div className={`jobs-split-layout ${selectedJobId ? 'active-split' : ''}`} style={{ flex: 1, minHeight: 0, paddingBottom: '24px' }}>
+      <div 
+        className={`jobs-split-layout ${selectedJobId ? 'active-split' : ''}`} 
+        style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}
+      >
         
-        <div className="jobs-list-column" style={{ height: '100%' }}>
+        {/* 🚨 LEFT SIDE: Now sticky and scrollable, perfectly matching the right side! */}
+        <div 
+          className="jobs-list-column" 
+          style={{ 
+            flex: 1, 
+            minWidth: '350px',
+            position: 'sticky', 
+            top: '100px', 
+            height: 'calc(100vh - 160px)', 
+            overflowY: 'auto',
+            paddingRight: '12px' /* Adds space so the scrollbar doesn't overlap your cards */
+          }}
+        >
           {isLoading ? (
             <p className="text-center text-secondary p-20">Loading opportunities...</p>
           ) : filteredJobs.length > 0 ? (
             <div className="flex-col gap-12">
               {filteredJobs.map(job => (
                 <div key={job.id} style={{ position: 'relative' }}>
-                  
                   {role === 'admin' && job.applicantCount > 0 && (
                     <div className="badge badge-primary" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
                       {job.applicantCount} {job.applicantCount === 1 ? 'Applicant' : 'Applicants'}
                     </div>
                   )}
-
                   <JobCard 
                     job={job} 
                     isSelected={job.id === selectedJobId} 
@@ -279,7 +224,17 @@ export default function Jobs() {
           )}
         </div>
 
-        <div className="job-details-column" style={{ height: '100%' }}>
+        {/* 🚨 RIGHT SIDE: Job Details Pane */}
+        <div 
+          className="job-details-column" 
+          style={{ 
+            flex: 1.2, 
+            minWidth: '400px', 
+            position: 'sticky', 
+            top: '100px', 
+            height: 'calc(100vh - 160px)' 
+          }}
+        >
           {selectedJobId && selectedJobData ? (
             <JobDetailsPane
               selectedJob={selectedJobData}
@@ -304,7 +259,6 @@ export default function Jobs() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

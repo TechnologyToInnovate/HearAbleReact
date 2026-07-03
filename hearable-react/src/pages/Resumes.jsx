@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
+// 🚨 NEW IMPORT: Date Utility
+import { formatStandardDate } from '../utils/dateUtils';
+
 export default function Resumes() {
   const { user: currentUser, role } = useAuth();
   const [resumes, setResumes] = useState([]);
@@ -97,28 +100,19 @@ export default function Resumes() {
 
   return (
     <div className="page-container-wide">
-      
-      {/* 🚨 REMOVED THE H1 HEADER HERE */}
 
       <div className="flex-row-wrap gap-16 mb-32">
-        
         <button 
           className="card flex-row align-center gap-12" 
           style={{ 
-            flex: 1, 
-            minWidth: '280px', 
-            cursor: 'pointer', 
-            border: '1px solid var(--border-color)', 
-            background: 'var(--card-bg)',
-            color: 'var(--text-color)',
-            padding: '24px', 
-            transition: 'all 0.2s ease',
-            textAlign: 'left'
+            flex: 1, minWidth: '280px', cursor: 'pointer', border: '1px solid var(--border-color)', 
+            background: 'var(--card-bg)', color: 'var(--text-color)', padding: '24px', 
+            transition: 'all 0.2s ease', textAlign: 'left'
           }}
           onClick={() => setIsUploadModalOpen(true)}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.borderColor = 'var(--text-color)';
+            e.currentTarget.style.borderColor = 'var(--primary-color)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'translateY(0)';
@@ -134,16 +128,9 @@ export default function Resumes() {
         <button 
           className="card flex-row align-center gap-12" 
           style={{ 
-            flex: 1, 
-            minWidth: '280px', 
-            cursor: 'not-allowed', 
-            border: '1px solid var(--border-color)', 
-            padding: '24px', 
-            position: 'relative', 
-            opacity: 0.6, 
-            background: 'var(--bg-color)',
-            color: 'var(--text-color)',
-            textAlign: 'left'
+            flex: 1, minWidth: '280px', cursor: 'not-allowed', border: '1px solid var(--border-color)', 
+            padding: '24px', position: 'relative', opacity: 0.6, background: 'var(--bg-color)',
+            color: 'var(--text-color)', textAlign: 'left'
           }}
           disabled
         >
@@ -155,7 +142,6 @@ export default function Resumes() {
             <p className="text-secondary m-0 text-sm">Use our smart ATS-friendly builder</p>
           </div>
         </button>
-
       </div>
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '32px 0' }} />
@@ -167,7 +153,8 @@ export default function Resumes() {
             <div key={resume.id} className="card p-20 flex-between align-center">
               <div>
                 <h3 className="m-0 mb-4" style={{ fontSize: '1.15rem' }}>{resume.title}</h3>
-                <p className="text-secondary text-sm m-0">Uploaded: {new Date(resume.created_at).toLocaleDateString()}</p>
+                {/* 🚨 UPDATED: Using formatStandardDate */}
+                <p className="text-secondary text-sm m-0">Uploaded: {formatStandardDate(resume.created_at)}</p>
               </div>
               
               <div className="flex-row gap-12">

@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import JobCard from '../components/JobCard';
-import JobFormModal from '../components/JobFormModal';
-import JobDetailsPane from '../components/JobDetailsPane';
 import { useAuth } from '../context/AuthContext'; 
+
+// 🚨 NEW IMPORTS: Common Components
+import JobCard from '../components/jobs/JobCard';
+import JobFormModal from '../components/modals/JobFormModal';
+import JobDetailsPane from '../components/jobs/JobDetailsPane';
+import SearchBar from '../components/common/SearchBar';
+import JobFilters from '../components/common/JobFilters';
+import StatusBadge from '../components/common/StatusBadge';
 
 export default function MyJobs() {
   const navigate = useNavigate();
@@ -15,6 +20,7 @@ export default function MyJobs() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState(null);
   
+  // Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModality, setFilterModality] = useState('All');
   const [filterType, setFilterType] = useState('All');
@@ -29,9 +35,7 @@ export default function MyJobs() {
   useEffect(() => {
     if (role !== 'company') { navigate('/'); return; }
     fetchMyJobs();
-    if (location.state && location.state.selectedJobId) {
-      setSelectedJobId(location.state.selectedJobId);
-    }
+    if (location.state?.selectedJobId) setSelectedJobId(location.state.selectedJobId);
   }, [role, navigate, location.state]);
 
   async function fetchMyJobs() {
@@ -39,29 +43,19 @@ export default function MyJobs() {
     if (!currentUser) { setIsLoading(false); return; }
     
     const { data: companyData } = await supabase.from('companies').select('*').eq('id', currentUser.id).single();
-    
-    const { data: jobsData } = await supabase
-      .from('jobs')
-      .select('*, job_skills(skills(id, name))')
-      .eq('company_id', currentUser.id)
-      .order('created_at', { ascending: false });
-      
+    const { data: jobsData } = await supabase.from('jobs').select('*, job_skills(skills(id, name))').eq('company_id', currentUser.id).order('created_at', { ascending: false });
     const { data: appsData } = await supabase.from('applications').select('job_id');
 
     if (jobsData && companyData) {
       const mappedJobs = jobsData.map(job => {
         const applicantCount = appsData ? appsData.filter(app => app.job_id === job.id).length : 0;
-        
-        const formattedSkills = job.job_skills ? job.job_skills.map(js => ({
-          id: js.skills.id,
-          name: js.skills.name
-        })) : [];
+        const formattedSkills = job.job_skills ? job.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [];
 
         return {
           ...job,
           skills: formattedSkills,
           company: companyData.name,
-          is_deaf_accessible: companyData.is_deaf_accessible || false, // 🚨 NEW: Mapping added here
+          is_deaf_accessible: companyData.is_deaf_accessible || false,
           applicantCount: applicantCount,
           date: new Date(job.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         };
@@ -73,21 +67,12 @@ export default function MyJobs() {
 
   async function handlePostJob(formData) {
     if (!currentUser) return;
-    
-    if (jobs.length >= 3) {
-      alert("You have reached the maximum limit of 3 active job postings.");
-      return;
-    }
+    if (jobs.length >= 3) return alert("You have reached the maximum limit of 3 active job postings.");
 
     setIsSubmitting(true);
-    
     const { skills, ...jobDetails } = formData;
     
-    const { data: newJob, error: jobError } = await supabase.from('jobs').insert([{ 
-      ...jobDetails, 
-      company_id: currentUser.id, 
-      status: 'Pending' 
-    }]).select().single();
+    const { data: newJob, error: jobError } = await supabase.from('jobs').insert([{ ...jobDetails, company_id: currentUser.id, status: 'Pending' }]).select().single();
     
     if (jobError) {
       alert("Failed to post job: " + jobError.message);
@@ -96,11 +81,7 @@ export default function MyJobs() {
     }
 
     if (skills && skills.length > 0) {
-      const jobSkillsData = skills.map(skill => ({
-        job_id: newJob.id,
-        skill_id: skill.id
-      }));
-      await supabase.from('job_skills').insert(jobSkillsData);
+      await supabase.from('job_skills').insert(skills.map(skill => ({ job_id: newJob.id, skill_id: skill.id })));
     }
     
     setShowAddForm(false); 
@@ -111,7 +92,6 @@ export default function MyJobs() {
 
   async function handleUpdateJob(formData) {
     setIsSubmitting(true);
-    
     const currentEditCount = selectedJob.edit_count || 0;
     
     if (currentEditCount >= 3) {
@@ -121,11 +101,7 @@ export default function MyJobs() {
     }
 
     const { skills, ...jobDetails } = formData;
-
-    const { error: jobError } = await supabase.from('jobs').update({
-      ...jobDetails,
-      edit_count: currentEditCount + 1
-    }).eq('id', selectedJob.id);
+    const { error: jobError } = await supabase.from('jobs').update({ ...jobDetails, edit_count: currentEditCount + 1 }).eq('id', selectedJob.id);
     
     if (jobError) {
       alert("Failed to update job: " + jobError.message);
@@ -134,13 +110,8 @@ export default function MyJobs() {
     }
 
     await supabase.from('job_skills').delete().eq('job_id', selectedJob.id);
-    
     if (skills && skills.length > 0) {
-      const jobSkillsData = skills.map(skill => ({
-        job_id: selectedJob.id,
-        skill_id: skill.id
-      }));
-      await supabase.from('job_skills').insert(jobSkillsData);
+      await supabase.from('job_skills').insert(skills.map(skill => ({ job_id: selectedJob.id, skill_id: skill.id })));
     }
 
     setIsEditingJob(false); 
@@ -150,7 +121,6 @@ export default function MyJobs() {
 
   async function handleDeleteJob() {
     if (!window.confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) return;
-    
     const { error } = await supabase.from('jobs').delete().eq('id', selectedJob.id);
     
     if (!error) { 
@@ -182,25 +152,18 @@ export default function MyJobs() {
       <JobFormModal isOpen={showAddForm} onClose={() => setShowAddForm(false)} onSubmit={handlePostJob} isSubmitting={isSubmitting} />
       <JobFormModal isOpen={isEditingJob} onClose={() => setIsEditingJob(false)} onSubmit={handleUpdateJob} initialData={selectedJob} isEditing={true} isSubmitting={isSubmitting} />
 
-      <div className="search-box-wrapper mb-16 w-full">
-        <span className="search-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        </span>
-        <input type="text" placeholder="Search your job titles..." className="search-input" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+      {/* 1. Unified SearchBar Component */}
+      <div className="mb-16">
+        <SearchBar value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search your job titles..." />
       </div>
       
       <div className="flex-between align-center mb-32">
-        <div className="flex-row-wrap gap-8">
-          <select className="search-input text-sm" style={{ width: 'auto' }} value={filterModality} onChange={(e) => setFilterModality(e.target.value)}>
-            <option value="All">Modalities</option><option value="On-site">On-site</option><option value="Hybrid">Hybrid</option><option value="Remote">Remote</option>
-          </select>
-          <select className="search-input text-sm" style={{ width: 'auto' }} value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-            <option value="All">Types</option><option value="Full-time">Full-time</option><option value="Part-time">Part-time</option><option value="Contract">Contract</option>
-          </select>
-          <select className="search-input text-sm" style={{ width: 'auto' }} value={filterDate} onChange={(e) => setFilterDate(e.target.value)}>
-            <option value="All">Any Time</option><option value="24h">Past 24 Hours</option><option value="7d">Past Week</option><option value="30d">Past Month</option>
-          </select>
-        </div>
+        {/* 2. Unified JobFilters Component */}
+        <JobFilters 
+          filterModality={filterModality} setFilterModality={setFilterModality}
+          filterType={filterType} setFilterType={setFilterType}
+          filterDate={filterDate} setFilterDate={setFilterDate}
+        />
         
         {!isLoading && (
           <div className="flex-col" style={{ alignItems: 'flex-end' }}>
@@ -208,10 +171,7 @@ export default function MyJobs() {
               className="btn-black" 
               onClick={() => setShowAddForm(true)}
               disabled={jobs.length >= 3}
-              style={{ 
-                opacity: jobs.length >= 3 ? 0.5 : 1, 
-                cursor: jobs.length >= 3 ? 'not-allowed' : 'pointer' 
-              }}
+              style={{ opacity: jobs.length >= 3 ? 0.5 : 1, cursor: jobs.length >= 3 ? 'not-allowed' : 'pointer' }}
             >
               + Post a Job
             </button>
@@ -232,13 +192,8 @@ export default function MyJobs() {
                 <div key={job.id} style={{ position: 'relative' }}>
                   
                   <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, display: 'flex', gap: '8px', pointerEvents: 'none' }}>
-                    <span style={{
-                      padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', background: 'var(--card-bg)',
-                      border: `1px solid ${job.status === 'Approved' ? '#22c55e' : job.status === 'Rejected' ? '#ef4444' : '#eab308'}`,
-                      color: job.status === 'Approved' ? '#16a34a' : job.status === 'Rejected' ? '#dc2626' : '#ca8a04'
-                    }}>
-                      {job.status || 'Pending'}
-                    </span>
+                    {/* 3. Unified StatusBadge Component */}
+                    <StatusBadge status={job.status || 'Pending'} />
                     {job.applicantCount > 0 && (
                       <div className="badge badge-primary">
                         {job.applicantCount} {job.applicantCount === 1 ? 'Applicant' : 'Applicants'}
@@ -265,13 +220,8 @@ export default function MyJobs() {
                   
                   <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 2, display: 'flex', gap: '8px', pointerEvents: 'none' }}>
                     {job.id !== selectedJobId && (
-                      <span style={{
-                        padding: '2px 6px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 'bold', background: 'var(--card-bg)',
-                        border: `1px solid ${job.status === 'Approved' ? '#22c55e' : job.status === 'Rejected' ? '#ef4444' : '#eab308'}`,
-                        color: job.status === 'Approved' ? '#16a34a' : job.status === 'Rejected' ? '#dc2626' : '#ca8a04'
-                      }}>
-                        {job.status === 'Approved' ? 'Appr.' : job.status === 'Rejected' ? 'Rej.' : 'Pend.'}
-                      </span>
+                      // 4. Unified StatusBadge Component
+                      <StatusBadge status={job.status || 'Pending'} />
                     )}
                     {job.applicantCount > 0 && job.id !== selectedJobId && (
                       <div className="badge badge-primary">{job.applicantCount}</div>

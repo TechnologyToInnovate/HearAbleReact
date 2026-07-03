@@ -3,6 +3,9 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+// 🚨 NEW IMPORT: Date Utility
+import { formatStandardDate } from '../utils/dateUtils';
+
 export default function Notifications() {
   const { user, role } = useAuth();
   const navigate = useNavigate();
@@ -153,8 +156,6 @@ export default function Notifications() {
       setBroadcastRole('everyone');
       setIsModalOpen(false);
       fetchBroadcastHistory();
-      
-      // Refresh notifications so the admin immediately sees their own broadcast in the inbox below
       fetchNotifications();
     }
     setIsBroadcasting(false);
@@ -208,10 +209,8 @@ export default function Notifications() {
         ))}
       </div>
 
-      {/* --- 1. ADMIN ANNOUNCEMENTS MANAGEMENT --- */}
       {role === 'admin' && activeTab === 'Announcements' && (
         <div className="mb-32">
-          
           {isModalOpen && (
             <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
               <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px' }}>
@@ -238,7 +237,6 @@ export default function Notifications() {
                           <option value="companies">Companies Only</option>
                         </select>
                       </div>
-
                       <div style={{ flex: 1, minWidth: '200px' }}>
                         <label className="block mb-8 text-sm font-bold">Account Status *</label>
                         <select className="search-input" value={broadcastAudience} onChange={(e) => setBroadcastAudience(e.target.value)}>
@@ -298,7 +296,6 @@ export default function Notifications() {
         </div>
       )}
 
-      {/* --- 2. STANDARD INBOX FEED (Shows for everyone, including Admins) --- */}
       {isLoading ? (
         <p className="text-secondary text-center p-32">Loading notifications...</p>
       ) : filteredNotifications.length > 0 ? (
@@ -331,9 +328,12 @@ export default function Notifications() {
                       </h3>
                     </div>
                     <p className="m-0 text-secondary" style={{ lineHeight: '1.5' }}>{notification.message}</p>
+                    
+                    {/* 🚨 UPDATED: Using formatStandardDate */}
                     <span className="text-sm text-secondary mt-12 block">
-                      {new Date(notification.created_at).toLocaleDateString()} at {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {formatStandardDate(notification.created_at)} at {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
+
                   </div>
                   <button onClick={() => handleDelete(notification.id)} className="nav-icon-btn" title="Delete Notification" style={{ flexShrink: 0, marginLeft: '16px' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

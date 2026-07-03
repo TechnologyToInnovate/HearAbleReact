@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import JobCard from '../components/JobCard';
-import StatusBadge from '../components/StatusBadge';
+import JobCard from '../components/jobs/JobCard';
+
+// 🚨 NEW IMPORTS
+import StatusBadge from '../components/common/StatusBadge';
+import { formatStandardDate } from '../utils/dateUtils';
 
 export default function UserJobs() {
   const navigate = useNavigate();
@@ -38,8 +41,9 @@ export default function UserJobs() {
           ...app.jobs,
           skills: app.jobs.job_skills ? app.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
           company: app.jobs.companies?.name || 'Unknown Company',
-          is_deaf_accessible: app.jobs.companies?.is_deaf_accessible || false, // 🚨 NEW
-          date: new Date(app.jobs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          is_deaf_accessible: app.jobs.companies?.is_deaf_accessible || false,
+          // 🚨 Use our Date Utility
+          date: formatStandardDate(app.jobs.created_at)
         }
       }));
       setApplications(mappedApps);
@@ -58,8 +62,9 @@ export default function UserJobs() {
           ...saved.jobs,
           skills: saved.jobs.job_skills ? saved.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
           company: saved.jobs.companies?.name || 'Unknown Company',
-          is_deaf_accessible: saved.jobs.companies?.is_deaf_accessible || false, // 🚨 NEW
-          date: new Date(saved.jobs.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          is_deaf_accessible: saved.jobs.companies?.is_deaf_accessible || false,
+          // 🚨 Use our Date Utility
+          date: formatStandardDate(saved.jobs.created_at)
         }
       }));
       setSavedJobs(mappedSaved);
@@ -142,6 +147,7 @@ export default function UserJobs() {
               
               {activeTab !== 'Saved' && (
                 <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
+                  {/* 🚨 Uses the updated StatusBadge */}
                   <StatusBadge status={item.status || 'Pending'} />
                 </div>
               )}

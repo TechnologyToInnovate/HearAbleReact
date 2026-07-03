@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
+// 🚨 NEW IMPORT: Date Utility
+import { formatStandardDate } from '../utils/dateUtils';
+
 export default function Feedbacks() {
   const { user: currentUser, role } = useAuth();
   const [feedbacks, setFeedbacks] = useState([]);
@@ -83,7 +86,9 @@ export default function Feedbacks() {
                 <div className="badge badge-neutral mb-12" style={{ display: 'inline-block' }}>User ID: {fb.user_id}</div>
               )}
               <p className="m-0" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', fontSize: '1.05rem' }}>"{fb.message}"</p>
-              <p className="text-secondary text-sm mt-12 m-0">Submitted: {new Date(fb.created_at).toLocaleString()}</p>
+              
+              {/* 🚨 UPDATED: Using formatStandardDate */}
+              <p className="text-secondary text-sm mt-12 m-0">Submitted: {formatStandardDate(fb.created_at)}</p>
             </div>
           ))}
         </div>

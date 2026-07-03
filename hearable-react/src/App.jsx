@@ -4,7 +4,7 @@ import './index.css';
 
 // GLOBAL CONTEXT & COMPONENTS
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Navbar from './components/Navbar'; 
+import Navbar from "./components/layout/Navbar";
 
 // --- MAIN PAGES ---
 import Home from './pages/Home';

@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import StatusBadge from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
+
+// 🚨 NEW IMPORTS: Common Components & Utils
+import StatusBadge from '../components/common/StatusBadge';
+import Avatar from '../components/common/Avatar';
+import SearchBar from '../components/common/SearchBar';
+import { formatFullName } from '../utils/formatUtils';
 
 export default function Applicants() {
   const navigate = useNavigate();
@@ -18,7 +23,7 @@ export default function Applicants() {
   const [availableJobs, setAvailableJobs] = useState([]);
 
   useEffect(() => {
-    if (role === 'user' || role === 'pending_user' || role === 'rejected_user' || role === 'guest') {
+    if (['user', 'pending_user', 'rejected_user', 'guest'].includes(role)) {
       navigate('/');
       return;
     }
@@ -32,10 +37,12 @@ export default function Applicants() {
     if (!session) return;
     const currentUserId = session.user.id;
 
-    const { data: appsData } = await supabase.from('applications').select('*').order('id', { ascending: false });
-    const { data: jobsData } = await supabase.from('jobs').select('*');
-    const { data: profilesData } = await supabase.from('profiles').select('*');
-    const { data: companiesData } = await supabase.from('companies').select('*');
+    const [appsData, jobsData, profilesData, companiesData] = await Promise.all([
+      supabase.from('applications').select('*').order('id', { ascending: false }).then(res => res.data),
+      supabase.from('jobs').select('*').then(res => res.data),
+      supabase.from('profiles').select('*').then(res => res.data),
+      supabase.from('companies').select('*').then(res => res.data)
+    ]);
 
     if (appsData && jobsData && profilesData && companiesData) {
       
@@ -44,8 +51,8 @@ export default function Applicants() {
         const profile = profilesData.find(p => p.id === app.applicant_id) || {};
         const company = companiesData.find(c => c.id === job.company_id) || {};
         
-        // 🚨 UPDATED: Combine first and last name here
-        const applicantFullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'Unknown Candidate';
+        // 🚨 UPDATED: Using our formatting utility
+        const applicantFullName = formatFullName(profile.first_name, profile.last_name, 'Unknown Candidate');
 
         return {
           ...app,
@@ -86,10 +93,7 @@ export default function Applicants() {
       app.id === appId ? { ...app, status: newStatus } : app
     ));
 
-    const { error } = await supabase
-      .from('applications')
-      .update({ status: newStatus })
-      .eq('id', appId);
+    const { error } = await supabase.from('applications').update({ status: newStatus }).eq('id', appId);
 
     if (!error && appToUpdate) {
       await supabase.from('notifications').insert([{
@@ -100,7 +104,6 @@ export default function Applicants() {
       }]);
     } else if (error) {
       alert("Failed to update status.");
-      console.error(error);
     }
   }
 
@@ -115,10 +118,7 @@ export default function Applicants() {
 
   const jobGroups = availableJobs.map(job => {
     const appsForThisJob = applications.filter(app => app.job_id === job.id);
-    return {
-      ...job,
-      applicantCount: appsForThisJob.length
-    };
+    return { ...job, applicantCount: appsForThisJob.length };
   }).filter(job => job.title.toLowerCase().includes(searchQuery.toLowerCase())); 
 
   const selectedJobTitle = availableJobs.find(j => j.id === filterJobId)?.title || 'Job Posting';
@@ -149,34 +149,24 @@ export default function Applicants() {
 
       {filterJobId !== 'all' ? (
         <div className="mb-24">
-          <button 
-            className="btn-outline btn-sm mb-16" 
-            onClick={() => { setFilterJobId('all'); setViewMode('grouped'); }}
-          >
+          <button className="btn-outline btn-sm mb-16" onClick={() => { setFilterJobId('all'); setViewMode('grouped'); }}>
             ← Back to Job Posts
           </button>
           <h2 style={{ margin: 0 }}>Applicants for: <span className="text-primary">{selectedJobTitle}</span></h2>
         </div>
       ) : (
         <div className="flex-row gap-16 mb-32">
-          <div className="search-box-wrapper" style={{ flex: 2 }}>
-            <span className="search-icon">🔍</span>
-            <input 
-              type="text" 
-              placeholder={viewMode === 'grouped' ? "Search job postings..." : "Search candidates or job titles..."} 
-              className="search-input" 
+          {/* 🚨 UPDATED: Replaced inline search with our SearchBar component */}
+          <div style={{ flex: 2 }}>
+            <SearchBar 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
+              placeholder={viewMode === 'grouped' ? "Search job postings..." : "Search candidates or job titles..."} 
             />
           </div>
 
           {viewMode === 'all' && (
-            <select 
-              className="search-input" 
-              style={{ flex: 1 }}
-              value={filterJobId}
-              onChange={(e) => setFilterJobId(e.target.value)}
-            >
+            <select className="search-input" style={{ flex: 1 }} value={filterJobId} onChange={(e) => setFilterJobId(e.target.value)}>
               <option value="all">🏢 All Job Postings</option>
               {availableJobs.map(job => (
                 <option key={job.id} value={job.id}>{job.title}</option>
@@ -196,21 +186,14 @@ export default function Applicants() {
                 key={group.id} 
                 className="card p-24" 
                 style={{ cursor: 'pointer', transition: 'transform 0.2s', border: '1px solid var(--border-color)' }}
-                onClick={() => {
-                  setFilterJobId(group.id);
-                  setViewMode('all');
-                }}
+                onClick={() => { setFilterJobId(group.id); setViewMode('all'); }}
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 <div className="flex-row gap-16 align-center mb-24">
-                  <div style={{ width: '56px', height: '56px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {group.company_logo ? (
-                      <img src={group.company_logo} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ fontSize: '1.5rem' }}>🏢</span>
-                    )}
-                  </div>
+                  {/* 🚨 UPDATED: Replaced inline company logo div with our Avatar component */}
+                  <Avatar src={group.company_logo} fallbackName={group.company_name} type="company" size="md" />
+                  
                   <div>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{group.title}</h3>
                     {role === 'admin' && <p className="text-secondary text-sm m-0">{group.company_name}</p>}
@@ -221,9 +204,7 @@ export default function Applicants() {
                   <span style={{ fontWeight: '600', color: group.applicantCount > 0 ? 'var(--primary-color)' : 'var(--secondary-text)' }}>
                     👥 {group.applicantCount} {group.applicantCount === 1 ? 'Applicant' : 'Applicants'}
                   </span>
-                  <span className="text-primary text-sm" style={{ fontWeight: '500' }}>
-                    View List →
-                  </span>
+                  <span className="text-primary text-sm" style={{ fontWeight: '500' }}>View List →</span>
                 </div>
               </div>
             ))}
@@ -252,7 +233,6 @@ export default function Applicants() {
           </div>
         )
       )}
-
     </div>
   );
 }
@@ -262,13 +242,9 @@ function ApplicantCard({ app, role, handleStatusChange, navigate }) {
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
       <div className="flex-between-start" style={{ padding: '24px' }}>
         <div className="flex-row gap-16">
-          <div className="avatar" style={{ width: '56px', height: '56px', background: 'var(--text-color)', color: 'var(--bg-color)', flexShrink: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            {app.applicant_pic ? (
-               <img src={app.applicant_pic} alt={app.applicant_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-               app.applicant_name ? app.applicant_name.charAt(0).toUpperCase() : 'U'
-            )}
-          </div>
+          {/* 🚨 UPDATED: Replaced inline user avatar div with our Avatar component */}
+          <Avatar src={app.applicant_pic} fallbackName={app.applicant_name} type="user" size="md" />
+          
           <div>
             <h3 className="text-lg" style={{ margin: '0 0 4px 0' }}>{app.applicant_name}</h3>
             <p className="text-sm text-secondary" style={{ margin: 0 }}>
@@ -282,44 +258,28 @@ function ApplicantCard({ app, role, handleStatusChange, navigate }) {
           </div>
         </div>
 
+        {/* 🚨 This now safely points to the newly moved common StatusBadge */}
         <StatusBadge status={app.status || 'Pending'} />
       </div>
 
       <div className="flex-between align-center" style={{ padding: '16px 24px', background: 'var(--bg-color)', borderTop: '1px solid var(--border-color)' }}>
         <div className="flex-row gap-8">
-          <button 
-            className="btn-outline btn-sm" 
-            onClick={() => navigate(`/user/${app.applicant_id}`)}
-            style={{ background: 'var(--card-bg)' }}
-          >
+          <button className="btn-outline btn-sm" onClick={() => navigate(`/user/${app.applicant_id}`)} style={{ background: 'var(--card-bg)' }}>
             👤 View Profile
           </button>
-          <button 
-            className="btn-outline btn-sm" 
-            onClick={() => alert('Resume viewing feature coming soon!')}
-            style={{ background: 'var(--card-bg)' }}
-          >
+          <button className="btn-outline btn-sm" onClick={() => alert('Resume viewing feature coming soon!')} style={{ background: 'var(--card-bg)' }}>
             📄 View Resume
           </button>
         </div>
 
         <div className="flex-row gap-8">
           {app.status !== 'Approved' && (
-            <button 
-              className="btn-sm" 
-              onClick={() => handleStatusChange(app.id, 'Approved')}
-              style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}
-            >
+            <button className="btn-sm" onClick={() => handleStatusChange(app.id, 'Approved')} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>
               ✓ Approve
             </button>
           )}
-          
           {app.status !== 'Rejected' && (
-            <button 
-              className="btn-sm" 
-              onClick={() => handleStatusChange(app.id, 'Rejected')}
-              style={{ background: 'var(--card-bg)', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}
-            >
+            <button className="btn-sm" onClick={() => handleStatusChange(app.id, 'Rejected')} style={{ background: 'var(--card-bg)', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>
               ✕ Reject
             </button>
           )}
