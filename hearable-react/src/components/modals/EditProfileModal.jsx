@@ -1,201 +1,246 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-import SkillBadge from '../common/SkillBadge'; 
+import AddSkillModal from './AddSkillModal';
 
 export default function EditProfileModal({ isOpen, onClose, userId, onSuccess }) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const [firstName, setFirstName] = useState(''); const [lastName, setLastName] = useState('');
-  const [headline, setHeadline] = useState(''); const [degree, setDegree] = useState(''); 
-  const [batch, setBatch] = useState(''); const [email, setEmail] = useState('');
-  const [contactNumber, setContactNumber] = useState(''); 
-  const [country, setCountry] = useState(''); const [city, setCity] = useState('');
-  const [postalCode, setPostalCode] = useState('');
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    headline: '',
+    city: '',
+    country: '',
+    contact_number: '',
+    skills: []
+  });
   
-  const [degreeOptions, setDegreeOptions] = useState([]);
-  const [batchOptions, setBatchOptions] = useState([]);
-  const [databaseSkills, setDatabaseSkills] = useState([]); 
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showAddSkillPopup, setShowAddSkillPopup] = useState(false);
 
-  const [selectedSkills, setSelectedSkills] = useState([]); 
-  const [showSkillModal, setShowSkillModal] = useState(false);
-  const [skillInput, setSkillInput] = useState(''); 
-
+  // Fetch the latest user data whenever the modal is opened
   useEffect(() => {
-    if (!isOpen || !userId) return;
-    async function loadProfile() {
-      setIsLoading(true);
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) setEmail(authUser.email);
-
-      const { data, error } = await supabase.from('profiles').select(`*, profile_skills ( skills ( id, name ) )`).eq('id', userId).single();
-      
-      if (data && !error) {
-        setFirstName(data.first_name || ''); setLastName(data.last_name || ''); setHeadline(data.headline || '');
-        setContactNumber(data.contact_number || ''); setCountry(data.country || ''); setCity(data.city || '');
-        setPostalCode(data.postal_code || ''); setBatch(data.batch_id || ''); setDegree(data.degree_id || '');
-        setSelectedSkills(data.profile_skills ? data.profile_skills.map(ps => ({ id: ps.skills.id, name: ps.skills.name })) : []);
-      }
-
-      const [degRes, batchRes, skillsRes] = await Promise.all([
-        supabase.from('degrees').select('*').order('name'),
-        supabase.from('batches').select('*').order('batch_number', { ascending: false }),
-        supabase.from('skills').select('*').order('name')
-      ]);
-      
-      if (degRes.data) setDegreeOptions(degRes.data);
-      if (batchRes.data) setBatchOptions(batchRes.data);
-      if (skillsRes.data) setDatabaseSkills(skillsRes.data);
-
-      setIsLoading(false);
+    if (isOpen && userId) {
+      fetchUserData();
     }
-    loadProfile();
   }, [isOpen, userId]);
 
-  const saveSkill = () => {
-    if (!skillInput) return;
-    const skillObj = databaseSkills.find(s => s.id === skillInput);
-    if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) setSelectedSkills([...selectedSkills, skillObj]);
-    setSkillInput(''); setShowSkillModal(false); 
+  async function fetchUserData() {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`*, profile_skills ( skills ( name ) )`)
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (data && !error) {
+      setFormData({
+        first_name: data.first_name || '',
+        last_name: data.last_name || '',
+        headline: data.headline || '',
+        city: data.city || '',
+        country: data.country || '',
+        contact_number: data.contact_number || '',
+        skills: data.profile_skills ? data.profile_skills.map(ps => ps.skills.name) : []
+      });
+    }
+    setIsLoading(false);
+  }
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const removeSkill = (idToRemove) => setSelectedSkills(selectedSkills.filter(skill => skill.id !== idToRemove));
+  // --- SKILL HANDLERS (Local State Only) ---
+  const handleAddSkillToForm = (skillObj) => {
+    setFormData(prev => ({
+      ...prev,
+      skills: [...(prev.skills || []), skillObj.name]
+    }));
+    setShowAddSkillPopup(false);
+  };
 
-  async function handleSaveChanges(e) {
+  const handleRemoveSkillFromForm = (skillToRemove) => {
+    setFormData(prev => ({
+      ...prev,
+      skills: (prev.skills || []).filter(skill => skill !== skillToRemove)
+    }));
+  };
+
+  // --- SAVE EVERYTHING ---
+  const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
 
-    const { error: profileError } = await supabase.from('profiles').update({ 
-        first_name: firstName.trim(), last_name: lastName.trim(), headline: headline.trim(),
-        contact_number: contactNumber.trim(), country: country.trim(), city: city.trim(),
-        postal_code: postalCode.trim(), batch_id: batch, degree_id: degree 
-      }).eq('id', userId);
+    try {
+      // 1. Update basic profile info
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          headline: formData.headline,
+          city: formData.city,
+          country: formData.country,
+          contact_number: formData.contact_number
+        })
+        .eq('id', userId);
 
-    if (profileError) { 
-      alert("Error saving profile: " + profileError.message); 
-      setIsSaving(false); return; 
+      if (profileError) throw profileError;
+
+      // 2. Synchronize Skills
+      if (formData.skills.length > 0) {
+        // Find the IDs for the skills currently in the form
+        const { data: skillsData } = await supabase
+          .from('skills')
+          .select('id, name')
+          .in('name', formData.skills);
+
+        // Delete all old skill links for this user
+        await supabase
+          .from('profile_skills')
+          .delete()
+          .eq('profile_id', userId);
+
+        // Insert the newly updated list of skill links
+        if (skillsData && skillsData.length > 0) {
+          const skillInserts = skillsData.map(skill => ({
+            profile_id: userId,
+            skill_id: skill.id
+          }));
+          await supabase.from('profile_skills').insert(skillInserts);
+        }
+      } else {
+        // If they removed all skills, just clear the table
+        await supabase.from('profile_skills').delete().eq('profile_id', userId);
+      }
+
+      // Success! Refresh the profile page and close modal
+      onSuccess(); 
+      onClose(); 
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Failed to update profile. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
-
-    await supabase.from('profile_skills').delete().eq('profile_id', userId);
-    if (selectedSkills.length > 0) {
-      await supabase.from('profile_skills').insert(selectedSkills.map(skill => ({ profile_id: userId, skill_id: skill.id })));
-    }
-
-    setIsSaving(false);
-    if (onSuccess) onSuccess();
-    onClose(); 
-  }
+  };
 
   if (!isOpen) return null;
 
-  const availableSkills = databaseSkills.filter(dbSkill => !selectedSkills.some(selected => selected.id === dbSkill.id));
-
   return (
-    // 🚨 REMOVED CONSTANT STYLES, APPLIED CSS CLASSES[cite: 42]
-    <div className="modal-overlay">
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       
-      {showSkillModal && (
-        <div className="modal-overlay" style={{ zIndex: 10000 }}>
-          <div className="modal-content" style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3 className="m-0">Add New Skill</h3>
-              <button onClick={() => setShowSkillModal(false)} className="close-btn">✕</button>
+      {/* Our Reusable Add Skill Modal sits on top! */}
+      <AddSkillModal 
+        isOpen={showAddSkillPopup}
+        onClose={() => setShowAddSkillPopup(false)}
+        onAddSkill={handleAddSkillToForm}
+        existingSkills={formData.skills || []} 
+        isUpdating={false} 
+      />
+
+      <div className="card p-32" style={{ width: '100%', maxWidth: '600px', margin: '16px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <h2 className="m-0 mb-24 text-2xl">Edit Profile</h2>
+
+        {isLoading ? (
+          <p className="text-center text-secondary">Loading your information...</p>
+        ) : (
+          <form onSubmit={handleSave} className="flex-col gap-24">
+            
+            {/* Basic Info */}
+            <div className="flex-row gap-16 flex-wrap">
+              <div className="flex-col gap-8" style={{ flex: 1, minWidth: '200px' }}>
+                <label className="font-medium">First Name</label>
+                <input required type="text" name="first_name" value={formData.first_name} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+              </div>
+              <div className="flex-col gap-8" style={{ flex: 1, minWidth: '200px' }}>
+                <label className="font-medium">Last Name</label>
+                <input required type="text" name="last_name" value={formData.last_name} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+              </div>
             </div>
-            <div className="modal-body flex-col gap-16">
-              <label style={{ display: 'block', fontWeight: '500' }}>Select a skill to add</label>
-              <select className="search-input w-full" value={skillInput} onChange={e => setSkillInput(e.target.value)}>
-                <option value="" disabled>-- Choose a skill --</option>
-                {availableSkills.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <button className="btn-black w-full mt-8" onClick={saveSkill} disabled={!skillInput}>Add Skill</button>
+
+            <div className="flex-col gap-8">
+              <label className="font-medium">Headline</label>
+              <input type="text" name="headline" value={formData.headline} onChange={handleChange} placeholder="e.g. Senior Frontend Developer" className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
             </div>
-          </div>
-        </div>
-      )}
 
-      <div className="modal-content" style={{ maxWidth: '700px' }}>
-        
-        <div className="modal-header">
-          <h2 className="m-0">Edit Profile</h2>
-          <button className="btn-outline btn-sm" onClick={onClose}>✕ Close</button>
-        </div>
-
-        <div className="modal-body">
-          {isLoading ? (
-            <p className="text-secondary text-center">Loading profile...</p>
-          ) : (
-            <form onSubmit={handleSaveChanges} className="flex-col gap-24">
-              
-              <div className="flex-col gap-16">
-                <h3 className="m-0">Basic Information</h3>
-                <div className="form-grid-2">
-                  <div><label className="mb-8 block font-bold">First Name *</label><input type="text" className="search-input w-full" value={firstName} onChange={e => setFirstName(e.target.value)} required /></div>
-                  <div><label className="mb-8 block font-bold">Last Name *</label><input type="text" className="search-input w-full" value={lastName} onChange={e => setLastName(e.target.value)} required /></div>
-                </div>
-                <div className="form-grid-2">
-                  <div>
-                    <label className="mb-8 block font-bold">Degree *</label>
-                    <select className="search-input w-full" value={degree} onChange={e => setDegree(e.target.value)} required>
-                      <option value="" disabled>Select a Degree</option>
-                      {degreeOptions.map(d => <option key={d.id} value={d.id}>{d.abbreviation ? `${d.abbreviation} - ${d.name}` : d.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-8 block font-bold">Batch *</label>
-                    <select className="search-input w-full" value={batch} onChange={e => setBatch(e.target.value)} required>
-                      <option value="" disabled>Select a Batch</option>
-                      {batchOptions.map(b => <option key={b.id} value={b.id}>Batch {b.batch_number}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div><label className="mb-8 block font-bold">Headline</label><input type="text" className="search-input w-full" placeholder="e.g. Computer Science Student at..." value={headline} onChange={e => setHeadline(e.target.value)} /></div>
+            {/* Location & Contact */}
+            <div className="flex-row gap-16 flex-wrap">
+              <div className="flex-col gap-8" style={{ flex: 1, minWidth: '150px' }}>
+                <label className="font-medium">City</label>
+                <input type="text" name="city" value={formData.city} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
               </div>
-
-              <div className="divider p-0 m-0"></div>
-
-              <div className="flex-col gap-16">
-                <h3 className="m-0">Contact Information</h3>
-                <div className="form-grid-2">
-                  <div><label className="mb-8 block font-bold">Email Address</label><input type="email" className="search-input w-full" value={email} disabled style={{ backgroundColor: 'var(--card-bg)', color: 'var(--secondary-text)', cursor: 'not-allowed' }} /></div>
-                  <div><label className="mb-8 block font-bold">Contact Number</label><input type="tel" className="search-input w-full" placeholder="e.g. +1 234 567 8900" value={contactNumber} onChange={e => setContactNumber(e.target.value)} /></div>
-                </div>
+              <div className="flex-col gap-8" style={{ flex: 1, minWidth: '150px' }}>
+                <label className="font-medium">Country</label>
+                <input type="text" name="country" value={formData.country} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
               </div>
+            </div>
 
-              <div className="divider p-0 m-0"></div>
+            <div className="flex-col gap-8">
+              <label className="font-medium">Contact Number</label>
+              <input type="tel" name="contact_number" value={formData.contact_number} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
+            </div>
 
-              <div className="flex-col gap-16">
-                <h3 className="m-0">Location</h3>
-                <div className="form-grid-3">
-                  <div><label className="mb-8 block font-bold">Country</label><input type="text" className="search-input w-full" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. USA" /></div>
-                  <div><label className="mb-8 block font-bold">City</label><input type="text" className="search-input w-full" value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. New York" /></div>
-                  <div><label className="mb-8 block font-bold">Postal Code</label><input type="text" className="search-input w-full" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 10001" /></div>
-                </div>
-              </div>
-
-              <div className="divider p-0 m-0"></div>
-
-              <div className="flex-col gap-16">
-                <div className="flex-between align-center">
-                  <h3 className="m-0">Skills</h3>
-                  <button type="button" className="btn-outline btn-sm" onClick={() => setShowSkillModal(true)}>+ Add</button>
-                </div>
-
-                {selectedSkills.length === 0 ? <p className="text-secondary text-sm m-0">No skills added.</p> : (
-                  <div className="flex-row-wrap gap-8">
-                    {selectedSkills.map(skill => <SkillBadge key={skill.id} skill={skill} onRemove={() => removeSkill(skill.id)} />)}
-                  </div>
-                )}
-              </div>
-
-              <div className="divider flex-row m-0" style={{ justifyContent: 'flex-end', paddingBottom: '0' }}>
-                <button type="submit" className="btn-black" disabled={isSaving} style={{ padding: '12px 32px', fontSize: '1.1rem' }}>
-                  {isSaving ? 'Saving...' : 'Save Changes'}
+            {/* 🚨 NEW SKILLS SECTION 🚨 */}
+            <div className="mb-8 mt-8">
+              <div className="flex-between align-center mb-8 gap-16">
+                <label className="m-0 font-medium">Skills</label>
+                <button 
+                  type="button" 
+                  className="btn-outline btn-sm" 
+                  onClick={() => setShowAddSkillPopup(true)}
+                  style={{ padding: '4px 12px' }}
+                >
+                  + Add Skill
                 </button>
               </div>
+              
+              <div className="flex-row-wrap gap-12 p-16" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', minHeight: '60px' }}>
+                {formData.skills && formData.skills.length > 0 ? (
+                  formData.skills.map((skill, index) => (
+                    <span 
+                      key={index} 
+                      className="badge badge-neutral flex-row align-center gap-8"
+                      style={{ padding: '6px 12px', fontSize: '0.9rem', display: 'inline-flex' }}
+                    >
+                      {skill}
+                      <button 
+                        type="button"
+                        onClick={() => handleRemoveSkillFromForm(skill)}
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          color: 'var(--secondary-text)', 
+                          cursor: 'pointer', 
+                          padding: '0 0 0 4px',
+                          fontSize: '1.1rem',
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                        title="Remove skill"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-secondary m-0 text-sm">No skills added yet.</p>
+                )}
+              </div>
+            </div>
 
-            </form>
-          )}
-        </div>
+            <div className="flex-row gap-12 mt-16" style={{ justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
+              <button type="button" className="btn-outline" onClick={onClose} disabled={isSaving}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-black" disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save Profile'}
+              </button>
+            </div>
+
+          </form>
+        )}
       </div>
     </div>
   );

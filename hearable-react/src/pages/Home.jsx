@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { useJobs } from '../hooks/useJobs';
 
-// 🚨 UPDATED IMPORT PATHS (Mapped to your new component folders)
 import StatCard from '../components/dashboard/StatCard';
 import AdminOverview from '../components/dashboard/AdminOverview';
 import RecentApplicantsCard from '../components/dashboard/RecentApplicantsCard';
 import RecentJobsCard from '../components/jobs/RecentJobsCard'; 
 import CompanyOnboardingModal from '../components/modals/CompanyOnboardingModal'; 
+import MatchedJobsWidget from '../components/jobs/MatchedJobsWidget';
 
 import Avatar from '../components/common/Avatar';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -17,6 +18,8 @@ import { formatFullName } from '../utils/formatUtils';
 export default function Home() {
   const navigate = useNavigate();
   const { user, role } = useAuth();
+  
+  const { jobs: allJobs, isLoading: isJobsLoading } = useJobs(); 
   
   const [recentJobs, setRecentJobs] = useState([]);
   const [recentApplicants, setRecentApplicants] = useState([]);
@@ -102,14 +105,24 @@ export default function Home() {
       return;
     }
 
+    // 🚨 This query uses select('*, companies(name)') so it automatically fetches is_deaf_accessible
     const { data: jobsData } = await supabase
       .from('jobs')
-      .select('*')
+      .select(`
+        *,
+        companies ( name )
+      `)
       .eq('status', 'Approved')
       .order('id', { ascending: false })
       .limit(4);
 
-    if (jobsData) setRecentJobs(jobsData);
+    if (jobsData) {
+      const formattedJobs = jobsData.map(job => ({
+        ...job, // 🚨 This spreads all job data, including is_deaf_accessible, into the object!
+        company: job.companies?.name || 'Unknown Company' 
+      }));
+      setRecentJobs(formattedJobs);
+    }
 
     if (role === 'guest') {
       const { count: jobCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'Approved');
@@ -139,6 +152,10 @@ export default function Home() {
     setShowCompanyOnboarding(false);
     fetchDashboardData();
   }
+
+  const handleGoToJob = (jobId) => {
+    navigate('/jobs', { state: { selectedJobId: jobId } });
+  };
 
   if (isLoading && role === 'admin') {
      return <div className="page-container-wide mt-32"><LoadingSpinner message="Loading dashboard..." /></div>;
@@ -186,20 +203,27 @@ export default function Home() {
           )}
 
           {role !== 'admin' && (
-            <div className="card">
-              {role === 'company' ? (
-                <RecentApplicantsCard 
-                  recentApplicants={recentApplicants} 
-                  isLoading={isLoading} 
-                  navigate={navigate} 
-                />
-              ) : (
-                <RecentJobsCard 
-                  recentJobs={recentJobs} 
-                  isLoading={isLoading} 
-                  navigate={navigate} 
-                />
+            <div className="flex-col gap-24">
+              
+              {(role === 'user' || role === 'pending_user') && !isJobsLoading && allJobs?.length > 0 && (
+                <MatchedJobsWidget jobs={allJobs} onSelectJob={handleGoToJob} />
               )}
+
+              <div className="card">
+                {role === 'company' ? (
+                  <RecentApplicantsCard 
+                    recentApplicants={recentApplicants} 
+                    isLoading={isLoading} 
+                    navigate={navigate} 
+                  />
+                ) : (
+                  <RecentJobsCard 
+                    recentJobs={recentJobs} 
+                    isLoading={isLoading} 
+                    navigate={navigate} 
+                  />
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -229,7 +253,6 @@ export default function Home() {
             ) : (
               <div className="card text-center p-24">
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                  {/* 🚨 Uses formatFullName to pass the full name into Avatar for 2-letter initials */}
                   <Avatar 
                     src={userProfile?.profile_pic} 
                     fallbackName={formatFullName(userProfile?.first_name, userProfile?.last_name, 'User')} 

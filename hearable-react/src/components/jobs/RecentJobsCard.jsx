@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// 🚨 UPDATED IMPORT PATH (Points to the common folder)
-import TagList from '../common/TagList'; 
+// 🚨 IMPORT THE DEAF BADGE
+import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
 
 export default function RecentJobsCard({ recentJobs, isLoading }) {
   const navigate = useNavigate();
@@ -26,12 +26,51 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
               onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })}
             >
               <div>
-                <h4 className="text-lg m-0 mb-4 text-primary">{job.title}</h4>
-                <p className="text-sm text-secondary m-0 mb-8">{job.company || 'Unknown Company'} • {job.location || 'Remote'}</p>
+                {/* 🚨 TITLE & DEAF BADGE */}
+                <h4 className="text-lg m-0 mb-4 text-primary flex-row align-center gap-8 flex-wrap">
+                  {job.title}
+                  {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" />}
+                </h4>
                 
-                {/* 🚨 Uses the newly mapped TagList */}
-                <TagList tags={[job.type, job.work_model].filter(Boolean)} max={2} />
+                <p className="text-sm text-secondary m-0 mb-12">
+                  {job.company || 'Unknown Company'} • {job.location || 'Remote'}
+                </p>
+                
+                {/* 🚨 CHANGED TO SQUARE (PILL) BADGES FOR JOB TYPE & MODALITY */}
+                <div className="flex-row gap-8 flex-wrap">
+                  {job.type && (
+                    <span 
+                      style={{ 
+                        padding: '4px 12px', 
+                        background: 'var(--bg-color)', 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: '4px', // 🚨 Square shape!
+                        fontSize: '0.75rem', 
+                        fontWeight: '600',
+                        color: 'var(--text-color)'
+                      }}
+                    >
+                      {job.type}
+                    </span>
+                  )}
+                  {job.work_model && (
+                    <span 
+                      style={{ 
+                        padding: '4px 12px', 
+                        background: 'var(--bg-color)', 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: '4px', // 🚨 Square shape!
+                        fontSize: '0.75rem', 
+                        fontWeight: '600',
+                        color: 'var(--text-color)'
+                      }}
+                    >
+                      {job.work_model}
+                    </span>
+                  )}
+                </div>
               </div>
+              
               <button className="btn-outline btn-sm">View Role</button>
             </div>
           ))}

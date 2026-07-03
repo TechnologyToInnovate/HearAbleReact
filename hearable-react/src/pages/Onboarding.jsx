@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import SkillBadge from '../components/common/SkillBadge'; 
+import AddSkillModal from '../components/modals/AddSkillModal'; // 🚨 IMPORT REUSABLE MODAL
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -19,11 +20,9 @@ export default function Onboarding() {
   
   const [degreeOptions, setDegreeOptions] = useState([]);
   const [batchOptions, setBatchOptions] = useState([]);
-  const [databaseSkills, setDatabaseSkills] = useState([]); 
 
   const [selectedSkills, setSelectedSkills] = useState([]); 
   const [showSkillModal, setShowSkillModal] = useState(false);
-  const [skillInput, setSkillInput] = useState(''); 
 
   useEffect(() => {
     if (role !== 'needs_onboarding') navigate('/');
@@ -31,23 +30,23 @@ export default function Onboarding() {
 
   useEffect(() => {
     async function fetchOptions() {
-      const [degRes, batchRes, skillsRes] = await Promise.all([
+      // 🚨 REMOVED SKILLS FETCHING (AddSkillModal handles it)
+      const [degRes, batchRes] = await Promise.all([
         supabase.from('degrees').select('*').order('name'),
-        supabase.from('batches').select('*').order('batch_number', { ascending: false }),
-        supabase.from('skills').select('*').order('name') 
+        supabase.from('batches').select('*').order('batch_number', { ascending: false })
       ]);
       if (degRes.data) setDegreeOptions(degRes.data);
       if (batchRes.data) setBatchOptions(batchRes.data);
-      if (skillsRes.data) setDatabaseSkills(skillsRes.data);
     }
     fetchOptions();
   }, []);
 
-  const saveSkill = () => {
-    if (!skillInput) return;
-    const skillObj = databaseSkills.find(s => s.id === skillInput);
-    if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) setSelectedSkills([...selectedSkills, skillObj]);
-    setSkillInput(''); setShowSkillModal(false);
+  // 🚨 REFACTORED TO RECEIVE THE SKILL OBJECT DIRECTLY FROM THE COMPONENT
+  const handleAddSkill = (skillObj) => {
+    if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) {
+      setSelectedSkills([...selectedSkills, skillObj]);
+    }
+    setShowSkillModal(false);
   };
   
   const removeSkill = (idToRemove) => setSelectedSkills(selectedSkills.filter(skill => skill.id !== idToRemove));
@@ -83,31 +82,17 @@ export default function Onboarding() {
   }
 
   const isStep1Valid = firstName.trim() && lastName.trim() && degree && batch;
-  const availableSkills = databaseSkills.filter(dbSkill => !selectedSkills.some(selected => selected.id === dbSkill.id));
 
   return (
     <div className="page-container" style={{ maxWidth: '700px', marginTop: '48px' }}>
       
-      {showSkillModal && (
-        // 🚨 REPLACED INLINE STYLES WITH GLOBAL MODAL CLASSES
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3 className="m-0">Add New Skill</h3>
-              <button className="close-btn" onClick={() => setShowSkillModal(false)}>✕</button>
-            </div>
-            
-            <div className="modal-body">
-              <label className="block mb-8 font-bold text-sm">Select a skill to add</label>
-              <select className="search-input w-full" value={skillInput} onChange={e => setSkillInput(e.target.value)}>
-                <option value="" disabled>-- Choose a skill --</option>
-                {availableSkills.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <button className="btn-black w-full mt-16" onClick={saveSkill} disabled={!skillInput}>Add Skill</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 🚨 REPLACED HARDCODED MODAL WITH REUSABLE COMPONENT */}
+      <AddSkillModal 
+        isOpen={showSkillModal} 
+        onClose={() => setShowSkillModal(false)} 
+        onAddSkill={handleAddSkill} 
+        existingSkills={selectedSkills.map(s => s.name)} 
+      />
 
       <div className="card p-0 flex-col overflow-hidden">
         

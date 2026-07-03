@@ -1,6 +1,4 @@
 import React from 'react';
-
-// 🚨 UPDATED IMPORT PATH (Points to the common folder)
 import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
 
 export default function JobCard({ job, isSelected, onClick }) {
@@ -28,10 +26,12 @@ export default function JobCard({ job, isSelected, onClick }) {
         )}
       </div>
       
-      <div className="text-secondary mb-12 flex-row gap-8 align-center" style={{ fontSize: '0.95rem', fontWeight: '500' }}>
-        <span>{job.company}</span>
+      {/* 🚨 UPDATED: Added location rendering right here */}
+      <div className="text-secondary mb-12 flex-row gap-8 align-center flex-wrap" style={{ fontSize: '0.95rem', fontWeight: '500' }}>
+        <span>
+          {job.company} {job.location && `• ${job.location}`}
+        </span>
         
-        {/* 🚨 Uses the newly mapped DeafAccessibleBadge */}
         {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
       </div>
       
@@ -41,13 +41,20 @@ export default function JobCard({ job, isSelected, onClick }) {
             background: 'var(--bg-color)', 
             border: '1px solid var(--border-color)', 
             color: 'var(--text-color)', 
-            fontWeight: '600' 
+            fontWeight: '600',
+            borderRadius: '4px' 
           }}>
             {job.pay} <span style={{ fontWeight: 'normal', color: 'var(--secondary-text)' }}>{job.pay_rate}</span>
           </span>
         )}
-        <span className="badge badge-info">{job.work_model || 'On-site'}</span>
-        <span className="badge badge-neutral">{job.type}</span>
+        
+        <span className="badge badge-neutral" style={{ borderRadius: '4px' }}>
+          {job.work_model || 'On-site'}
+        </span>
+        
+        <span className="badge badge-neutral" style={{ borderRadius: '4px' }}>
+          {job.type}
+        </span>
       </div>
     </div>
   );

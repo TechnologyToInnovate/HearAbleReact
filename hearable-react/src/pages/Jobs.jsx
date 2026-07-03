@@ -136,10 +136,31 @@ export default function Jobs() {
   const selectedJobData = jobs.find(j => j.id === selectedJobId);
   const selectedCompanyData = selectedJobData ? companies.find(c => c.id === selectedJobData.company_id) : null;
 
+  const matchedJobs = filteredJobs.filter(job => job.matchScore && job.matchScore > 0).sort((a, b) => b.matchScore - a.matchScore);
+  const regularJobs = filteredJobs.filter(job => !job.matchScore || job.matchScore === 0);
+
+  const renderJobList = (jobList) => (
+    <div className="flex-col gap-12">
+      {jobList.map(job => (
+        <div key={job.id} style={{ position: 'relative' }}>
+          {role === 'admin' && job.applicantCount > 0 && (
+            <div className="badge badge-primary" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
+              {job.applicantCount} {job.applicantCount === 1 ? 'Applicant' : 'Applicants'}
+            </div>
+          )}
+          <JobCard 
+            job={job} 
+            isSelected={job.id === selectedJobId} 
+            onClick={() => setSelectedJobId(job.id)} 
+          />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div className="page-container-wide" style={{ paddingBottom: '24px' }}>
       
-      {/* HEADER, SEARCH, & FILTERS */}
       <div>
         {role === 'admin' && (
           <div className="flex-between align-center mb-16" style={{ flexWrap: 'wrap', gap: '16px' }}>
@@ -184,7 +205,6 @@ export default function Jobs() {
         style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}
       >
         
-        {/* 🚨 LEFT SIDE: Now sticky and scrollable, perfectly matching the right side! */}
         <div 
           className="jobs-list-column" 
           style={{ 
@@ -194,28 +214,27 @@ export default function Jobs() {
             top: '100px', 
             height: 'calc(100vh - 160px)', 
             overflowY: 'auto',
-            paddingRight: '12px' /* Adds space so the scrollbar doesn't overlap your cards */
+            paddingRight: '12px' 
           }}
         >
           {isLoading ? (
             <p className="text-center text-secondary p-20">Loading opportunities...</p>
           ) : filteredJobs.length > 0 ? (
-            <div className="flex-col gap-12">
-              {filteredJobs.map(job => (
-                <div key={job.id} style={{ position: 'relative' }}>
-                  {role === 'admin' && job.applicantCount > 0 && (
-                    <div className="badge badge-primary" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
-                      {job.applicantCount} {job.applicantCount === 1 ? 'Applicant' : 'Applicants'}
-                    </div>
-                  )}
-                  <JobCard 
-                    job={job} 
-                    isSelected={job.id === selectedJobId} 
-                    onClick={() => setSelectedJobId(job.id)} 
-                  />
+            
+            <div className="flex-col gap-24">
+              
+              {matchedJobs.length > 0 && (
+                <div>
+                  <h3 className="m-0 mb-12 text-primary" style={{ fontSize: '1.15rem' }}>Top Matches for You</h3>
+                  {renderJobList(matchedJobs)}
                 </div>
-              ))}
+              )}
+
+              {/* 🚨 REMOVED THE "Recent Postings" HEADER TEXT HERE! */}
+              {regularJobs.length > 0 && renderJobList(regularJobs)}
+
             </div>
+
           ) : (
             <div className="card text-center text-secondary p-32">
               <h3 className="m-0 mb-8">{role === 'admin' && adminStatusFilter === 'Pending' ? 'All caught up!' : 'No jobs found'}</h3>
@@ -224,7 +243,6 @@ export default function Jobs() {
           )}
         </div>
 
-        {/* 🚨 RIGHT SIDE: Job Details Pane */}
         <div 
           className="job-details-column" 
           style={{ 

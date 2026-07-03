@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import SkillBadge from '../common/SkillBadge';
+import AddSkillModal from './AddSkillModal'; // 🚨 IMPORT REUSABLE MODAL
 
 export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, isEditing, isSubmitting }) {
   const { user } = useAuth();
@@ -16,20 +17,11 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
   const [pay, setPay] = useState(''); 
   const [payRate, setPayRate] = useState('per year'); 
 
-  const [databaseSkills, setDatabaseSkills] = useState([]);
   const [selectedSkills, setSelectedSkills] = useState([]); 
-  
   const [showSkillModal, setShowSkillModal] = useState(false);
-  const [skillInput, setSkillInput] = useState('');
 
   useEffect(() => {
-    async function fetchDatabaseSkills() {
-      const { data } = await supabase.from('skills').select('*').order('name');
-      if (data) setDatabaseSkills(data);
-    }
-    
     if (isOpen) {
-      fetchDatabaseSkills();
       if (isEditing && initialData) {
         setTitle(initialData.title || ''); setLocation(initialData.location || '');
         setWorkModel(initialData.work_model || 'On-site'); setType(initialData.type || 'Full-time');
@@ -50,11 +42,11 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
     else setLocation('');
   }
 
-  const saveSkill = () => {
-    if (!skillInput) return;
-    const skillObj = databaseSkills.find(s => s.id === skillInput);
-    if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) setSelectedSkills([...selectedSkills, skillObj]);
-    setSkillInput('');
+  // 🚨 REFACTORED TO RECEIVE THE SKILL OBJECT DIRECTLY FROM THE COMPONENT
+  const handleAddSkill = (skillObj) => {
+    if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) {
+      setSelectedSkills([...selectedSkills, skillObj]);
+    }
     setShowSkillModal(false);
   };
 
@@ -68,30 +60,17 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
   };
 
   if (!isOpen) return null;
-  
-  const availableSkills = databaseSkills.filter(dbSkill => !selectedSkills.some(selected => selected.id === dbSkill.id));
 
   return (
     <div className="modal-overlay">
       
-      {showSkillModal && (
-        <div className="modal-overlay" style={{ zIndex: 10000 }}>
-          <div className="modal-content" style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3 className="m-0">Add Required Skill</h3>
-              <button type="button" className="close-btn" onClick={() => setShowSkillModal(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <label className="mb-8 block font-bold">Select a skill to add</label>
-              <select className="search-input w-full" value={skillInput} onChange={e => setSkillInput(e.target.value)}>
-                <option value="" disabled>-- Choose a skill --</option>
-                {availableSkills.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <button type="button" className="btn-black w-full mt-16" onClick={saveSkill} disabled={!skillInput}>Add Skill</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 🚨 REPLACED HARDCODED MODAL WITH REUSABLE COMPONENT */}
+      <AddSkillModal 
+        isOpen={showSkillModal} 
+        onClose={() => setShowSkillModal(false)} 
+        onAddSkill={handleAddSkill} 
+        existingSkills={selectedSkills.map(s => s.name)} 
+      />
 
       <div className="modal-content" style={{ maxWidth: '600px' }}>
         <div className="modal-header">
