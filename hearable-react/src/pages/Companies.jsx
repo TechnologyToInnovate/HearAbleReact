@@ -215,32 +215,44 @@ export default function Companies({ role }) {
                     onClick={() => !company.isPreApprovedOnly && navigate(`/company/${company.id}`)}
                   >
                     <div className="flex-between-start mb-16">
-                      <div className="flex-row gap-16 align-start">
-                        <Avatar src={company.logo_url} fallbackName={company.name} size="md" type="company" />
+                      
+                      {/* 🚨 UPDATED: Applied flex styling and truncation to prevent title wrapping */}
+                      <div className="flex-row gap-16 align-start" style={{ flex: 1, minWidth: 0, paddingRight: '16px' }}>
+                        <div style={{ flexShrink: 0 }}>
+                          <Avatar src={company.logo_url} fallbackName={company.name} size="md" type="company" />
+                        </div>
                         
-                        <div>
-                          <h3 className="text-lg" style={{ margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h3 
+                            className="text-lg" 
+                            style={{ margin: '0 0 4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            title={company.name}
+                          >
                             {company.name}
-                            {company.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
                           </h3>
-                          <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8 }}>
+                          <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {company.email || 'Email not provided'}
                           </p>
-                          <p className="text-sm text-secondary" style={{ margin: 0 }}>
+                          <p className="text-sm text-secondary" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {locationText}
                             {company.founded_year && ` • Est. ${company.founded_year}`}
                           </p>
                         </div>
                       </div>
 
-                      {role === 'admin' && (
-                        <div className="flex-col align-end gap-8">
-                          <StatusBadge status={currentStatus} />
-                          <span className="text-sm text-secondary" style={{ fontSize: '0.8rem' }}>
-                            Joined: {formatShortDate(company.created_at)}
-                          </span>
-                        </div>
-                      )}
+                      {/* 🚨 UPDATED: Moved badge to the top right container */}
+                      <div className="flex-col align-end gap-8" style={{ flexShrink: 0 }}>
+                        {company.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
+                        
+                        {role === 'admin' && (
+                          <>
+                            <StatusBadge status={currentStatus} />
+                            <span className="text-sm text-secondary" style={{ fontSize: '0.8rem' }}>
+                              Joined: {formatShortDate(company.created_at)}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     <p className="text-sm text-secondary mb-24" style={{ lineHeight: '1.5', flexGrow: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>

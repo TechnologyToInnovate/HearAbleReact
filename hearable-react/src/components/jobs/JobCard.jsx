@@ -1,7 +1,8 @@
 import React from 'react';
 import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
 
-export default function JobCard({ job, isSelected, onClick }) {
+// 🚨 Added hideMatchScore prop
+export default function JobCard({ job, isSelected, onClick, hideMatchScore = false }) {
   return (
     <div 
       className={`card p-20 ${isSelected ? 'selected-card' : ''}`} 
@@ -15,7 +16,8 @@ export default function JobCard({ job, isSelected, onClick }) {
       <div className="flex-between-start mb-12">
         <h3 className="m-0" style={{ fontSize: '1.1rem', paddingRight: '8px' }}>{job.title}</h3>
         
-        {job.matchScore > 0 && (
+        {/* 🚨 Only show the match score if hideMatchScore is false */}
+        {!hideMatchScore && job.matchScore > 0 && (
           <span style={{ 
             background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a',
             padding: '4px 8px', borderRadius: '12px', fontSize: '0.75rem', 
@@ -26,7 +28,6 @@ export default function JobCard({ job, isSelected, onClick }) {
         )}
       </div>
       
-      {/* 🚨 UPDATED: Added location rendering right here */}
       <div className="text-secondary mb-12 flex-row gap-8 align-center flex-wrap" style={{ fontSize: '0.95rem', fontWeight: '500' }}>
         <span>
           {job.company} {job.location && `• ${job.location}`}

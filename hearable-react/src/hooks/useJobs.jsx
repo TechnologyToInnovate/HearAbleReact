@@ -1,51 +1,71 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { formatStandardDate } from '../utils/dateUtils';
+import { useAuth } from '../context/AuthContext';
 
-export const useJobs = () => {
+export function useJobs() {
   const [jobs, setJobs] = useState([]);
-  const [companies, setCompanies] = useState([]);
+  const [companies, setCompanies] = useState([]); 
   const [isLoading, setIsLoading] = useState(true);
-
-  const fetchJobs = async () => {
-    setIsLoading(true);
-    
-    const { data: jobsData } = await supabase
-      .from('jobs')
-      .select('*, job_skills(skills(id, name))')
-      .order('created_at', { ascending: false });
-      
-    const { data: companiesData } = await supabase.from('companies').select('*');
-    const { data: appsData } = await supabase.from('applications').select('job_id');
-
-    if (jobsData) {
-      const formattedJobs = jobsData.map(job => {
-        const company = companiesData?.find(c => c.id === job.company_id);
-        const applicantCount = appsData ? appsData.filter(app => app.job_id === job.id).length : 0;
-        
-        const mappedSkills = job.job_skills ? job.job_skills.map(js => ({
-          id: js.skills.id,
-          name: js.skills.name
-        })) : [];
-        
-        return {
-          ...job,
-          skills: mappedSkills,
-          company: company ? company.name : 'Unknown Company',
-          is_deaf_accessible: company ? company.is_deaf_accessible : false,
-          applicantCount: applicantCount,
-          date: formatStandardDate(job.created_at)
-        };
-      });
-      setJobs(formattedJobs);
-      setCompanies(companiesData || []);
-    }
-    setIsLoading(false);
-  };
+  const { user, role } = useAuth(); 
 
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    async function fetchJobsAndMatches() {
+      setIsLoading(true);
+
+      try {
+        // 1. Fetch companies
+        const { data: companiesData } = await supabase.from('companies').select('*');
+        if (companiesData) setCompanies(companiesData);
+
+        // 2. Fetch jobs, company status, AND nested skills!
+        const { data: jobsData, error: jobsError } = await supabase
+          .from('jobs')
+          .select(`
+            *,
+            companies ( name, is_deaf_accessible ),
+            job_skills (
+              skills ( * )
+            )
+          `)
+          .eq('status', 'Approved');
+
+        if (jobsError) throw jobsError;
+
+        let finalJobs = jobsData.map(job => ({
+          ...job,
+          company: job.companies?.name || 'Unknown Company',
+          is_deaf_accessible: job.is_deaf_accessible || job.companies?.is_deaf_accessible,
+          // 🚨 Flatten the nested skills array so JobDetailsPane can map it easily
+          skills: job.job_skills ? job.job_skills.map(js => js.skills).filter(Boolean) : [],
+          matchScore: 0 
+        }));
+
+        // 3. Fetch Match Scores
+        if (user?.id && (role === 'user' || role === 'pending_user')) {
+          const { data: matchScores, error: matchError } = await supabase
+            .rpc('get_job_matches', { p_user_id: user.id });
+
+          if (!matchError && matchScores) {
+            finalJobs = finalJobs.map(job => {
+              const matchedJob = matchScores.find(m => m.job_id === job.id);
+              return {
+                ...job,
+                matchScore: matchedJob ? Math.min(matchedJob.match_score, 100) : 0 
+              };
+            });
+          }
+        }
+
+        setJobs(finalJobs);
+      } catch (error) {
+        console.error("Error fetching jobs or match scores:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchJobsAndMatches();
+  }, [user, role]);
 
   return { jobs, companies, isLoading, setJobs };
-};
+}

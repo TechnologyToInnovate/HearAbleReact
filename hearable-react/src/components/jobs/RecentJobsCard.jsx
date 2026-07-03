@@ -1,7 +1,5 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-
-// 🚨 IMPORT THE DEAF BADGE
 import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
 
 export default function RecentJobsCard({ recentJobs, isLoading }) {
@@ -26,45 +24,24 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
               onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })}
             >
               <div>
-                {/* 🚨 TITLE & DEAF BADGE */}
-                <h4 className="text-lg m-0 mb-4 text-primary flex-row align-center gap-8 flex-wrap">
+                <h4 className="text-lg m-0 mb-4 text-primary">
                   {job.title}
-                  {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" />}
                 </h4>
                 
-                <p className="text-sm text-secondary m-0 mb-12">
-                  {job.company || 'Unknown Company'} • {job.location || 'Remote'}
-                </p>
+                {/* 🚨 Moved the Deaf Accredited badge to this line */}
+                <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8 flex-wrap">
+                  <span>{job.company || 'Unknown Company'} {job.location && `• ${job.location}`}</span>
+                  {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
+                </div>
                 
-                {/* 🚨 CHANGED TO SQUARE (PILL) BADGES FOR JOB TYPE & MODALITY */}
                 <div className="flex-row gap-8 flex-wrap">
                   {job.type && (
-                    <span 
-                      style={{ 
-                        padding: '4px 12px', 
-                        background: 'var(--bg-color)', 
-                        border: '1px solid var(--border-color)', 
-                        borderRadius: '4px', // 🚨 Square shape!
-                        fontSize: '0.75rem', 
-                        fontWeight: '600',
-                        color: 'var(--text-color)'
-                      }}
-                    >
+                    <span style={{ padding: '4px 12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-color)' }}>
                       {job.type}
                     </span>
                   )}
                   {job.work_model && (
-                    <span 
-                      style={{ 
-                        padding: '4px 12px', 
-                        background: 'var(--bg-color)', 
-                        border: '1px solid var(--border-color)', 
-                        borderRadius: '4px', // 🚨 Square shape!
-                        fontSize: '0.75rem', 
-                        fontWeight: '600',
-                        color: 'var(--text-color)'
-                      }}
-                    >
+                    <span style={{ padding: '4px 12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-color)' }}>
                       {job.work_model}
                     </span>
                   )}

@@ -4,11 +4,13 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
 import EditProfileModal from '../components/modals/EditProfileModal';
-// 🚨 Import your new reusable component!
 import AddSkillModal from '../components/modals/AddSkillModal';
 import SkillBadge from '../components/common/SkillBadge';
 import Avatar from '../components/common/Avatar';
 import { formatFullName, formatLocation } from '../utils/formatUtils';
+
+// 🚨 Import your new widget!
+import JobPreferencesWidget from '../components/profile/JobPreferencesWidget';
 
 export default function UserProfile() {
   const { id } = useParams();
@@ -53,7 +55,6 @@ export default function UserProfile() {
     setIsLoading(false);
   }
 
-  // 🚨 REFACTORED: Now accepts the clean skill object directly from your new component
   async function handleAddSkill(skillObj) {
     if (!skillObj || !user || !currentUser) return;
     setIsUpdatingSkills(true);
@@ -125,7 +126,6 @@ export default function UserProfile() {
     <div className="page-container-wide">
       <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} userId={user.id} onSuccess={fetchUser} />
 
-      {/* 🚨 REPLACED WITH YOUR NEW COMPONENT */}
       <AddSkillModal 
         isOpen={showAddSkillPopup}
         onClose={() => setShowAddSkillPopup(false)}
@@ -217,6 +217,14 @@ export default function UserProfile() {
         </div>
 
         <div style={{ position: 'sticky', top: '90px' }}>
+          
+          {/* 🚨 PLUG IN THE NEW WIDGET HERE */}
+          <JobPreferencesWidget 
+            user={user} 
+            isOwnProfile={isOwnProfile} 
+            onUpdate={fetchUser} 
+          />
+
           <div className="card p-24">
             <h3 className="mb-16 m-0">Details</h3>
             <div className="flex-col gap-16">
@@ -239,6 +247,7 @@ export default function UserProfile() {
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>

@@ -105,21 +105,23 @@ export default function Home() {
       return;
     }
 
-    // 🚨 This query uses select('*, companies(name)') so it automatically fetches is_deaf_accessible
+    // 🚨 UPDATED: Explicitly select is_deaf_accessible from the companies table
     const { data: jobsData } = await supabase
       .from('jobs')
       .select(`
         *,
-        companies ( name )
+        companies ( name, is_deaf_accessible )
       `)
       .eq('status', 'Approved')
-      .order('id', { ascending: false })
+      .order('created_at', { ascending: false }) // 🚨 Ordered by created_at for true "recent" jobs
       .limit(4);
 
     if (jobsData) {
       const formattedJobs = jobsData.map(job => ({
-        ...job, // 🚨 This spreads all job data, including is_deaf_accessible, into the object!
-        company: job.companies?.name || 'Unknown Company' 
+        ...job, 
+        company: job.companies?.name || 'Unknown Company',
+        // 🚨 UPDATED: Safely merge the accessibility status from either the job or company
+        is_deaf_accessible: job.is_deaf_accessible || job.companies?.is_deaf_accessible
       }));
       setRecentJobs(formattedJobs);
     }

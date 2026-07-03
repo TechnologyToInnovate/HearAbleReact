@@ -35,7 +35,7 @@ export default function Jobs() {
   }, [currentUser, location.state]);
 
   useEffect(() => {
-    if (!isLoading && jobs.length > 0 && !selectedJobId && window.innerWidth > 768) {
+    if (!isLoading && (jobs || []).length > 0 && !selectedJobId && window.innerWidth > 768) {
       const firstVisible = filteredJobs[0];
       if (firstVisible) setSelectedJobId(firstVisible.id);
     }
@@ -43,8 +43,11 @@ export default function Jobs() {
 
   async function fetchUserData() {
     if (['guest', 'company', 'admin'].includes(role)) return;
+    
     const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', currentUser.id);
-    const { data: applied } = await supabase.from('applications').select('job_id').eq('user_id', currentUser.id);
+    
+    // 🚨 Updated to use applicant_id per your database schema
+    const { data: applied } = await supabase.from('applications').select('job_id').eq('applicant_id', currentUser.id);
     
     if (saved) setSavedJobs(saved.map(s => s.job_id));
     if (applied) setAppliedJobs(applied.map(a => a.job_id));
@@ -55,16 +58,18 @@ export default function Jobs() {
     if (role !== 'user') return alert("Only approved standard users can apply for jobs.");
     
     setIsApplying(true);
+    
+    // 🚨 Updated to use applicant_id and removed company_id
     const { error } = await supabase.from('applications').insert([{ 
-      user_id: currentUser.id, 
-      job_id: selectedJobId,
-      company_id: jobs.find(j => j.id === selectedJobId)?.company_id
+      applicant_id: currentUser.id, 
+      job_id: selectedJobId
     }]);
 
     if (!error) {
       setAppliedJobs([...appliedJobs, selectedJobId]);
       alert("Application sent successfully!");
     } else {
+      console.error("Application error:", error);
       alert("Failed to send application. Please try again.");
     }
     setIsApplying(false);
@@ -92,7 +97,7 @@ export default function Jobs() {
     const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId);
     
     if (!error) {
-      setJobs(jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
+      setJobs(jobs?.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
       if (newStatus === 'Rejected' && adminStatusFilter === 'Pending') setSelectedJobId(null);
     } else {
       alert("Failed to update job status.");
@@ -105,14 +110,14 @@ export default function Jobs() {
     
     const { error } = await supabase.from('jobs').delete().eq('id', selectedJobId);
     if (!error) { 
-      setJobs(jobs.filter(job => job.id !== selectedJobId)); 
+      setJobs(jobs?.filter(job => job.id !== selectedJobId)); 
       setSelectedJobId(null); 
     } else {
       alert("Failed to delete job.");
     }
   }
 
-  const filteredJobs = jobs.filter(job => {
+  const filteredJobs = (jobs || []).filter(job => {
     if (role !== 'admin' && job.status !== 'Approved') return false; 
     if (role === 'admin' && adminStatusFilter !== 'All' && job.status !== adminStatusFilter) return false;
 
@@ -133,11 +138,8 @@ export default function Jobs() {
     return matchesSearch && matchesModality && matchesType && matchesDate;
   });
 
-  const selectedJobData = jobs.find(j => j.id === selectedJobId);
-  const selectedCompanyData = selectedJobData ? companies.find(c => c.id === selectedJobData.company_id) : null;
-
-  const matchedJobs = filteredJobs.filter(job => job.matchScore && job.matchScore > 0).sort((a, b) => b.matchScore - a.matchScore);
-  const regularJobs = filteredJobs.filter(job => !job.matchScore || job.matchScore === 0);
+  const selectedJobData = jobs?.find(j => j.id === selectedJobId);
+  const selectedCompanyData = selectedJobData ? companies?.find(c => c.id === selectedJobData.company_id) : null;
 
   const renderJobList = (jobList) => (
     <div className="flex-col gap-12">
@@ -151,7 +153,8 @@ export default function Jobs() {
           <JobCard 
             job={job} 
             isSelected={job.id === selectedJobId} 
-            onClick={() => setSelectedJobId(job.id)} 
+            onClick={() => setSelectedJobId(job.id)}
+            hideMatchScore={true}
           />
         </div>
       ))}
@@ -220,21 +223,9 @@ export default function Jobs() {
           {isLoading ? (
             <p className="text-center text-secondary p-20">Loading opportunities...</p>
           ) : filteredJobs.length > 0 ? (
-            
             <div className="flex-col gap-24">
-              
-              {matchedJobs.length > 0 && (
-                <div>
-                  <h3 className="m-0 mb-12 text-primary" style={{ fontSize: '1.15rem' }}>Top Matches for You</h3>
-                  {renderJobList(matchedJobs)}
-                </div>
-              )}
-
-              {/* 🚨 REMOVED THE "Recent Postings" HEADER TEXT HERE! */}
-              {regularJobs.length > 0 && renderJobList(regularJobs)}
-
+              {renderJobList(filteredJobs)}
             </div>
-
           ) : (
             <div className="card text-center text-secondary p-32">
               <h3 className="m-0 mb-8">{role === 'admin' && adminStatusFilter === 'Pending' ? 'All caught up!' : 'No jobs found'}</h3>

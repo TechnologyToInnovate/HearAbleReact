@@ -135,12 +135,9 @@ export default function Skills() {
   return (
     <div className="page-container" style={{ maxWidth: '800px' }}>
       
-      {/* Header with Back Button */}
+      {/* Header without Back Button */}
       <div className="flex-between align-center mb-24">
         <div className="flex-row gap-16 align-center">
-          <button className="nav-icon-btn" onClick={() => navigate('/users')} title="Back to Users">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-          </button>
           <h1 className="m-0">Manage Skills</h1>
         </div>
       </div>

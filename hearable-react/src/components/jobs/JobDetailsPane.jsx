@@ -60,16 +60,14 @@ export default function JobDetailsPane({
         <div className="flex-between-start mb-16">
           <h1 className="m-0 flex-row align-center gap-16 flex-wrap" style={{ fontSize: '2.2rem', paddingRight: '16px', lineHeight: '1.2' }}>
             {selectedJob.title}
-            {selectedJob.matchScore > 0 && (
-              <span className="badge" style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', whiteSpace: 'nowrap', fontSize: '1rem', padding: '6px 12px' }}>
-                {selectedJob.matchScore}% Match
-              </span>
-            )}
+            
             {(isAdmin || showCompanyActions) && <StatusBadge status={selectedJob.status === 'Approved' ? 'Published' : selectedJob.status} />}
           </h1>
           
           <div className="text-right mt-8" style={{ flexShrink: 0 }}>
-            <span className="text-sm text-secondary block font-bold">Posted: {selectedJob.date}</span>
+            <span className="text-sm text-secondary block font-bold">
+              Posted: {new Date(selectedJob.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+            </span>
             {isAdmin && editCount > 0 && <span className="text-sm text-secondary block" style={{ fontStyle: 'italic', marginTop: '8px' }}>(Edited {editCount}/3)</span>}
           </div>
         </div>
@@ -105,26 +103,23 @@ export default function JobDetailsPane({
         <div className="sub-card mb-40" style={{ padding: '24px' }}>
           {selectedJob.pay && (
             <div className="mb-24">
-              {/* 🚨 UPDATED: Made "Pay" title bigger */}
               <div className="font-bold mb-16 text-primary" style={{ fontSize: '1.3rem' }}>Pay</div>
               <div className="flex-row-wrap gap-16">
-                <span className="badge badge-neutral" style={{ padding: '10px 20px', fontSize: '1rem' }}>
+                <span className="badge badge-neutral" style={{ padding: '10px 20px', fontSize: '1rem', borderRadius: '4px' }}>
                   {selectedJob.pay} <span className="text-secondary font-medium" style={{ marginLeft: '8px' }}>{selectedJob.pay_rate}</span>
                 </span>
               </div>
             </div>
           )}
           <div>
-            {/* 🚨 UPDATED: Made "Job Type" title bigger */}
             <div className="font-bold mb-16 text-primary" style={{ fontSize: '1.3rem' }}>Job Type</div>
             <div className="flex-row-wrap gap-16">
-              <span className="badge badge-neutral" style={{ padding: '10px 20px', fontSize: '1rem' }}>{selectedJob.type}</span>
-              <span className="badge badge-neutral" style={{ padding: '10px 20px', fontSize: '1rem' }}>{selectedJob.work_model || 'On-site'}</span>
+              <span className="badge badge-neutral" style={{ padding: '10px 20px', fontSize: '1rem', borderRadius: '4px' }}>{selectedJob.type}</span>
+              <span className="badge badge-neutral" style={{ padding: '10px 20px', fontSize: '1rem', borderRadius: '4px' }}>{selectedJob.work_model || 'On-site'}</span>
             </div>
           </div>
         </div>
 
-        {/* 🚨 UPDATED: Wrapped Location in a clean sub-card box */}
         {selectedJob.location && (
           <div className="mb-40">
             <h3 className="mb-16 m-0" style={{ fontSize: '1.5rem' }}>Location</h3>
@@ -155,13 +150,11 @@ export default function JobDetailsPane({
         {selectedCompany && !showCompanyActions && (
           <div className="sub-card mt-32 mb-16" style={{ padding: '32px' }}>
             
-            {/* 🚨 UPDATED: Added dedicated "About Company" title */}
             <h3 className="m-0 mb-24" style={{ fontSize: '1.5rem' }}>About Company</h3>
 
             <div className="flex-row gap-24 align-start mb-32">
               <Avatar src={selectedCompany.logo_url} fallbackName={selectedCompany.name} size="lg" type="company" customStyle={{ width: '64px', height: '64px' }} />
               <div style={{ flex: 1 }}>
-                {/* 🚨 UPDATED: Moved Company Name under the new title */}
                 <h4 className="m-0 mb-12 flex-row align-center gap-12 flex-wrap" style={{ fontSize: '1.4rem' }}>
                   {selectedCompany.name}
                   {selectedCompany.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
