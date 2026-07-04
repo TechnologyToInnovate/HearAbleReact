@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
-// 🚨 NEW IMPORTS: Hooks, Utils, and Common Components
 import { useUsers } from '../hooks/useUsers';
 import { sortData } from '../utils/sortUtils';
 import SearchBar from '../components/common/SearchBar';
@@ -12,7 +11,6 @@ import StatusBadge from '../components/common/StatusBadge';
 export default function Users({ role }) {
   const navigate = useNavigate();
   
-  // 1. Data fetching is completely abstracted into our custom hook
   const { users, isLoading, setUsers } = useUsers(role);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,7 +60,6 @@ export default function Users({ role }) {
     }
   }
 
-  // 2. Simplified derived state
   const uniqueDegrees = ['All', ...[...new Set(users.map(u => u.degreeText).filter(Boolean))].sort()];
   const uniqueBatches = ['All', ...[...new Set(users.map(u => u.batchText).filter(Boolean))].sort()];
   
@@ -78,7 +75,6 @@ export default function Users({ role }) {
     return matchesSearch && matchesTab && matchesDegree && matchesBatch;
   });
 
-  // 3. Replaced complex sorting logic with our utility
   const sortedUsers = sortData(processedUsers, sortBy, 'name', 'created_at');
 
   return (
@@ -109,7 +105,6 @@ export default function Users({ role }) {
         ))}
       </div>
 
-      {/* 4. Using our universal SearchBar component */}
       <div className="mb-16">
         <SearchBar 
           value={searchQuery} 
@@ -138,42 +133,62 @@ export default function Users({ role }) {
       ) : sortedUsers.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
           {sortedUsers.map(user => (
-            <div key={user.id} className="card p-20 flex-col" style={{ height: '100%', opacity: user.status === 'Archived' ? 0.6 : 1 }}>
+            <div key={user.id} className="card p-20 flex-col" style={{ height: '100%', opacity: user.status === 'Archived' ? 0.6 : 1, minWidth: 0 }}>
 
               <div className="flex-between-start mb-16">
-                <div className="flex-row gap-12 align-start">
-                  {/* 5. Using our clean Avatar component */}
-                  <Avatar fallbackName={user.first_name} size="sm" type="user" />
+                
+                <div 
+                  className="flex-row gap-12 align-start" 
+                  style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                  onClick={() => navigate(`/user/${user.id}`)}
+                >
+                  {/* 🚨 FIX: Added src={user.profile_pic} so the custom image loads properly */}
+                  <Avatar src={user.profile_pic} fallbackName={user.first_name} size="sm" type="user" />
                   
-                  <div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{user.name}</h3>
-                    <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 
+                      style={{ margin: '0 0 4px 0', fontSize: '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      title={user.name}
+                    >
+                      {user.name}
+                    </h3>
+                    <p 
+                      className="text-sm m-0 mb-4" 
+                      style={{ color: 'var(--text-color)', opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      title={user.email}
+                    >
                       {user.email || 'Email not provided'}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex-col align-end gap-8">
-                  {/* 6. Using our universal StatusBadge component */}
+                <div className="flex-col align-end gap-8" style={{ flexShrink: 0, marginLeft: '12px' }}>
                   <StatusBadge status={user.status} />
-                  <span className="text-sm text-secondary" style={{ fontSize: '0.8rem' }}>
+                  <span className="text-sm text-secondary" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                     Joined: {user.joinDate}
                   </span>
                 </div>
               </div>
 
-              <div className="mb-24 flex-grow" style={{ background: 'var(--bg-color)', padding: '12px', borderRadius: '8px' }}>
-                <div style={{ marginBottom: '8px' }}>
+              <div className="mb-24 flex-grow" style={{ background: 'var(--bg-color)', padding: '12px', borderRadius: '8px', minWidth: 0 }}>
+                <div style={{ marginBottom: '8px', minWidth: 0 }}>
                   <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '2px' }}>Degree</span>
-                  <strong style={{ fontSize: '0.95rem' }}>{user.degreeText || 'Not provided'}</strong>
+                  <strong 
+                    style={{ fontSize: '0.95rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    title={user.degreeText}
+                  >
+                    {user.degreeText || 'Not provided'}
+                  </strong>
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '2px' }}>Batch</span>
-                  <strong style={{ fontSize: '0.95rem' }}>{user.batchText || 'Not provided'}</strong>
+                  <strong style={{ fontSize: '0.95rem', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {user.batchText || 'Not provided'}
+                  </strong>
                 </div>
               </div>
 
-              <div className="flex-col gap-8">
+              <div className="flex-col gap-8 mt-auto">
                 {user.status !== 'Archived' && (
                   <div className="flex-row gap-8">
                     {user.status !== 'Approved' && (

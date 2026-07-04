@@ -42,34 +42,40 @@ export default function JobDetailsPane({
           ← Back to Jobs
         </button>
 
+        {/* 🚨 MOVED: Status Badge and Action Buttons are now aligned in the exact same row */}
         {(isAdmin || showCompanyActions) && (
-          <div className="flex-row gap-12 mb-20 flex-wrap mobile-action-group" style={{ justifyContent: 'flex-end', alignItems: 'center' }}>
-            {isAdmin && selectedJob.status === 'Pending' && handleUpdateJobStatus && (
-              <>
-                <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Approved')} style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Approve Post</button>
-                <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Rejected')} style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Reject</button>
-              </>
-            )}
+          <div className="flex-row mb-20 flex-wrap mobile-action-group" style={{ justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            
+            <div style={{ flexShrink: 0, marginRight: '16px' }}>
+              <StatusBadge status={selectedJob.status === 'Approved' ? 'Published' : selectedJob.status} />
+            </div>
 
-            {showCompanyActions && (
-              <button 
-                onClick={() => setIsEditingJob(true)} 
-                className="btn-outline btn-sm"
-                disabled={editCount >= 3}
-                style={{ opacity: editCount >= 3 ? 0.6 : 1, cursor: editCount >= 3 ? 'not-allowed' : 'pointer' }}
-              >
-                {editCount >= 3 ? 'Edit Limit Reached' : `Edit (${editCount}/3)`}
-              </button>
-            )}
-            <button onClick={handleDeleteJob} className="btn-danger btn-sm">Delete</button>
+            <div className="flex-row gap-12 align-center flex-wrap" style={{ justifyContent: 'flex-end', flex: 1 }}>
+              {isAdmin && selectedJob.status === 'Pending' && handleUpdateJobStatus && (
+                <>
+                  <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Approved')} style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Approve Post</button>
+                  <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Rejected')} style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Reject</button>
+                </>
+              )}
+
+              {showCompanyActions && (
+                <button 
+                  onClick={() => setIsEditingJob(true)} 
+                  className="btn-outline btn-sm"
+                  disabled={editCount >= 3}
+                  style={{ opacity: editCount >= 3 ? 0.6 : 1, cursor: editCount >= 3 ? 'not-allowed' : 'pointer' }}
+                >
+                  {editCount >= 3 ? 'Edit Limit Reached' : `Edit (${editCount}/3)`}
+                </button>
+              )}
+              <button onClick={handleDeleteJob} className="btn-danger btn-sm">Delete</button>
+            </div>
           </div>
         )}
 
         <div className="flex-between-start mb-12">
-          <h1 className="m-0 flex-row align-center gap-12 flex-wrap" style={{ fontSize: '1.75rem', paddingRight: '16px', lineHeight: '1.2' }}>
+          <h1 className="m-0" style={{ fontSize: '1.75rem', paddingRight: '16px', lineHeight: '1.2' }}>
             {selectedJob.title}
-            
-            {(isAdmin || showCompanyActions) && <StatusBadge status={selectedJob.status === 'Approved' ? 'Published' : selectedJob.status} />}
           </h1>
           
           <div className="text-right mt-4" style={{ flexShrink: 0 }}>
@@ -80,9 +86,30 @@ export default function JobDetailsPane({
           </div>
         </div>
         
-        <div className="text-secondary mb-24 flex-row gap-12 align-center flex-wrap" style={{ fontSize: '1rem', fontWeight: '500' }}>
-          <span>{selectedJob.company}{selectedJob.location && ` • ${selectedJob.location}`}</span>
-          {selectedJob.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
+        {/* 🚨 FIX: Separated company and location so the company name truncates FIRST */}
+        <div className="text-secondary mb-24 flex-row gap-8 align-center" style={{ fontSize: '1rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
+          
+          <div style={{ 
+            whiteSpace: 'nowrap', 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            flexShrink: 1 /* Allows the long company name to shrink and truncate */
+          }}>
+            {selectedJob.company}
+          </div>
+          
+          {selectedJob.location && (
+            <div style={{ whiteSpace: 'nowrap', flexShrink: 0 /* Prevents location from squishing */ }}>
+              • {selectedJob.location}
+            </div>
+          )}
+          
+          {selectedJob.is_deaf_accessible && (
+            <div style={{ flexShrink: 0 /* Prevents badge from squishing */ }}>
+              <DeafAccessibleBadge size="sm" showText={true} />
+            </div>
+          )}
+          
         </div>
         
         {(isAdmin || showCompanyActions) && selectedJob.applicantCount !== undefined ? (
