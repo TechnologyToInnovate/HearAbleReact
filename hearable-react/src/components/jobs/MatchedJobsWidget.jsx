@@ -34,9 +34,10 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
       
       <div className="flex-col gap-0">
         {matchedJobs.map((job, index) => (
+          /* 🚨 'mobile-stack' added here */
           <div 
             key={job.id} 
-            className="flex-between align-center" 
+            className="flex-between align-center mobile-stack" 
             style={{ padding: '20px 0', borderBottom: index !== matchedJobs.length - 1 ? '1px solid var(--border-color)' : 'none', cursor: 'pointer' }}
             onClick={() => onSelectJob(job.id)}
           >
@@ -48,7 +49,6 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
                 </span>
               </h4>
               
-              {/* 🚨 Moved the Deaf Accredited badge to this line */}
               <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8 flex-wrap">
                 <span>{job.company || 'Unknown Company'} {job.location && `• ${job.location}`}</span>
                 {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
@@ -68,7 +68,7 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
               </div>
             </div>
             
-            <button className="btn-outline btn-sm">View Role</button>
+            <button className="btn-outline btn-sm mobile-w-full">View Role</button>
           </div>
         ))}
       </div>

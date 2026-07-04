@@ -26,3 +26,9 @@ body.dark-theme .badge-primary { color: #0f172a !important; }
 .modal-body { padding: 24px; overflow-y: auto; }
 .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 4px 8px; border-radius: 6px; transition: background-color 0.2s; }
 .close-btn:hover { background: var(--bg-color); }
+
+@media (max-width: 768px) {
+  .modal-overlay { padding: 10px; }
+  .modal-content { max-height: 95vh; border-radius: 8px; }
+  .modal-header, .modal-body { padding: 16px; }
+}

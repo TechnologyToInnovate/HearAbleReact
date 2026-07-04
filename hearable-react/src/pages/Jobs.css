@@ -65,3 +65,70 @@
     padding-right: 0; 
   }
 }
+
+/* --- DESKTOP LAYOUT (Side-by-Side) --- */
+.jobs-split-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.jobs-list-column {
+  flex: 1;
+  min-width: 350px;
+  position: sticky;
+  top: 100px;
+  height: calc(100vh - 160px);
+  overflow-y: auto;
+  padding-right: 12px;
+}
+
+.job-details-column {
+  flex: 1.2;
+  min-width: 400px;
+  position: sticky;
+  top: 100px;
+  height: calc(100vh - 160px);
+}
+
+.mobile-back-btn {
+  display: none; /* Hidden on desktop */
+}
+
+
+/* --- MOBILE LAYOUT (Master-Detail Overlay) --- */
+@media (max-width: 768px) {
+  .jobs-split-layout {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Release the sticky heights so the page can scroll normally on mobile */
+  .jobs-list-column, 
+  .job-details-column {
+    min-width: 100%;
+    position: static;
+    height: auto;
+    overflow-y: visible;
+    padding-right: 0;
+  }
+
+  /* If a job IS selected, hide the list column completely */
+  .jobs-split-layout.active-split .jobs-list-column {
+    display: none;
+  }
+
+  /* If NO job is selected, hide the details column completely */
+  .jobs-split-layout:not(.active-split) .job-details-column {
+    display: none;
+  }
+
+  /* Show the back button */
+  .mobile-back-btn {
+    display: block;
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 12px;
+    font-weight: 600;
+  }
+}

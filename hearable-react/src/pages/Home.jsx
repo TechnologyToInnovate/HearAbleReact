@@ -163,7 +163,7 @@ export default function Home() {
      return <div className="page-container-wide mt-32"><LoadingSpinner message="Loading dashboard..." /></div>;
   }
 
-  return (
+return (
     <div className="page-container-wide">
 
       <CompanyOnboardingModal 
@@ -230,8 +230,9 @@ export default function Home() {
           )}
         </div>
 
+        {/* 🚨 UPDATED: Using the new class instead of inline sticky styles */}
         {role !== 'admin' && (
-          <div className="flex-col gap-32" style={{ position: 'sticky', top: '24px' }}>
+          <div className="dashboard-sidebar">
             {role === 'guest' ? (
               <div className="card text-center p-24">
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>

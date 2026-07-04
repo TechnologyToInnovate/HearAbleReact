@@ -17,9 +17,10 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
       ) : recentJobs.length > 0 ? (
         <div className="flex-col gap-0">
           {recentJobs.map((job, index) => (
+            /* 🚨 'mobile-stack' added here */
             <div 
               key={job.id} 
-              className="flex-between align-center" 
+              className="flex-between align-center mobile-stack" 
               style={{ padding: '20px 0', borderBottom: index !== recentJobs.length - 1 ? '1px solid var(--border-color)' : 'none', cursor: 'pointer' }}
               onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })}
             >
@@ -28,7 +29,6 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
                   {job.title}
                 </h4>
                 
-                {/* 🚨 Moved the Deaf Accredited badge to this line */}
                 <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8 flex-wrap">
                   <span>{job.company || 'Unknown Company'} {job.location && `• ${job.location}`}</span>
                   {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
@@ -48,7 +48,7 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
                 </div>
               </div>
               
-              <button className="btn-outline btn-sm">View Role</button>
+              <button className="btn-outline btn-sm mobile-w-full">View Role</button>
             </div>
           ))}
         </div>

@@ -16,4 +16,14 @@
 
 @media (max-width: 600px) {
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+  
+  /* 🚨 MOBILE MEDIA QUERIES */
+  .mobile-full-width {
+    width: 100% !important;
+  }
+  .filter-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
 }

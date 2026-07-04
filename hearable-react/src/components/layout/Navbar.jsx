@@ -11,6 +11,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // 🚨 NEW STATE
   const [hasUnread, setHasUnread] = useState(false); 
   
   const [profileName, setProfileName] = useState('');
@@ -24,11 +25,18 @@ export default function Navbar() {
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsDropdownOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Close mobile menu automatically when location/route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!user || role === 'guest') return;
@@ -53,7 +61,6 @@ export default function Navbar() {
           setProfileName(`${data.first_name || ''} ${data.last_name || ''}`.trim());
           setProfilePic(data.profile_pic);
         } else {
-          // 🚨 CHANGED: Now falls back to "User" instead of "New User" so the avatar shows "U" instead of "NU"
           setProfileName('User');
           setProfilePic(null);
         }
@@ -72,11 +79,48 @@ export default function Navbar() {
     fetchProfileDetails();
   }, [user, role]);
 
-  const handleMenuClick = (path) => { setIsDropdownOpen(false); navigate(path); };
-  const handleSignOut = async () => { setIsDropdownOpen(false); await signOut(); navigate('/'); };
+  const handleMenuClick = (path) => { 
+    setIsDropdownOpen(false); 
+    setIsMobileMenuOpen(false);
+    navigate(path); 
+  };
+  
+  const handleSignOut = async () => { 
+    setIsDropdownOpen(false); 
+    setIsMobileMenuOpen(false);
+    await signOut(); 
+    navigate('/'); 
+  };
 
   const DropdownIcon = ({ path }) => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '12px', opacity: 0.8 }}><path d={path} /></svg>
+  );
+
+  // Reusable Nav Links component to avoid duplication
+  const NavLinksList = () => (
+    <ul className="nav-links">
+      <li><Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Home</Link></li>
+      <li><Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>Job Postings</Link></li>
+      {['user', 'pending_user', 'rejected_user', 'guest'].includes(role) && (
+        <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Companies</Link></li>
+      )}
+      {['user', 'pending_user', 'rejected_user'].includes(role) && (
+        <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Feedback</Link></li>
+      )}
+      {role === 'company' && (
+        <>
+          <li><Link to="/my-jobs" className={`nav-link ${location.pathname === '/my-jobs' ? 'active' : ''}`}>My Postings</Link></li>
+          <li><Link to="/applicants" className={`nav-link ${location.pathname === '/applicants' ? 'active' : ''}`}>Applicants</Link></li>
+        </>
+      )}
+      {role === 'admin' && (
+        <>
+          <li><Link to="/users" className={`nav-link ${['/users', '/degrees', '/skills', '/batches'].includes(location.pathname) ? 'active' : ''}`}>Manage Users</Link></li>
+          <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Manage Companies</Link></li>
+          <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Manage Feedbacks</Link></li>
+        </>
+      )}
+    </ul>
   );
 
   return (
@@ -86,34 +130,16 @@ export default function Navbar() {
           <span className="brand-logo">H</span><span className="brand-name">Hearable</span>
         </div>
 
+        {/* 🚨 Desktop Links */}
         {!isMinimalNav && (
-          <ul className="nav-links">
-            <li><Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Home</Link></li>
-            <li><Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>Job Postings</Link></li>
-            {['user', 'pending_user', 'rejected_user', 'guest'].includes(role) && (
-              <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Companies</Link></li>
-            )}
-            {['user', 'pending_user', 'rejected_user'].includes(role) && (
-              <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Feedback</Link></li>
-            )}
-            {role === 'company' && (
-              <>
-                <li><Link to="/my-jobs" className={`nav-link ${location.pathname === '/my-jobs' ? 'active' : ''}`}>My Postings</Link></li>
-                <li><Link to="/applicants" className={`nav-link ${location.pathname === '/applicants' ? 'active' : ''}`}>Applicants</Link></li>
-              </>
-            )}
-            {role === 'admin' && (
-              <>
-                <li><Link to="/users" className={`nav-link ${['/users', '/degrees', '/skills', '/batches'].includes(location.pathname) ? 'active' : ''}`}>Manage Users</Link></li>
-                <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Manage Companies</Link></li>
-                <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Manage Feedbacks</Link></li>
-              </>
-            )}
-          </ul>
+          <div className="desktop-nav-links">
+            <NavLinksList />
+          </div>
         )}
 
+        {/* 🚨 Desktop User Actions */}
         {!isMinimalNav && (
-          <div className="user-profile flex-row align-center gap-16">
+          <div className="user-profile desktop-user-profile flex-row align-center gap-16">
             <div className="flex-row align-center gap-4">
               {['user', 'pending_user', 'rejected_user'].includes(role) && (
                 <>
@@ -141,14 +167,7 @@ export default function Navbar() {
             ) : (
               <div style={{ position: 'relative' }} ref={dropdownRef}>
                 <div onClick={() => setIsDropdownOpen(!isDropdownOpen)} style={{ cursor: 'pointer', userSelect: 'none', marginLeft: '8px' }}>
-                  
-                  <Avatar 
-                    src={profilePic} 
-                    fallbackName={profileName || (role === 'company' ? 'Company' : role === 'admin' ? 'Admin' : 'User')} 
-                    size="sm" 
-                    type={role === 'company' ? 'company' : 'user'} 
-                  />
-                  
+                  <Avatar src={profilePic} fallbackName={profileName || (role === 'company' ? 'Company' : role === 'admin' ? 'Admin' : 'User')} size="sm" type={role === 'company' ? 'company' : 'user'} />
                 </div>
 
                 {isDropdownOpen && (
@@ -176,7 +195,53 @@ export default function Navbar() {
             )}
           </div>
         )}
+
+        {/* 🚨 Mobile Menu Toggle Button */}
+        {!isMinimalNav && (
+          <button 
+            className="mobile-menu-btn" 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {isMobileMenuOpen ? (
+                <><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>
+              ) : (
+                <><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></>
+              )}
+            </svg>
+          </button>
+        )}
       </div>
+
+      {/* 🚨 Mobile Dropdown Menu Container */}
+      {isMobileMenuOpen && !isMinimalNav && (
+        <div className="mobile-nav-dropdown">
+          <NavLinksList />
+          
+          <div className="user-profile-mobile">
+            {role === 'guest' ? (
+              <div className="flex-row gap-12 w-full justify-center">
+                <button className="btn-outline" style={{flex: 1}} onClick={() => handleMenuClick('/login')}>Sign In</button>
+                <button className="btn-black" style={{flex: 1}} onClick={() => handleMenuClick('/login', { state: { isSignUp: true } })}>Sign Up</button>
+              </div>
+            ) : (
+              <>
+                <div className="flex-row align-center gap-12">
+                  <Avatar src={profilePic} fallbackName={profileName || 'User'} size="sm" type={role === 'company' ? 'company' : 'user'} />
+                  <div className="flex-col">
+                    <span className="font-bold">{profileName || 'User'}</span>
+                    <span className="text-sm text-secondary" style={{textTransform: 'capitalize'}}>{role.replace('_', ' ')}</span>
+                  </div>
+                </div>
+                <div className="flex-row gap-8">
+                  <button onClick={() => handleMenuClick('/settings')} className="nav-icon-btn"><DropdownIcon path="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" /></button>
+                  <button onClick={handleSignOut} className="nav-icon-btn text-danger" style={{color: '#dc2626'}}><DropdownIcon path="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

@@ -35,6 +35,7 @@ export default function Jobs() {
   }, [currentUser, location.state]);
 
   useEffect(() => {
+    // Only auto-select the first job if we are on a desktop screen!
     if (!isLoading && (jobs || []).length > 0 && !selectedJobId && window.innerWidth > 768) {
       const firstVisible = filteredJobs[0];
       if (firstVisible) setSelectedJobId(firstVisible.id);
@@ -45,8 +46,6 @@ export default function Jobs() {
     if (['guest', 'company', 'admin'].includes(role)) return;
     
     const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', currentUser.id);
-    
-    // 🚨 Updated to use applicant_id per your database schema
     const { data: applied } = await supabase.from('applications').select('job_id').eq('applicant_id', currentUser.id);
     
     if (saved) setSavedJobs(saved.map(s => s.job_id));
@@ -58,12 +57,7 @@ export default function Jobs() {
     if (role !== 'user') return alert("Only approved standard users can apply for jobs.");
     
     setIsApplying(true);
-    
-    // 🚨 Updated to use applicant_id and removed company_id
-    const { error } = await supabase.from('applications').insert([{ 
-      applicant_id: currentUser.id, 
-      job_id: selectedJobId
-    }]);
+    const { error } = await supabase.from('applications').insert([{ applicant_id: currentUser.id, job_id: selectedJobId }]);
 
     if (!error) {
       setAppliedJobs([...appliedJobs, selectedJobId]);
@@ -153,7 +147,11 @@ export default function Jobs() {
           <JobCard 
             job={job} 
             isSelected={job.id === selectedJobId} 
-            onClick={() => setSelectedJobId(job.id)}
+            onClick={() => {
+              setSelectedJobId(job.id);
+              // Scroll to top automatically when clicking a job on mobile
+              if (window.innerWidth <= 768) window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
             hideMatchScore={true}
           />
         </div>
@@ -203,23 +201,10 @@ export default function Jobs() {
         </div>
       </div>
 
-      <div 
-        className={`jobs-split-layout ${selectedJobId ? 'active-split' : ''}`} 
-        style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}
-      >
+      {/* 🚨 Clean CSS layout classes applied here */}
+      <div className={`jobs-split-layout ${selectedJobId ? 'active-split' : ''}`}>
         
-        <div 
-          className="jobs-list-column" 
-          style={{ 
-            flex: 1, 
-            minWidth: '350px',
-            position: 'sticky', 
-            top: '100px', 
-            height: 'calc(100vh - 160px)', 
-            overflowY: 'auto',
-            paddingRight: '12px' 
-          }}
-        >
+        <div className="jobs-list-column">
           {isLoading ? (
             <p className="text-center text-secondary p-20">Loading opportunities...</p>
           ) : filteredJobs.length > 0 ? (
@@ -234,16 +219,7 @@ export default function Jobs() {
           )}
         </div>
 
-        <div 
-          className="job-details-column" 
-          style={{ 
-            flex: 1.2, 
-            minWidth: '400px', 
-            position: 'sticky', 
-            top: '100px', 
-            height: 'calc(100vh - 160px)' 
-          }}
-        >
+        <div className="job-details-column">
           {selectedJobId && selectedJobData ? (
             <JobDetailsPane
               selectedJob={selectedJobData}
@@ -259,7 +235,7 @@ export default function Jobs() {
               handleDeleteJob={handleDeleteJob} 
               handleUpdateJobStatus={handleUpdateJobStatus}
               navigate={navigate}
-              handleClose={() => setSelectedJobId(null)}
+              handleClose={() => setSelectedJobId(null)} // Triggers the back button logic!
             />
           ) : (
             <div className="card h-full flex-col align-center justify-center text-center text-secondary p-32" style={{ display: window.innerWidth > 768 ? 'flex' : 'none' }}>

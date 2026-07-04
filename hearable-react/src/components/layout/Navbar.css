@@ -111,3 +111,61 @@
 .dropdown-btn.text-danger:hover {
   background-color: #fef2f2;
 }
+
+/* 🚨 NEW: MOBILE STYLES */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 8px;
+}
+
+.mobile-nav-dropdown {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Hide standard desktop elements */
+  .desktop-nav-links,
+  .desktop-user-profile {
+    display: none !important;
+  }
+
+  /* Show the hamburger menu icon */
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Style the mobile dropdown pane */
+  .mobile-nav-dropdown {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 70px;
+    left: 0;
+    right: 0;
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    padding: 16px 24px;
+    z-index: 999;
+  }
+
+  .mobile-nav-dropdown .nav-links {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .mobile-nav-dropdown .user-profile-mobile {
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+}

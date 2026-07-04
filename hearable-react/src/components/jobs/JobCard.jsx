@@ -1,7 +1,6 @@
 import React from 'react';
 import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
 
-// 🚨 Added hideMatchScore prop
 export default function JobCard({ job, isSelected, onClick, hideMatchScore = false }) {
   return (
     <div 
@@ -13,10 +12,10 @@ export default function JobCard({ job, isSelected, onClick, hideMatchScore = fal
       }}
       onClick={onClick}
     >
-      <div className="flex-between-start mb-12">
+      {/* 🚨 Added 'mobile-stack' to prevent title and badge collisions on mobile */}
+      <div className="flex-between-start mb-12 mobile-stack">
         <h3 className="m-0" style={{ fontSize: '1.1rem', paddingRight: '8px' }}>{job.title}</h3>
         
-        {/* 🚨 Only show the match score if hideMatchScore is false */}
         {!hideMatchScore && job.matchScore > 0 && (
           <span style={{ 
             background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a',

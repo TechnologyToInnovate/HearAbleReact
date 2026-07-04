@@ -10,7 +10,8 @@ export default function JobDetailsPane({
   selectedJob, selectedCompany, role, currentUser,
   isApplying, hasApplied, isSaved, isSaving,
   handleApply, handleSaveJob, handleDeleteJob,
-  setIsEditingJob, navigate, handleUpdateJobStatus
+  setIsEditingJob, navigate, handleUpdateJobStatus,
+  handleClose 
 }) {
   const [isDescExpanded, setIsDescExpanded] = useState(false);
 
@@ -31,14 +32,20 @@ export default function JobDetailsPane({
   return (
     <div className="card p-0 flex-col" style={{ position: 'relative', height: '100%', overflowY: 'auto' }}>
       
-      {/* HEADER SECTION (Sticky) - Reduced padding from p-32 to p-24 */}
+      {/* HEADER SECTION */}
       <div className="p-24" style={{ position: 'sticky', top: 0, backgroundColor: 'var(--card-bg)', zIndex: 10, borderBottom: '1px solid var(--border-color)', borderTopLeftRadius: 'inherit', borderTopRightRadius: 'inherit' }}>
         
+        <button 
+          className="btn-outline mobile-back-btn" 
+          onClick={handleClose}
+        >
+          ← Back to Jobs
+        </button>
+
         {(isAdmin || showCompanyActions) && (
-          <div className="flex-row gap-12 mb-20 flex-wrap" style={{ justifyContent: 'flex-end', alignItems: 'center' }}>
+          <div className="flex-row gap-12 mb-20 flex-wrap mobile-action-group" style={{ justifyContent: 'flex-end', alignItems: 'center' }}>
             {isAdmin && selectedJob.status === 'Pending' && handleUpdateJobStatus && (
               <>
-                {/* Reduced button padding and font size */}
                 <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Approved')} style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Approve Post</button>
                 <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Rejected')} style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Reject</button>
               </>
@@ -59,7 +66,6 @@ export default function JobDetailsPane({
         )}
 
         <div className="flex-between-start mb-12">
-          {/* Reduced Job Title from 2.2rem to 1.75rem */}
           <h1 className="m-0 flex-row align-center gap-12 flex-wrap" style={{ fontSize: '1.75rem', paddingRight: '16px', lineHeight: '1.2' }}>
             {selectedJob.title}
             
@@ -74,7 +80,6 @@ export default function JobDetailsPane({
           </div>
         </div>
         
-        {/* Reduced Subtitle from 1.15rem to 1rem */}
         <div className="text-secondary mb-24 flex-row gap-12 align-center flex-wrap" style={{ fontSize: '1rem', fontWeight: '500' }}>
           <span>{selectedJob.company}{selectedJob.location && ` • ${selectedJob.location}`}</span>
           {selectedJob.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
@@ -88,7 +93,6 @@ export default function JobDetailsPane({
           </div>
         ) : (role !== 'company' && role !== 'admin') ? (
           <div className="flex-col gap-12 mt-8">
-            {/* Reduced Apply/Save buttons from 14px padding to 10px */}
             <button className={`btn-apply ${hasApplied ? 'success' : ''}`} style={{ padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleApply} disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}>
               {isApplying ? 'Sending Application...' : hasApplied ? 'Application Sent' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
             </button>
@@ -99,19 +103,16 @@ export default function JobDetailsPane({
         ) : null}
       </div>
 
-      {/* BODY SECTION - Reduced padding from p-32 to p-24 */}
+      {/* BODY SECTION */}
       <div className="p-24" style={{ flex: 1 }}>
         
-        {/* Section Heading from 1.5rem to 1.2rem */}
         <h3 className="mb-16 m-0" style={{ fontSize: '1.2rem' }}>Job Details</h3>
         
         <div className="sub-card mb-32" style={{ padding: '20px' }}>
           {selectedJob.pay && (
             <div className="mb-20">
-              {/* Subheading from 1.3rem to 1.05rem */}
               <div className="font-bold mb-12 text-primary" style={{ fontSize: '1.05rem' }}>Pay</div>
               <div className="flex-row-wrap gap-12">
-                {/* Badge from 10px 20px / 1rem to 6px 12px / 0.85rem */}
                 <span className="badge badge-neutral" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>
                   {selectedJob.pay} <span className="text-secondary font-medium" style={{ marginLeft: '6px' }}>{selectedJob.pay_rate}</span>
                 </span>
@@ -138,7 +139,6 @@ export default function JobDetailsPane({
 
         <div className="mb-32">
           <h3 className="mb-12 m-0" style={{ fontSize: '1.2rem' }}>Job Description</h3>
-          {/* Paragraph font from 1.1rem to 0.95rem, line-height 1.8 to 1.6 */}
           <p className="m-0 text-secondary" style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>
             {selectedJob.description}
           </p>
@@ -169,11 +169,9 @@ export default function JobDetailsPane({
             </h3>
 
             <div className="flex-row gap-16 align-start mb-24">
-              {/* Avatar size from 64px to 48px */}
               <Avatar src={selectedCompany.logo_url} fallbackName={selectedCompany.name} size="md" type="company" customStyle={{ width: '48px', height: '48px', flexShrink: 0 }} />
               
               <div style={{ flex: 1, minWidth: 0 }}>
-                {/* Company title from 1.4rem to 1.15rem */}
                 <h4 
                   className="m-0 mb-8" 
                   style={{ 
@@ -192,7 +190,6 @@ export default function JobDetailsPane({
 
             {companyDesc && (
               <div className="mb-24">
-                {/* Bio text from 1.05rem to 0.95rem */}
                 <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
                   {displayDesc}
                 </p>

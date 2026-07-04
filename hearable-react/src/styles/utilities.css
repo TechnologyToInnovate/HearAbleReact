@@ -20,3 +20,62 @@
 .m-0 { margin: 0; } .mb-8 { margin-bottom: 8px; } .mb-16 { margin-bottom: 16px; } .mb-24 { margin-bottom: 24px; } .mb-32 { margin-bottom: 32px; }
 .mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; } .mt-32 { margin-top: 32px; }
 .p-0 { padding: 0 !important; } .p-20 { padding: 20px; } .p-24 { padding: 24px; } .p-32 { padding: 32px; }
+
+/* 🚨 Add to utilities.css - Responsive Table Wrapper */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  margin-bottom: 16px;
+  border-radius: 8px;
+}
+
+/* Force stat grids to stack on mobile */
+@media (max-width: 768px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr 1fr !important; /* 2 columns on small tablets */
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr !important; /* 1 column on phones */
+  }
+}
+
+/* 🚨 MOBILE MEDIA QUERIES */
+@media (max-width: 768px) {
+  /* Scale down typography */
+  .text-3xl { font-size: 1.5rem; }
+  .text-lg { font-size: 1rem; }
+  
+  /* Scale down spacing/padding */
+  .p-32 { padding: 20px !important; }
+  .p-24 { padding: 16px !important; }
+  .gap-24 { gap: 16px !important; }
+  .gap-32 { gap: 20px !important; }
+  .mb-32 { margin-bottom: 20px !important; }
+  .mt-32 { margin-top: 20px !important; }
+  
+  /* Mobile Profile Header */
+  .profile-header-mobile {
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Prevents horizontal collision on cards */
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  
+  /* Forces buttons to fill width below content */
+  .mobile-w-full {
+    width: 100% !important;
+    margin-top: 8px !important;
+  }
+}
