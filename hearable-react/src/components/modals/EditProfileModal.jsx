@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import AddSkillModal from './AddSkillModal';
+import Avatar from '../common/Avatar'; // 🚨 Added Avatar import
 
 export default function EditProfileModal({ isOpen, onClose, userId, onSuccess }) {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
+    profile_pic: '', // 🚨 Added profile_pic state
     headline: '',
     city: '',
     country: '',
@@ -36,6 +38,7 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
       setFormData({
         first_name: data.first_name || '',
         last_name: data.last_name || '',
+        profile_pic: data.profile_pic || '', // 🚨 Load existing pic URL
         headline: data.headline || '',
         city: data.city || '',
         country: data.country || '',
@@ -78,6 +81,7 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
         .update({
           first_name: formData.first_name,
           last_name: formData.last_name,
+          profile_pic: formData.profile_pic, // 🚨 Save the new URL to database
           headline: formData.headline,
           city: formData.city,
           country: formData.country,
@@ -147,6 +151,30 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
         ) : (
           <form onSubmit={handleSave} className="flex-col gap-24">
             
+            {/* 🚨 NEW PROFILE PIC SECTION 🚨 */}
+            <div className="flex-col gap-8">
+              <label className="font-medium">Profile Picture URL</label>
+              <div className="flex-row gap-16 align-center">
+                <Avatar 
+                  src={formData.profile_pic} 
+                  fallbackName={formData.first_name || 'User'} 
+                  size="md" 
+                  type="user" 
+                />
+                <div className="w-full">
+                  <input 
+                    type="url" 
+                    name="profile_pic" 
+                    value={formData.profile_pic} 
+                    onChange={handleChange} 
+                    placeholder="Paste an image link (e.g., https://imgur.com/image.jpg)" 
+                    className="input-field w-full" 
+                    style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', width: '100%' }} 
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Basic Info */}
             <div className="flex-row gap-16 flex-wrap">
               <div className="flex-col gap-8" style={{ flex: 1, minWidth: '200px' }}>
@@ -181,7 +209,7 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
               <input type="tel" name="contact_number" value={formData.contact_number} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
             </div>
 
-            {/* 🚨 NEW SKILLS SECTION 🚨 */}
+            {/* SKILLS SECTION */}
             <div className="mb-8 mt-8">
               <div className="flex-between align-center mb-8 gap-16">
                 <label className="m-0 font-medium">Skills</label>
