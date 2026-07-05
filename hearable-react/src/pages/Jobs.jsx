@@ -35,7 +35,6 @@ export default function Jobs() {
   }, [currentUser, location.state]);
 
   useEffect(() => {
-    // Only auto-select the first job if we are on a desktop screen!
     if (!isLoading && (jobs || []).length > 0 && !selectedJobId && window.innerWidth > 768) {
       const firstVisible = filteredJobs[0];
       if (firstVisible) setSelectedJobId(firstVisible.id);
@@ -149,7 +148,6 @@ export default function Jobs() {
             isSelected={job.id === selectedJobId} 
             onClick={() => {
               setSelectedJobId(job.id);
-              // Scroll to top automatically when clicking a job on mobile
               if (window.innerWidth <= 768) window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             hideMatchScore={true}
@@ -164,9 +162,39 @@ export default function Jobs() {
       
       <div>
         {role === 'admin' && (
-          <div className="flex-between align-center mb-16" style={{ flexWrap: 'wrap', gap: '16px' }}>
-            <h1 className="m-0">Job Moderation</h1>
-            <div className="flex-row gap-8" style={{ background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+          <>
+            <div className="flex-between align-center mb-8" style={{ flexWrap: 'wrap', gap: '16px' }}>
+              <h1 className="m-0">Manage Jobs</h1>
+            </div>
+            
+            {/* Navigation Tabs for Admin */}
+            <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
+              <button
+                onClick={() => navigate('/jobs')}
+                style={{
+                  padding: '8px 20px', border: 'none', background: 'none',
+                  borderBottom: '2px solid var(--primary-color)',
+                  color: 'var(--primary-color)',
+                  fontWeight: '600', cursor: 'pointer', fontSize: '1rem',
+                }}
+              >
+                Job Postings
+              </button>
+              <button
+                onClick={() => navigate('/applicants')}
+                style={{
+                  padding: '8px 20px', border: 'none', background: 'none',
+                  borderBottom: '2px solid transparent',
+                  color: 'var(--secondary-text)',
+                  fontWeight: '400', cursor: 'pointer', fontSize: '1rem',
+                }}
+              >
+                Applicants
+              </button>
+            </div>
+
+            {/* Existing Status Filter */}
+            <div className="flex-row gap-8 mb-16" style={{ background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
               {['Pending', 'Approved', 'Rejected', 'All'].map(tab => (
                 <button
                   key={tab} onClick={() => { setAdminStatusFilter(tab); setSelectedJobId(null); }}
@@ -181,7 +209,7 @@ export default function Jobs() {
                 </button>
               ))}
             </div>
-          </div>
+          </>
         )}
         
         <div className="mb-16">
@@ -201,7 +229,6 @@ export default function Jobs() {
         </div>
       </div>
 
-      {/* 🚨 Clean CSS layout classes applied here */}
       <div className={`jobs-split-layout ${selectedJobId ? 'active-split' : ''}`}>
         
         <div className="jobs-list-column">
@@ -235,7 +262,7 @@ export default function Jobs() {
               handleDeleteJob={handleDeleteJob} 
               handleUpdateJobStatus={handleUpdateJobStatus}
               navigate={navigate}
-              handleClose={() => setSelectedJobId(null)} // Triggers the back button logic!
+              handleClose={() => setSelectedJobId(null)} 
             />
           ) : (
             <div className="card h-full flex-col align-center justify-center text-center text-secondary p-32" style={{ display: window.innerWidth > 768 ? 'flex' : 'none' }}>

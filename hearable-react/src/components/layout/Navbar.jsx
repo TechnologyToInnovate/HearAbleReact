@@ -11,7 +11,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // 🚨 NEW STATE
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   const [hasUnread, setHasUnread] = useState(false); 
   
   const [profileName, setProfileName] = useState('');
@@ -33,7 +33,6 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close mobile menu automatically when location/route changes
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
@@ -96,11 +95,17 @@ export default function Navbar() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '12px', opacity: 0.8 }}><path d={path} /></svg>
   );
 
-  // Reusable Nav Links component to avoid duplication
   const NavLinksList = () => (
     <ul className="nav-links">
       <li><Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Home</Link></li>
-      <li><Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>Job Postings</Link></li>
+      
+      {/* 🚨 UPDATED: Dynamic text for the Jobs route based on role */}
+      <li>
+        <Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>
+          {role === 'admin' ? 'Manage Jobs' : 'Job Postings'}
+        </Link>
+      </li>
+
       {['user', 'pending_user', 'rejected_user', 'guest'].includes(role) && (
         <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Companies</Link></li>
       )}
@@ -130,14 +135,12 @@ export default function Navbar() {
           <span className="brand-logo">H</span><span className="brand-name">Hearable</span>
         </div>
 
-        {/* 🚨 Desktop Links */}
         {!isMinimalNav && (
           <div className="desktop-nav-links">
             <NavLinksList />
           </div>
         )}
 
-        {/* 🚨 Desktop User Actions */}
         {!isMinimalNav && (
           <div className="user-profile desktop-user-profile flex-row align-center gap-16">
             <div className="flex-row align-center gap-4">
@@ -196,7 +199,6 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* 🚨 Mobile Menu Toggle Button */}
         {!isMinimalNav && (
           <button 
             className="mobile-menu-btn" 
@@ -213,7 +215,6 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* 🚨 Mobile Dropdown Menu Container */}
       {isMobileMenuOpen && !isMinimalNav && (
         <div className="mobile-nav-dropdown">
           <NavLinksList />

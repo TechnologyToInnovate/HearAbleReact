@@ -12,7 +12,6 @@ export default function JobCard({ job, isSelected, onClick, hideMatchScore = fal
       }}
       onClick={onClick}
     >
-      {/* 🚨 Added 'mobile-stack' to prevent title and badge collisions on mobile */}
       <div className="flex-between-start mb-12 mobile-stack">
         <h3 className="m-0" style={{ fontSize: '1.1rem', paddingRight: '8px' }}>{job.title}</h3>
         
@@ -27,12 +26,31 @@ export default function JobCard({ job, isSelected, onClick, hideMatchScore = fal
         )}
       </div>
       
-      <div className="text-secondary mb-12 flex-row gap-8 align-center flex-wrap" style={{ fontSize: '0.95rem', fontWeight: '500' }}>
-        <span>
-          {job.company} {job.location && `• ${job.location}`}
+      {/* 🚨 UPDATED: Applied flex styling to force truncation on the company name */}
+      <div className="text-secondary mb-12 flex-row gap-8 align-center" style={{ fontSize: '0.95rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
+        <span 
+          style={{ 
+            whiteSpace: 'nowrap', 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis',
+            maxWidth: '60%' // Adjust this percentage if you want it to hide earlier/later
+          }}
+          title={job.company}
+        >
+          {job.company}
         </span>
         
-        {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
+        {job.location && (
+          <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+            • {job.location}
+          </span>
+        )}
+        
+        {job.is_deaf_accessible && (
+          <div style={{ flexShrink: 0 }}>
+            <DeafAccessibleBadge size="sm" showText={true} />
+          </div>
+        )}
       </div>
       
       <div className="flex-row-wrap gap-8 align-center">

@@ -42,7 +42,6 @@ export default function JobDetailsPane({
           ← Back to Jobs
         </button>
 
-        {/* 🚨 MOVED: Status Badge and Action Buttons are now aligned in the exact same row */}
         {(isAdmin || showCompanyActions) && (
           <div className="flex-row mb-20 flex-wrap mobile-action-group" style={{ justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             
@@ -86,26 +85,29 @@ export default function JobDetailsPane({
           </div>
         </div>
         
-        {/* 🚨 FIX: Separated company and location so the company name truncates FIRST */}
+        {/* 🚨 UPDATED: Applied a stricter maxWidth to hide the name slightly more in the details pane */}
         <div className="text-secondary mb-24 flex-row gap-8 align-center" style={{ fontSize: '1rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
           
-          <div style={{ 
-            whiteSpace: 'nowrap', 
-            overflow: 'hidden', 
-            textOverflow: 'ellipsis', 
-            flexShrink: 1 /* Allows the long company name to shrink and truncate */
-          }}>
+          <div 
+            style={{ 
+              whiteSpace: 'nowrap', 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis', 
+              maxWidth: '45%' // Forces the text to truncate earlier
+            }}
+            title={selectedJob.company} // Shows the full name on hover!
+          >
             {selectedJob.company}
           </div>
           
           {selectedJob.location && (
-            <div style={{ whiteSpace: 'nowrap', flexShrink: 0 /* Prevents location from squishing */ }}>
+            <div style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
               • {selectedJob.location}
             </div>
           )}
           
           {selectedJob.is_deaf_accessible && (
-            <div style={{ flexShrink: 0 /* Prevents badge from squishing */ }}>
+            <div style={{ flexShrink: 0 }}>
               <DeafAccessibleBadge size="sm" showText={true} />
             </div>
           )}
