@@ -142,8 +142,7 @@ export default function Users({ role }) {
                   style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
                   onClick={() => navigate(`/user/${user.id}`)}
                 >
-                  {/* 🚨 FIX: Added src={user.profile_pic} so the custom image loads properly */}
-                  <Avatar src={user.profile_pic} fallbackName={user.first_name} size="sm" type="user" />
+                  <Avatar src={user.profile_pic} fallbackName={user.first_name} size="md" type="user" />
                   
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h3 

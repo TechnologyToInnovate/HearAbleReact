@@ -311,7 +311,7 @@ function ApplicantCard({ app, role, handleStatusChange, navigate }) {
             </p>
             {role === 'admin' && (
               <p className="text-sm text-secondary" style={{ margin: '4px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={app.company_name}>
-                🏢 To: {app.company_name}
+                {app.company_name}
               </p>
             )}
           </div>
