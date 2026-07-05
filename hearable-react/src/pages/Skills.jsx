@@ -37,9 +37,10 @@ export default function Skills() {
   async function fetchData() {
     setIsLoading(true);
     
+    // 🚨 FIX 1: Fetch through the new degree_skills junction table
     const { data: skillsData } = await supabase
       .from('skills')
-      .select('*, degrees(name, abbreviation)')
+      .select('*, degree_skills(degree_id, degrees(name, abbreviation))')
       .order('name', { ascending: true });
       
     const { data: degreesData } = await supabase
@@ -47,7 +48,19 @@ export default function Skills() {
       .select('*')
       .order('name', { ascending: true });
 
-    if (skillsData) setSkills(skillsData);
+    if (skillsData) {
+      // 🚨 FIX 2: Map the many-to-many relationship back to the 1-to-1 format the UI expects
+      const mappedSkills = skillsData.map(skill => {
+        const firstLink = skill.degree_skills && skill.degree_skills.length > 0 ? skill.degree_skills[0] : null;
+        return {
+          ...skill,
+          degree_id: firstLink ? firstLink.degree_id : null,
+          degrees: firstLink ? firstLink.degrees : null
+        };
+      });
+      setSkills(mappedSkills);
+    }
+    
     if (degreesData) setDegrees(degreesData);
     
     setIsLoading(false);
@@ -58,13 +71,23 @@ export default function Skills() {
     if (!newSkillName.trim()) return;
     
     setIsAdding(true);
-    const { error } = await supabase.from('skills').insert([{ 
-      name: newSkillName.trim(),
-      degree_id: newSkillDegree || null 
-    }]);
+    // 🚨 FIX 3: Insert the skill WITHOUT the degree_id
+    const { data: newSkill, error: skillError } = await supabase
+      .from('skills')
+      .insert([{ name: newSkillName.trim() }])
+      .select()
+      .single();
+    
+    // 🚨 FIX 4: If successful, link it to the degree using the junction table
+    if (!skillError && newSkill && newSkillDegree) {
+      await supabase.from('degree_skills').insert([{ 
+        skill_id: newSkill.id, 
+        degree_id: newSkillDegree 
+      }]);
+    }
     
     setIsAdding(false);
-    if (!error) {
+    if (!skillError) {
       setNewSkillName('');
       setNewSkillDegree('');
       setCurrentPage(1); 
@@ -105,21 +128,29 @@ export default function Skills() {
     if (!editName.trim()) return;
     
     setIsSavingEdit(true);
-    const updatedData = { 
-      name: editName.trim(), 
-      degree_id: editDegree || null 
-    };
 
-    const { error } = await supabase
+    // 🚨 FIX 5: Update the skill name
+    const { error: skillError } = await supabase
       .from('skills')
-      .update(updatedData)
+      .update({ name: editName.trim() })
       .eq('id', id);
+
+    // 🚨 FIX 6: Update the junction table by deleting the old link and inserting the new one
+    if (!skillError) {
+      await supabase.from('degree_skills').delete().eq('skill_id', id);
+      
+      if (editDegree) {
+        await supabase.from('degree_skills').insert([{ 
+          skill_id: id, 
+          degree_id: editDegree 
+        }]);
+      }
+    }
 
     setIsSavingEdit(false);
 
-    if (!error) {
-      const linkedDegree = degrees.find(d => d.id === editDegree) || null;
-      setSkills(skills.map(s => s.id === id ? { ...s, ...updatedData, degrees: linkedDegree } : s).sort((a, b) => a.name.localeCompare(b.name)));
+    if (!skillError) {
+      fetchData(); // Refetch to ensure everything is synced cleanly
       cancelEditing();
     } else {
       alert("Failed to update skill.");

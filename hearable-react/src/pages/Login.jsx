@@ -38,11 +38,15 @@ export default function Login({ setRole }) {
         if (adminData || email.toLowerCase() === 'admin@hearable.com') {
           setRole('admin'); navigate('/');
         } else if (preApprovedData) {
+          // 🚨 FIX: Replaced country, city, and postal_code with the normalized location_id
           await supabase.from('companies').insert([{
-            id: data.user.id, name: preApprovedData.name, country: preApprovedData.country,
-            city: preApprovedData.city, postal_code: preApprovedData.postal_code,
-            industry: preApprovedData.industry, founded_year: preApprovedData.founded_year,  
-            website: preApprovedData.website, description: preApprovedData.description,    
+            id: data.user.id, 
+            name: preApprovedData.name, 
+            location_id: preApprovedData.location_id, 
+            industry: preApprovedData.industry, 
+            founded_year: preApprovedData.founded_year,  
+            website: preApprovedData.website, 
+            description: preApprovedData.description,    
             status: 'Approved'
           }]);
           setRole('company'); navigate('/');

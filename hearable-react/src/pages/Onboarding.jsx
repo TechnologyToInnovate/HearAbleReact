@@ -51,14 +51,36 @@ export default function Onboarding() {
   
   const removeSkill = (idToRemove) => setSelectedSkills(selectedSkills.filter(skill => skill.id !== idToRemove));
 
-  async function handleSubmit() {
+async function handleSubmit() {
     if (!user) return;
     setIsSubmitting(true);
     
+    // 🚨 NEW: Save location data into the normalized locations table
+    let locationId = null;
+    if (country.trim() || city.trim() || postalCode.trim()) {
+      const { data: locData } = await supabase
+        .from('locations')
+        .insert([{ 
+          country: country.trim() || 'Not specified', 
+          city: city.trim() || 'Not specified', 
+          postal_code: postalCode.trim() || null 
+        }])
+        .select()
+        .single();
+        
+      if (locData) {
+        locationId = locData.id;
+      }
+    }
+
+    // 🚨 UPDATED: Removed country, city, and postalCode. Added location_id.
     const payload = {
-      first_name: firstName.trim(), last_name: lastName.trim(), contact_number: contactNumber.trim() || null,
-      country: country.trim() || null, city: city.trim() || null, postal_code: postalCode.trim() || null,
-      batch_id: batch || null, degree_id: degree || null 
+      first_name: firstName.trim(), 
+      last_name: lastName.trim(), 
+      contact_number: contactNumber.trim() || null,
+      location_id: locationId, 
+      batch_id: batch || null, 
+      degree_id: degree || null 
     };
 
     let { data: updatedProfile, error: profileError } = await supabase.from('profiles').update(payload).eq('id', user.id).select();

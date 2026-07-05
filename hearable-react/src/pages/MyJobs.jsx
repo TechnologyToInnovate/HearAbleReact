@@ -43,7 +43,8 @@ export default function MyJobs() {
     if (!currentUser) { setIsLoading(false); return; }
     
     const { data: companyData } = await supabase.from('companies').select('*').eq('id', currentUser.id).single();
-    const { data: jobsData } = await supabase.from('jobs').select('*, job_skills(skills(id, name))').eq('company_id', currentUser.id).order('created_at', { ascending: false });
+    // 🚨 UPDATED: Joined the locations table to pull the job location string
+    const { data: jobsData } = await supabase.from('jobs').select('*, locations(city, country), job_skills(skills(id, name))').eq('company_id', currentUser.id).order('created_at', { ascending: false });
     const { data: appsData } = await supabase.from('applications').select('job_id');
 
     if (jobsData && companyData) {
@@ -53,6 +54,8 @@ export default function MyJobs() {
 
         return {
           ...job,
+          // 🚨 UPDATED: Retrieve location string from the joined locations table
+          location: job.locations?.city ? job.locations.city : '',
           skills: formattedSkills,
           company: companyData.name,
           is_deaf_accessible: companyData.is_deaf_accessible || false,
@@ -70,9 +73,29 @@ export default function MyJobs() {
     if (jobs.length >= 3) return alert("You have reached the maximum limit of 3 active job postings.");
 
     setIsSubmitting(true);
-    const { skills, ...jobDetails } = formData;
+    const { skills, location: jobLocationString, ...jobDetails } = formData;
     
-    const { data: newJob, error: jobError } = await supabase.from('jobs').insert([{ ...jobDetails, company_id: currentUser.id, status: 'Pending' }]).select().single();
+    // 🚨 NEW: Create location record and obtain ID
+    let locationId = null;
+    if (jobLocationString && jobLocationString.trim() !== '') {
+        const { data: locData, error: locError } = await supabase
+          .from('locations')
+          .insert([{ 
+            city: jobLocationString.trim(), 
+            country: 'Not specified' 
+          }])
+          .select()
+          .single();
+          
+        if (locData) {
+            locationId = locData.id;
+        } else {
+             console.error("Location saving error", locError)
+        }
+    }
+
+    // 🚨 UPDATED: Include location_id instead of the raw location string
+    const { data: newJob, error: jobError } = await supabase.from('jobs').insert([{ ...jobDetails, location_id: locationId, company_id: currentUser.id, status: 'Pending' }]).select().single();
     
     if (jobError) {
       alert("Failed to post job: " + jobError.message);
@@ -100,8 +123,29 @@ export default function MyJobs() {
       return;
     }
 
-    const { skills, ...jobDetails } = formData;
-    const { error: jobError } = await supabase.from('jobs').update({ ...jobDetails, edit_count: currentEditCount + 1 }).eq('id', selectedJob.id);
+    const { skills, location: jobLocationString, ...jobDetails } = formData;
+    
+    // 🚨 NEW: Manage location record processing for updates
+    let locationId = selectedJob.location_id; 
+
+    // Only create a new location record if the string has changed to avoid redundant entries
+    if (jobLocationString && jobLocationString.trim() !== selectedJob.location) {
+        const { data: locData } = await supabase
+          .from('locations')
+          .insert([{ 
+            city: jobLocationString.trim(), 
+            country: 'Not specified' 
+          }])
+          .select()
+          .single();
+          
+        if (locData) {
+            locationId = locData.id;
+        }
+    }
+
+    // 🚨 UPDATED: Include location_id in the update payload
+    const { error: jobError } = await supabase.from('jobs').update({ ...jobDetails, location_id: locationId, edit_count: currentEditCount + 1 }).eq('id', selectedJob.id);
     
     if (jobError) {
       alert("Failed to update job: " + jobError.message);

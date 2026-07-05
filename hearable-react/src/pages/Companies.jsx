@@ -51,23 +51,49 @@ export default function Companies({ role }) {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const { error } = await supabase.from('pre_approved_companies').insert([{
-      email: newEmail.toLowerCase().trim(), name: newName, country: newCountry.trim() || null,
-      city: newCity.trim() || null, postal_code: newPostalCode.trim() || null,
-      industry: newIndustry.trim() || null, founded_year: newFoundedYear ? parseInt(newFoundedYear) : null,
-      website: newWebsite.trim() || null, description: newDescription.trim() || null
-    }]);
+    try {
+      // 🚨 1. Handle Location creation first
+      let locationId = null;
+      if (newCountry.trim() || newCity.trim() || newPostalCode.trim()) {
+        const { data: locData, error: locError } = await supabase
+          .from('locations')
+          .insert([{ 
+            country: newCountry.trim() || 'Not specified', 
+            city: newCity.trim() || 'Not specified',
+            postal_code: newPostalCode.trim() || null
+          }])
+          .select()
+          .single();
+          
+        if (locError) throw locError;
+        if (locData) locationId = locData.id;
+      }
 
-    if (!error) {
+      // 🚨 2. Insert into pre_approved_companies using location_id
+      const { error: companyError } = await supabase.from('pre_approved_companies').insert([{
+        email: newEmail.toLowerCase().trim(), 
+        name: newName, 
+        location_id: locationId,
+        industry: newIndustry.trim() || null, 
+        founded_year: newFoundedYear ? parseInt(newFoundedYear) : null,
+        website: newWebsite.trim() || null, 
+        description: newDescription.trim() || null
+      }]);
+
+      if (companyError) throw companyError;
+
       alert(`Success! ${newEmail} is on the roster.`);
       setNewEmail(''); setNewName(''); setNewCountry(''); setNewCity(''); setNewPostalCode('');
       setNewIndustry(''); setNewFoundedYear(''); setNewWebsite(''); setNewDescription('');
       setShowAddForm(false);
-      refetch(); // Use the refetch function from our hook!
-    } else {
+      refetch(); 
+      
+    } catch (error) {
+      console.error(error);
       alert("Failed to pre-approve company.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   }
 
   async function handleUpdateStatus(e, id, newStatus) {

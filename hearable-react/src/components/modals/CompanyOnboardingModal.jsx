@@ -28,23 +28,43 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
 
   if (!isOpen) return null;
 
-  async function handleSubmit(e) {
+ async function handleSubmit(e) {
     e.preventDefault();
     setIsSubmitting(true);
 
     const parsedYear = parseInt(founded, 10);
 
-    const { error } = await supabase.from('companies').update({
-      name, country, city, postal_code: postalCode, industry, website, description, 
-      founded_year: isNaN(parsedYear) ? null : parsedYear
-    }).eq('id', companyData.id);
+    try {
+      // 🚨 Handle Location creation/update
+      let locationId = companyData.location_id;
+      if (country.trim() || city.trim() || postalCode.trim()) {
+        const locationPayload = {
+          country: country.trim() || 'Not specified',
+          city: city.trim() || 'Not specified',
+          postal_code: postalCode.trim() || null
+        };
+        
+        if (locationId) {
+          await supabase.from('locations').update(locationPayload).eq('id', locationId);
+        } else {
+          const { data: locData } = await supabase.from('locations').insert([locationPayload]).select().single();
+          if (locData) locationId = locData.id;
+        }
+      }
 
-    setIsSubmitting(false);
-    
-    if (!error) onSuccess();
-    else {
+      // 🚨 Update companies without the stripped columns
+      const { error } = await supabase.from('companies').update({
+        name, location_id: locationId, industry, website, description, 
+        founded_year: isNaN(parsedYear) ? null : parsedYear
+      }).eq('id', companyData.id);
+
+      if (error) throw error;
+      onSuccess();
+    } catch (error) {
       alert("Failed to update company profile.");
       console.error(error);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 

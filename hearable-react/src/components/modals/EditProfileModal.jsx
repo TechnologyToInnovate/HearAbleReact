@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import AddSkillModal from './AddSkillModal';
-import Avatar from '../common/Avatar'; // 🚨 Added Avatar import
+import Avatar from '../common/Avatar';
 
 export default function EditProfileModal({ isOpen, onClose, userId, onSuccess }) {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
-    profile_pic: '', // 🚨 Added profile_pic state
+    profile_pic: '',
     headline: '',
     city: '',
     country: '',
@@ -19,7 +19,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
   const [isSaving, setIsSaving] = useState(false);
   const [showAddSkillPopup, setShowAddSkillPopup] = useState(false);
 
-  // Fetch the latest user data whenever the modal is opened
   useEffect(() => {
     if (isOpen && userId) {
       fetchUserData();
@@ -28,9 +27,10 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
 
   async function fetchUserData() {
     setIsLoading(true);
+    // 🚨 UPDATED: Joined the locations table to pull the city and country
     const { data, error } = await supabase
       .from('profiles')
-      .select(`*, profile_skills ( skills ( name ) )`)
+      .select(`*, locations ( city, country ), profile_skills ( skills ( name ) )`)
       .eq('id', userId)
       .maybeSingle();
 
@@ -38,10 +38,11 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
       setFormData({
         first_name: data.first_name || '',
         last_name: data.last_name || '',
-        profile_pic: data.profile_pic || '', // 🚨 Load existing pic URL
+        profile_pic: data.profile_pic || '',
         headline: data.headline || '',
-        city: data.city || '',
-        country: data.country || '',
+        // 🚨 UPDATED: Map from the joined locations table
+        city: data.locations?.city || '',
+        country: data.locations?.country || '',
         contact_number: data.contact_number || '',
         skills: data.profile_skills ? data.profile_skills.map(ps => ps.skills.name) : []
       });
@@ -53,7 +54,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // --- SKILL HANDLERS (Local State Only) ---
   const handleAddSkillToForm = (skillObj) => {
     setFormData(prev => ({
       ...prev,
@@ -69,43 +69,60 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
     }));
   };
 
-  // --- SAVE EVERYTHING ---
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
 
     try {
-      // 1. Update basic profile info
+      // 🚨 NEW: 1. Save to the locations table first
+      let locationId = null;
+      if (formData.city || formData.country) {
+        const { data: locData, error: locError } = await supabase
+          .from('locations')
+          .insert([{ 
+            city: formData.city || 'Not specified', 
+            country: formData.country || 'Not specified' 
+          }])
+          .select()
+          .single();
+
+        if (locData) {
+          locationId = locData.id;
+        }
+      }
+
+      // 🚨 UPDATED: 2. Save profile info (removing city/country, adding location_id)
+      const profileUpdatePayload = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        profile_pic: formData.profile_pic,
+        headline: formData.headline,
+        contact_number: formData.contact_number
+      };
+
+      if (locationId) {
+        profileUpdatePayload.location_id = locationId;
+      }
+
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          profile_pic: formData.profile_pic, // 🚨 Save the new URL to database
-          headline: formData.headline,
-          city: formData.city,
-          country: formData.country,
-          contact_number: formData.contact_number
-        })
+        .update(profileUpdatePayload)
         .eq('id', userId);
 
       if (profileError) throw profileError;
 
-      // 2. Synchronize Skills
+      // 3. Synchronize Skills
       if (formData.skills.length > 0) {
-        // Find the IDs for the skills currently in the form
         const { data: skillsData } = await supabase
           .from('skills')
           .select('id, name')
           .in('name', formData.skills);
 
-        // Delete all old skill links for this user
         await supabase
           .from('profile_skills')
           .delete()
           .eq('profile_id', userId);
 
-        // Insert the newly updated list of skill links
         if (skillsData && skillsData.length > 0) {
           const skillInserts = skillsData.map(skill => ({
             profile_id: userId,
@@ -114,11 +131,9 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
           await supabase.from('profile_skills').insert(skillInserts);
         }
       } else {
-        // If they removed all skills, just clear the table
         await supabase.from('profile_skills').delete().eq('profile_id', userId);
       }
 
-      // Success! Refresh the profile page and close modal
       onSuccess(); 
       onClose(); 
     } catch (error) {
@@ -134,7 +149,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       
-      {/* Our Reusable Add Skill Modal sits on top! */}
       <AddSkillModal 
         isOpen={showAddSkillPopup}
         onClose={() => setShowAddSkillPopup(false)}
@@ -151,7 +165,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
         ) : (
           <form onSubmit={handleSave} className="flex-col gap-24">
             
-            {/* 🚨 NEW PROFILE PIC SECTION 🚨 */}
             <div className="flex-col gap-8">
               <label className="font-medium">Profile Picture URL</label>
               <div className="flex-row gap-16 align-center">
@@ -175,7 +188,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
               </div>
             </div>
 
-            {/* Basic Info */}
             <div className="flex-row gap-16 flex-wrap">
               <div className="flex-col gap-8" style={{ flex: 1, minWidth: '200px' }}>
                 <label className="font-medium">First Name</label>
@@ -192,7 +204,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
               <input type="text" name="headline" value={formData.headline} onChange={handleChange} placeholder="e.g. Senior Frontend Developer" className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
             </div>
 
-            {/* Location & Contact */}
             <div className="flex-row gap-16 flex-wrap">
               <div className="flex-col gap-8" style={{ flex: 1, minWidth: '150px' }}>
                 <label className="font-medium">City</label>
@@ -209,7 +220,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
               <input type="tel" name="contact_number" value={formData.contact_number} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
             </div>
 
-            {/* SKILLS SECTION */}
             <div className="mb-8 mt-8">
               <div className="flex-between align-center mb-8 gap-16">
                 <label className="m-0 font-medium">Skills</label>
