@@ -121,11 +121,11 @@ export default function JobDetailsPane({
             </button>
           </div>
         ) : (role !== 'company' && role !== 'admin') ? (
-          <div className="flex-col gap-12 mt-8">
-            <button className={`btn-apply ${hasApplied ? 'success' : ''}`} style={{ padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleApply} disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}>
+          <div className="flex-row gap-12 mt-8">
+            <button className={`btn-apply ${hasApplied ? 'success' : ''}`} style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleApply} disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}>
               {isApplying ? 'Sending Application...' : hasApplied ? 'Application Sent' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
             </button>
-            <button className="btn-outline w-full" style={{ padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleSaveJob} disabled={isSaving}>
+            <button className="btn-outline" style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleSaveJob} disabled={isSaving}>
               {isSaving ? 'Processing...' : isSaved ? 'Saved' : 'Save for Later'}
             </button>
           </div>
