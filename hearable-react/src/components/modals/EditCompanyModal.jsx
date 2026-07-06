@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
+// 🚨 NEW: Import LocationSelect
+import LocationSelect from '../common/LocationSelect';
 
 export default function EditCompanyModal({ companyId, onClose }) {
   const [name, setName] = useState('');
@@ -26,7 +28,6 @@ export default function EditCompanyModal({ companyId, onClose }) {
   useEffect(() => {
     async function fetchCompanyDetails() {
       setIsLoading(true);
-      // 🚨 FIX: Join locations and company_contacts tables
       const { data, error } = await supabase
         .from('companies')
         .select(`*, locations(*), company_contacts(*)`)
@@ -42,7 +43,6 @@ export default function EditCompanyModal({ companyId, onClose }) {
           setCountry(data.locations.country || ''); setCity(data.locations.city || ''); setPostalCode(data.locations.postal_code || '');
         }
 
-        // Handle array of contacts (we just take the first one for the modal)
         if (data.company_contacts && data.company_contacts.length > 0) {
           const contact = data.company_contacts[0];
           setContactId(contact.id);
@@ -64,7 +64,6 @@ export default function EditCompanyModal({ companyId, onClose }) {
     setIsSubmitting(true);
 
     try {
-      // 🚨 1. Handle Location Data
       let finalLocationId = locationId;
       if (country.trim() || city.trim() || postalCode.trim()) {
         const locationPayload = {
@@ -81,7 +80,6 @@ export default function EditCompanyModal({ companyId, onClose }) {
         }
       }
 
-      // 🚨 2. Handle Company Data (Removed stripped columns)
       const updatedCompanyData = {
         name: name.trim(), industry: industry.trim(), founded_year: foundedYear ? parseInt(foundedYear, 10) : null,
         website: website.trim(), logo_url: logoUrl.trim(), description: description.trim(),
@@ -91,7 +89,6 @@ export default function EditCompanyModal({ companyId, onClose }) {
       const { error: companyError } = await supabase.from('companies').update(updatedCompanyData).eq('id', companyId);
       if (companyError) throw companyError;
 
-      // 🚨 3. Handle Contact Person Data
       if (contactPersonName.trim() || contactPersonEmail.trim() || contactPersonNumber.trim()) {
         const contactPayload = {
           company_id: companyId,
@@ -150,9 +147,14 @@ export default function EditCompanyModal({ companyId, onClose }) {
 
               <div>
                 <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Location</label>
-                <div className="form-grid-3">
-                  <input type="text" className="search-input w-full" placeholder="Country" value={country} onChange={e => setCountry(e.target.value)} />
-                  <input type="text" className="search-input w-full" placeholder="City" value={city} onChange={e => setCity(e.target.value)} />
+                <div className="flex-col gap-16">
+                  {/* 🚨 PLUG IN THE COMPONENT HERE */}
+                  <LocationSelect 
+                    country={country} 
+                    setCountry={setCountry} 
+                    city={city} 
+                    setCity={setCity} 
+                  />
                   <input type="text" className="search-input w-full" placeholder="Postal Code" value={postalCode} onChange={e => setPostalCode(e.target.value.replace(/\D/g, ''))} />
                 </div>
               </div>

@@ -3,13 +3,17 @@ import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import SkillBadge from '../common/SkillBadge';
 import AddSkillModal from './AddSkillModal'; 
+import LocationSelect from '../common/LocationSelect';
 
 export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, isEditing, isSubmitting }) {
   const { user } = useAuth();
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
+  
+  const [country, setCountry] = useState('');
+  const [city, setCity] = useState('');
+  
   const [workModel, setWorkModel] = useState('On-site');
   const [type, setType] = useState('Full-time');
   const [pay, setPay] = useState(''); 
@@ -20,34 +24,52 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
   useEffect(() => {
     if (isOpen) {
-      if (isEditing && initialData) {
-        setTitle(initialData.title || ''); setLocation(initialData.location || '');
-        setWorkModel(initialData.work_model || 'On-site'); setType(initialData.type || 'Full-time');
-        setPay(initialData.pay || ''); setPayRate(initialData.pay_rate || 'per year');
-        setDescription(initialData.description || ''); setSelectedSkills(initialData.skills || []);
-      } else {
-        setTitle(''); setWorkModel('On-site'); setType('Full-time');
-        setPay(''); setPayRate('per year'); setDescription(''); setSelectedSkills([]);
-        fetchCompanyCity();
-      }
+      // 🚨 Fetch the company's default location before setting any form state
+      fetchCompanyCity().then((companyLoc) => {
+        if (isEditing && initialData) {
+          setTitle(initialData.title || ''); 
+          
+          const parts = initialData.location ? initialData.location.split(', ') : [];
+          if (parts.length === 2) {
+            setCity(parts[0] || '');
+            // Force the country to remain the company's country
+            setCountry(companyLoc.country || parts[1] || '');
+          } else {
+            setCity(initialData.location || companyLoc.city || '');
+            setCountry(companyLoc.country || '');
+          }
+          
+          setWorkModel(initialData.work_model || 'On-site'); setType(initialData.type || 'Full-time');
+          setPay(initialData.pay || ''); setPayRate(initialData.pay_rate || 'per year');
+          setDescription(initialData.description || ''); setSelectedSkills(initialData.skills || []);
+        } else {
+          setTitle(''); setWorkModel('On-site'); setType('Full-time');
+          setPay(''); setPayRate('per year'); setDescription(''); setSelectedSkills([]);
+          
+          // Apply the company defaults for new jobs
+          setCountry(companyLoc.country || ''); 
+          setCity(companyLoc.city || '');
+        }
+      });
     }
   }, [isOpen, initialData, isEditing, user]);
 
   async function fetchCompanyCity() {
-    if (!user) return;
+    if (!user) return { city: '', country: '' };
     
-    // 🚨 UPDATED: Joined the locations table to retrieve the city!
     const { data } = await supabase
       .from('companies')
-      .select('locations(city)')
+      .select('locations(city, country)')
       .eq('id', user.id)
       .maybeSingle();
       
-    if (data && data.locations && data.locations.city) {
-      setLocation(data.locations.city);
-    } else {
-      setLocation('');
+    if (data && data.locations) {
+      return {
+        country: data.locations.country || '',
+        city: data.locations.city || ''
+      };
     }
+    return { city: '', country: '' };
   }
 
   const handleAddSkill = (skillObj) => {
@@ -63,7 +85,8 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ title, location, work_model: workModel, type, pay, pay_rate: payRate, description, skills: selectedSkills });
+    const locationString = city && country ? `${city}, ${country}` : city || country || '';
+    onSubmit({ title, location: locationString, work_model: workModel, type, pay, pay_rate: payRate, description, skills: selectedSkills });
   };
 
   if (!isOpen) return null;
@@ -95,12 +118,21 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
             <div className="sub-card">
               <label className="mb-16 block font-bold">Job Details</label>
               
-              <div className="form-grid-2">
+              <div className="flex-col gap-16 mb-16">
                 <div>
-                  <label className="text-sm mb-8 block">City / Region</label>
-                  <input type="text" className="search-input w-full" placeholder="e.g. Austin, TX" value={location} onChange={e => setLocation(e.target.value)} />
+                  <label className="text-sm mb-8 block">Job Location</label>
+                  {/* 🚨 PLUG IN THE COMPONENT HERE */}
+                  <LocationSelect 
+                    country={country} 
+                    setCountry={setCountry} 
+                    city={city} 
+                    setCity={setCity} 
+                    disabledCountry={true} /* 🚨 Locks the country dropdown */
+                  />
                 </div>
-                
+              </div>
+              
+              <div className="form-grid-2">
                 <div>
                   <label className="text-sm mb-8 block">Pay / Salary</label>
                   <div className="flex-row gap-8">

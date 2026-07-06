@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import AddSkillModal from './AddSkillModal';
 import Avatar from '../common/Avatar';
+// 🚨 NEW: Import LocationSelect
+import LocationSelect from '../common/LocationSelect';
 
 export default function EditProfileModal({ isOpen, onClose, userId, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -27,7 +29,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
 
   async function fetchUserData() {
     setIsLoading(true);
-    // 🚨 UPDATED: Joined the locations table to pull the city and country
     const { data, error } = await supabase
       .from('profiles')
       .select(`*, locations ( city, country ), profile_skills ( skills ( name ) )`)
@@ -40,7 +41,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
         last_name: data.last_name || '',
         profile_pic: data.profile_pic || '',
         headline: data.headline || '',
-        // 🚨 UPDATED: Map from the joined locations table
         city: data.locations?.city || '',
         country: data.locations?.country || '',
         contact_number: data.contact_number || '',
@@ -53,6 +53,10 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
+  // 🚨 NEW: Handlers to pass to LocationSelect
+  const handleCountryChange = (val) => setFormData({ ...formData, country: val });
+  const handleCityChange = (val) => setFormData({ ...formData, city: val });
 
   const handleAddSkillToForm = (skillObj) => {
     setFormData(prev => ({
@@ -74,7 +78,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
     setIsSaving(true);
 
     try {
-      // 🚨 NEW: 1. Save to the locations table first
       let locationId = null;
       if (formData.city || formData.country) {
         const { data: locData, error: locError } = await supabase
@@ -91,7 +94,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
         }
       }
 
-      // 🚨 UPDATED: 2. Save profile info (removing city/country, adding location_id)
       const profileUpdatePayload = {
         first_name: formData.first_name,
         last_name: formData.last_name,
@@ -111,7 +113,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
 
       if (profileError) throw profileError;
 
-      // 3. Synchronize Skills
       if (formData.skills.length > 0) {
         const { data: skillsData } = await supabase
           .from('skills')
@@ -204,15 +205,15 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
               <input type="text" name="headline" value={formData.headline} onChange={handleChange} placeholder="e.g. Senior Frontend Developer" className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
             </div>
 
-            <div className="flex-row gap-16 flex-wrap">
-              <div className="flex-col gap-8" style={{ flex: 1, minWidth: '150px' }}>
-                <label className="font-medium">City</label>
-                <input type="text" name="city" value={formData.city} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-              </div>
-              <div className="flex-col gap-8" style={{ flex: 1, minWidth: '150px' }}>
-                <label className="font-medium">Country</label>
-                <input type="text" name="country" value={formData.country} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
-              </div>
+            <div className="flex-col gap-8">
+              <label className="font-medium">Location</label>
+              {/* 🚨 PLUG IN THE COMPONENT HERE */}
+              <LocationSelect 
+                country={formData.country} 
+                setCountry={handleCountryChange} 
+                city={formData.city} 
+                setCity={handleCityChange} 
+              />
             </div>
 
             <div className="flex-col gap-8">

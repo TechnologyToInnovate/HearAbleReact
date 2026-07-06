@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 export default function Login({ setRole }) {
   const navigate = useNavigate();
@@ -148,6 +148,13 @@ export default function Login({ setRole }) {
             </button>
           </form>
         </div>
+      </div>
+
+      {/* 🚨 NEW: Legal Links below the main card */}
+      <div className="flex-row gap-16 justify-center mt-32 text-sm text-secondary">
+        <Link to="/privacy-policy" style={{ textDecoration: 'underline' }}>Privacy Policy</Link>
+        <span>•</span>
+        <Link to="/terms" style={{ textDecoration: 'underline' }}>Terms & Conditions</Link>
       </div>
     </div>
   );
