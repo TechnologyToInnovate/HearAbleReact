@@ -215,10 +215,34 @@ export default function Navbar() {
         )}
       </div>
 
-      {isMobileMenuOpen && !isMinimalNav && (
+{isMobileMenuOpen && !isMinimalNav && (
         <div className="mobile-nav-dropdown">
           <NavLinksList />
           
+          {/* 🚨 NEW: Added the missing Profile & Admin Links specifically for the mobile view */}
+          {user && role !== 'guest' && !isOnboarding && (
+            <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '16px', marginTop: '-8px' }}>
+              {role === 'company' && (
+                <button className="dropdown-btn" onClick={() => handleMenuClick(`/company/${user?.id}`)} style={{ padding: '12px 0' }}>
+                  <DropdownIcon path="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4M9 7h6M9 11h6" />
+                  View Company Profile
+                </button>
+              )}
+              {['user', 'pending_user', 'rejected_user'].includes(role) && (
+                <button className="dropdown-btn" onClick={() => handleMenuClick(`/user/${user?.id}`)} style={{ padding: '12px 0' }}>
+                  <DropdownIcon path="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                  View Public Profile
+                </button>
+              )}
+              {role === 'admin' && (
+                <button className="dropdown-btn" onClick={() => handleMenuClick('/admins')} style={{ padding: '12px 0' }}>
+                  <DropdownIcon path="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  Manage Admins
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="user-profile-mobile">
             {role === 'guest' ? (
               <div className="flex-row gap-12 w-full justify-center">
