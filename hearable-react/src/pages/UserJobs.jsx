@@ -28,9 +28,10 @@ export default function UserJobs() {
   async function fetchUserJobs() {
     setIsLoading(true);
 
+    // 🚨 FIX 1: Added `locations(city)` to the join query
     const { data: appsData } = await supabase
       .from('applications')
-      .select('*, jobs(*, companies(name, logo_url, is_deaf_accessible), job_skills(skills(id, name)))')
+      .select('*, jobs(*, locations(city), companies(name, logo_url, is_deaf_accessible), job_skills(skills(id, name)))')
       .eq('applicant_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -39,19 +40,21 @@ export default function UserJobs() {
         ...app,
         job: {
           ...app.jobs,
+          // 🚨 FIX 2: Safely extract the city from the joined table
+          location: app.jobs.locations?.city || '',
           skills: app.jobs.job_skills ? app.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
           company: app.jobs.companies?.name || 'Unknown Company',
           is_deaf_accessible: app.jobs.companies?.is_deaf_accessible || false,
-          // 🚨 Use our Date Utility
           date: formatStandardDate(app.jobs.created_at)
         }
       }));
       setApplications(mappedApps);
     }
 
+    // 🚨 FIX 3: Added `locations(city)` to the join query
     const { data: savedData } = await supabase
       .from('saved_jobs')
-      .select('*, jobs(*, companies(name, logo_url, is_deaf_accessible), job_skills(skills(id, name)))')
+      .select('*, jobs(*, locations(city), companies(name, logo_url, is_deaf_accessible), job_skills(skills(id, name)))')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -60,10 +63,11 @@ export default function UserJobs() {
         ...saved,
         job: {
           ...saved.jobs,
+          // 🚨 FIX 4: Safely extract the city from the joined table
+          location: saved.jobs.locations?.city || '',
           skills: saved.jobs.job_skills ? saved.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
           company: saved.jobs.companies?.name || 'Unknown Company',
           is_deaf_accessible: saved.jobs.companies?.is_deaf_accessible || false,
-          // 🚨 Use our Date Utility
           date: formatStandardDate(saved.jobs.created_at)
         }
       }));
@@ -147,7 +151,6 @@ export default function UserJobs() {
               
               {activeTab !== 'Saved' && (
                 <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
-                  {/* 🚨 Uses the updated StatusBadge */}
                   <StatusBadge status={item.status || 'Pending'} />
                 </div>
               )}

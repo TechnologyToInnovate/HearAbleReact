@@ -85,7 +85,6 @@ export default function JobDetailsPane({
           </div>
         </div>
         
-        {/* 🚨 UPDATED: Applied a stricter maxWidth to hide the name slightly more in the details pane */}
         <div className="text-secondary mb-24 flex-row gap-8 align-center" style={{ fontSize: '1rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
           
           <div 
@@ -93,9 +92,9 @@ export default function JobDetailsPane({
               whiteSpace: 'nowrap', 
               overflow: 'hidden', 
               textOverflow: 'ellipsis', 
-              maxWidth: '45%' // Forces the text to truncate earlier
+              maxWidth: '45%'
             }}
-            title={selectedJob.company} // Shows the full name on hover!
+            title={selectedJob.company}
           >
             {selectedJob.company}
           </div>
@@ -213,7 +212,10 @@ export default function JobDetailsPane({
                 >
                   {selectedCompany.name}
                 </h4>
-                <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>{formatLocation(selectedCompany.city, selectedCompany.address, "Location not specified")}</p>
+                {/* 🚨 FIX 4: Corrected to use the nested locations object instead of the deleted columns */}
+                <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>
+                  {formatLocation(selectedCompany.locations?.city, selectedCompany.locations?.country, "Location not specified")}
+                </p>
               </div>
             </div>
 

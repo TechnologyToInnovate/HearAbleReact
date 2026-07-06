@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-
-// 🚨 UPDATED IMPORT PATHS
 import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import SkillBadge from '../common/SkillBadge';
-import AddSkillModal from './AddSkillModal'; // 🚨 IMPORT REUSABLE MODAL
+import AddSkillModal from './AddSkillModal'; 
 
 export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, isEditing, isSubmitting }) {
   const { user } = useAuth();
@@ -37,12 +35,21 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
   async function fetchCompanyCity() {
     if (!user) return;
-    const { data } = await supabase.from('companies').select('city').eq('id', user.id).maybeSingle();
-    if (data && data.city) setLocation(data.city);
-    else setLocation('');
+    
+    // 🚨 UPDATED: Joined the locations table to retrieve the city!
+    const { data } = await supabase
+      .from('companies')
+      .select('locations(city)')
+      .eq('id', user.id)
+      .maybeSingle();
+      
+    if (data && data.locations && data.locations.city) {
+      setLocation(data.locations.city);
+    } else {
+      setLocation('');
+    }
   }
 
-  // 🚨 REFACTORED TO RECEIVE THE SKILL OBJECT DIRECTLY FROM THE COMPONENT
   const handleAddSkill = (skillObj) => {
     if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) {
       setSelectedSkills([...selectedSkills, skillObj]);
@@ -64,7 +71,6 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
   return (
     <div className="modal-overlay">
       
-      {/* 🚨 REPLACED HARDCODED MODAL WITH REUSABLE COMPONENT */}
       <AddSkillModal 
         isOpen={showSkillModal} 
         onClose={() => setShowSkillModal(false)} 

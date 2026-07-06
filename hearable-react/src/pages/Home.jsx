@@ -105,22 +105,24 @@ export default function Home() {
       return;
     }
 
-    // 🚨 UPDATED: Explicitly select is_deaf_accessible from the companies table
+    // 🚨 UPDATED: Added locations to the select query to fetch city for both job and company
     const { data: jobsData } = await supabase
       .from('jobs')
       .select(`
         *,
-        companies ( name, is_deaf_accessible )
+        locations ( city ),
+        companies ( name, is_deaf_accessible, locations ( city ) )
       `)
       .eq('status', 'Approved')
-      .order('created_at', { ascending: false }) // 🚨 Ordered by created_at for true "recent" jobs
+      .order('created_at', { ascending: false })
       .limit(4);
 
     if (jobsData) {
       const formattedJobs = jobsData.map(job => ({
         ...job, 
+        // 🚨 NEW: Safely extract city from job locations, fallback to company locations
+        location: job.locations?.city || job.companies?.locations?.city || 'Location not specified',
         company: job.companies?.name || 'Unknown Company',
-        // 🚨 UPDATED: Safely merge the accessibility status from either the job or company
         is_deaf_accessible: job.is_deaf_accessible || job.companies?.is_deaf_accessible
       }));
       setRecentJobs(formattedJobs);
@@ -230,7 +232,6 @@ return (
           )}
         </div>
 
-        {/* 🚨 UPDATED: Using the new class instead of inline sticky styles */}
         {role !== 'admin' && (
           <div className="dashboard-sidebar">
             {role === 'guest' ? (
