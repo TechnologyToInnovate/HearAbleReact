@@ -39,9 +39,10 @@ export default function UserProfile() {
 
   async function fetchUser() {
     setIsLoading(true);
+    // 🚨 UPDATED: Added `locations ( city, country )` to the select query
     const { data } = await supabase
       .from('profiles')
-      .select(`*, degrees ( name, abbreviation ), batches ( batch_number ), profile_skills ( skills ( name ) )`)
+      .select(`*, degrees ( name, abbreviation ), batches ( batch_number ), profile_skills ( skills ( name ) ), locations ( city, country )`)
       .eq('id', id)
       .maybeSingle();
     
@@ -119,7 +120,9 @@ export default function UserProfile() {
   );
 
   const isOwnProfile = currentUser?.id === user.id;
-  const locationText = formatLocation(user.city, user.country, '');
+  
+  // 🚨 UPDATED: Formats the location using the joined locations table data
+  const locationText = formatLocation(user.locations?.city, user.locations?.country, '');
   const fullName = formatFullName(user.first_name, user.last_name);
 
   return (
