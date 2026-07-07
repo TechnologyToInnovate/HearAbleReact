@@ -6,23 +6,19 @@ export default function Login({ setRole }) {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Determine initial view based on navigation state (defaulting to Sign In)
   const [isLogin, setIsLogin] = useState(!location.state?.isSignUp);
   
-  // Form and UI state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Clear messages when switching between Sign In and Sign Up tabs
   useEffect(() => {
     setErrorMsg('');
     setSuccessMsg('');
   }, [isLogin]);
 
-  // Handles both Sign In and Sign Up flows
   async function handleAuth(e) {
     e.preventDefault();
     setLoading(true); 
@@ -37,45 +33,58 @@ export default function Login({ setRole }) {
         await routeUserAfterLogin(data.user);
       } else {
         // --- SIGN UP FLOW ---
-        // Check if the email belongs to an admin or a pre-approved company before registering
         const { data: adminData } = await supabase.from('admins').select('email').eq('email', email.toLowerCase()).maybeSingle();
         const { data: preApprovedData } = await supabase.from('pre_approved_companies').select('*').eq('email', email.toLowerCase()).maybeSingle();
 
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
 
+        // 🚨 NEW: Check if Supabase is waiting for email confirmation
+        if (data.user && !data.session) {
+          
+          // Still process company setup in the background if they are pre-approved
+          if (preApprovedData) {
+            await supabase.from('companies').insert([{
+              id: data.user.id, 
+              name: preApprovedData.name, 
+              location_id: preApprovedData.location_id, 
+              industry: preApprovedData.industry, 
+              founded_year: preApprovedData.founded_year,  
+              website: preApprovedData.website, 
+              description: preApprovedData.description,    
+              status: 'Approved'
+            }]);
+          }
+
+          setSuccessMsg('Registration successful! Please check your email inbox for a verification link to activate your account.');
+          setLoading(false);
+          return; // Stop here! Do not navigate them yet.
+        }
+
+        // If email confirmation is turned OFF in Supabase, this standard routing runs
         if (adminData || email.toLowerCase() === 'admin@hearable.com') {
-          // Automatically grant admin role and redirect
           setRole('admin'); 
           navigate('/');
         } else if (preApprovedData) {
-          // Automatically create a full company profile using the pre-approved data (including the linked location_id)
-          await supabase.from('companies').insert([{
-            id: data.user.id, 
-            name: preApprovedData.name, 
-            location_id: preApprovedData.location_id, 
-            industry: preApprovedData.industry, 
-            founded_year: preApprovedData.founded_year,  
-            website: preApprovedData.website, 
-            description: preApprovedData.description,    
-            status: 'Approved'
-          }]);
           setRole('company'); 
           navigate('/');
         } else {
-          // Standard users must complete the onboarding flow to set up their profile
           setRole('needs_onboarding'); 
           navigate('/onboarding');
         }
       }
     } catch (err) { 
-      setErrorMsg(err.message); 
+      // 🚨 NEW: Catch the specific unverified error and make it friendly
+      if (err.message.includes('Email not confirmed')) {
+        setErrorMsg('Please verify your email address first. Check your inbox for the activation link.');
+      } else {
+        setErrorMsg(err.message); 
+      }
     } finally { 
       setLoading(false); 
     }
   }
 
-  // Triggers a password reset email via Supabase Auth
   async function handleForgotPassword() {
     if (!email) return setErrorMsg('Please enter your email address in the field above first.');
     
@@ -92,10 +101,8 @@ export default function Login({ setRole }) {
     else setSuccessMsg('Password reset link sent! Please check your email inbox.');
   }
 
-  // Resolves the correct role for a returning user based on which table their ID/email exists in
   async function routeUserAfterLogin(user) {
     try {
-      // Check for Admin privileges
       const { data: adminData } = await supabase.from('admins').select('email').eq('email', user.email).maybeSingle();
       if (adminData || user.email === 'admin@hearable.com') { 
         setRole('admin'); 
@@ -103,7 +110,6 @@ export default function Login({ setRole }) {
         return; 
       }
 
-      // Check if the user is a registered Company
       const { data: companyData } = await supabase.from('companies').select('id').eq('id', user.id).maybeSingle();
       if (companyData) { 
         setRole('company'); 
@@ -111,7 +117,6 @@ export default function Login({ setRole }) {
         return; 
       }
 
-      // Check Standard User profile status
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
       
       if (!profileData || !profileData.first_name || !profileData.degree_id) {
@@ -136,7 +141,6 @@ export default function Login({ setRole }) {
     <div className="page-container flex-col align-center" style={{ justifyContent: 'center', minHeight: '80vh' }}>
       <div className="card p-0 w-full" style={{ maxWidth: '400px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
         
-        {/* View Toggle Tabs */}
         <div className="flex-row" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <button 
             onClick={() => setIsLogin(true)} 
@@ -160,11 +164,9 @@ export default function Login({ setRole }) {
             </p>
           </div>
 
-          {/* Status Messages */}
           {errorMsg && <div className="mb-16" style={{ background: '#fef2f2', color: '#dc2626', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #fecaca' }}>{errorMsg}</div>}
           {successMsg && <div className="mb-16" style={{ background: '#f0fdf4', color: '#166534', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #bbf7d0' }}>{successMsg}</div>}
 
-          {/* Authentication Form */}
           <form onSubmit={handleAuth} className="flex-col gap-16">
             <div>
               <label className="block mb-8 text-sm font-bold">Email Address</label>
@@ -189,7 +191,6 @@ export default function Login({ setRole }) {
             </button>
           </form>
 
-          {/* --- THE NEW DISCLAIMER TEXT --- */}
           <div className="text-center mt-24">
             <p className="text-secondary m-0" style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
               By continuing, you agree to HearAble's{' '}
