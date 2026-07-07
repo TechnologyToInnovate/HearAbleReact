@@ -10,10 +10,8 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  
-  const [country, setCountry] = useState('');
+  const [country, setCountry] = useState('Philippines');
   const [city, setCity] = useState('');
-  
   const [workModel, setWorkModel] = useState('On-site');
   const [type, setType] = useState('Full-time');
   const [pay, setPay] = useState(''); 
@@ -24,19 +22,15 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
   useEffect(() => {
     if (isOpen) {
-      // 🚨 Fetch the company's default location before setting any form state
       fetchCompanyCity().then((companyLoc) => {
         if (isEditing && initialData) {
           setTitle(initialData.title || ''); 
           
           const parts = initialData.location ? initialData.location.split(', ') : [];
-          if (parts.length === 2) {
+          if (parts.length > 0) {
             setCity(parts[0] || '');
-            // Force the country to remain the company's country
-            setCountry(companyLoc.country || parts[1] || '');
           } else {
             setCity(initialData.location || companyLoc.city || '');
-            setCountry(companyLoc.country || '');
           }
           
           setWorkModel(initialData.work_model || 'On-site'); setType(initialData.type || 'Full-time');
@@ -45,9 +39,6 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
         } else {
           setTitle(''); setWorkModel('On-site'); setType('Full-time');
           setPay(''); setPayRate('per year'); setDescription(''); setSelectedSkills([]);
-          
-          // Apply the company defaults for new jobs
-          setCountry(companyLoc.country || ''); 
           setCity(companyLoc.city || '');
         }
       });
@@ -85,7 +76,8 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const locationString = city && country ? `${city}, ${country}` : city || country || '';
+    // 🚨 FIXED: Properly joins city and country without leaving dangling commas if a field is empty
+    const locationString = city ? (country ? `${city}, ${country}` : city) : '';
     onSubmit({ title, location: locationString, work_model: workModel, type, pay, pay_rate: payRate, description, skills: selectedSkills });
   };
 
@@ -93,7 +85,6 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
 
   return (
     <div className="modal-overlay">
-      
       <AddSkillModal 
         isOpen={showSkillModal} 
         onClose={() => setShowSkillModal(false)} 
@@ -109,7 +100,6 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
         
         <div className="modal-body">
           <form onSubmit={handleSubmit} className="flex-col gap-24">
-            
             <div>
               <label className="mb-8 block font-bold">Job Title *</label>
               <input type="text" className="search-input w-full" placeholder="e.g. Senior Software Engineer" value={title} onChange={e => setTitle(e.target.value)} required />
@@ -117,18 +107,10 @@ export default function JobFormModal({ isOpen, onClose, onSubmit, initialData, i
             
             <div className="sub-card">
               <label className="mb-16 block font-bold">Job Details</label>
-              
               <div className="flex-col gap-16 mb-16">
                 <div>
                   <label className="text-sm mb-8 block">Job Location</label>
-                  {/* 🚨 PLUG IN THE COMPONENT HERE */}
-                  <LocationSelect 
-                    country={country} 
-                    setCountry={setCountry} 
-                    city={city} 
-                    setCity={setCity} 
-                    disabledCountry={true} /* 🚨 Locks the country dropdown */
-                  />
+                  <LocationSelect country={country} setCountry={setCountry} city={city} setCity={setCity} />
                 </div>
               </div>
               

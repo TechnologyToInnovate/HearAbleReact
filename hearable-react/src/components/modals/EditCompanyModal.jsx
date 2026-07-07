@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-// 🚨 NEW: Import LocationSelect
 import LocationSelect from '../common/LocationSelect';
 
-export default function EditCompanyModal({ companyId, onClose }) {
+export default function EditCompanyModal({ companyId, onClose, onSuccess }) {
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
   const [foundedYear, setFoundedYear] = useState('');
@@ -40,7 +39,9 @@ export default function EditCompanyModal({ companyId, onClose }) {
         
         if (data.locations) {
           setLocationId(data.locations.id);
-          setCountry(data.locations.country || ''); setCity(data.locations.city || ''); setPostalCode(data.locations.postal_code || '');
+          setCountry(data.locations.country || ''); 
+          setCity(data.locations.city || ''); 
+          setPostalCode(data.locations.postal_code || '');
         }
 
         if (data.company_contacts && data.company_contacts.length > 0) {
@@ -65,24 +66,37 @@ export default function EditCompanyModal({ companyId, onClose }) {
 
     try {
       let finalLocationId = locationId;
-      if (country.trim() || city.trim() || postalCode.trim()) {
+      
+      // 🚨 FIXED: Force them to strings first so .trim() never crashes
+      const safeCountry = String(country).trim();
+      const safeCity = String(city).trim();
+      const safePostal = String(postalCode).trim();
+
+      if (safeCountry || safeCity || safePostal) {
         const locationPayload = {
-          country: country.trim() || 'Not specified',
-          city: city.trim() || 'Not specified',
-          postal_code: postalCode.trim() || null
+          country: safeCountry || 'Not specified',
+          city: safeCity || 'Not specified',
+          postal_code: safePostal || null
         };
 
         if (locationId) {
-          await supabase.from('locations').update(locationPayload).eq('id', locationId);
+          const { error: updateLocError } = await supabase.from('locations').update(locationPayload).eq('id', locationId);
+          if (updateLocError) throw updateLocError;
         } else {
-          const { data: locData } = await supabase.from('locations').insert([locationPayload]).select().single();
+          const { data: locData, error: locErr } = await supabase.from('locations').insert([locationPayload]).select().single();
+          if (locErr) throw locErr;
           if (locData) finalLocationId = locData.id;
         }
       }
 
+      const parsedYear = parseInt(foundedYear, 10);
       const updatedCompanyData = {
-        name: name.trim(), industry: industry.trim(), founded_year: foundedYear ? parseInt(foundedYear, 10) : null,
-        website: website.trim(), logo_url: logoUrl.trim(), description: description.trim(),
+        name: String(name).trim(), 
+        industry: String(industry).trim(), 
+        founded_year: isNaN(parsedYear) ? null : parsedYear,
+        website: String(website).trim(), 
+        logo_url: String(logoUrl).trim(), 
+        description: String(description).trim(),
         location_id: finalLocationId
       };
 
@@ -105,6 +119,7 @@ export default function EditCompanyModal({ companyId, onClose }) {
         }
       }
 
+      if (onSuccess) onSuccess(); 
       onClose(); 
     } catch (error) {
       console.error(error);
@@ -116,87 +131,78 @@ export default function EditCompanyModal({ companyId, onClose }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content">
-        
+      <div className="modal-content" style={{ overflow: 'visible' }}> {/* 🚨 FIXED: Allow dropdown to spill over */}
         <div className="modal-header">
           <h2 className="m-0">Edit Company Profile</h2>
           <button className="close-btn" onClick={onClose}>✕</button>
         </div>
-
-        <div className="modal-body">
+        <div className="modal-body" style={{ overflowY: 'visible', overflowX: 'hidden', paddingBottom: '32px' }}>
           {isLoading ? (
             <p className="text-center text-secondary">Loading profile data...</p>
           ) : (
             <form onSubmit={handleSubmit} className="flex-col gap-24">
               
               <div>
-                <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Company Name *</label>
+                <label className="mb-8 block font-medium">Company Name *</label>
                 <input type="text" className="search-input w-full" value={name} onChange={e => setName(e.target.value)} required />
               </div>
 
               <div className="form-grid-2">
                 <div>
-                  <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Industry</label>
+                  <label className="mb-8 block font-medium">Industry</label>
                   <input type="text" className="search-input w-full" placeholder="e.g. Technology" value={industry} onChange={e => setIndustry(e.target.value)} />
                 </div>
                 <div>
-                  <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Founded Year</label>
+                  <label className="mb-8 block font-medium">Founded Year</label>
                   <input type="number" className="search-input w-full" placeholder="e.g. 2015" value={foundedYear} onChange={e => setFoundedYear(e.target.value)} />
                 </div>
               </div>
 
               <div>
-                <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Location</label>
+                <label className="mb-8 block font-medium">Location</label>
                 <div className="flex-col gap-16">
-                  {/* 🚨 PLUG IN THE COMPONENT HERE */}
-                  <LocationSelect 
-                    country={country} 
-                    setCountry={setCountry} 
-                    city={city} 
-                    setCity={setCity} 
-                  />
+                  <LocationSelect country={country} setCountry={setCountry} city={city} setCity={setCity} />
                   <input type="text" className="search-input w-full" placeholder="Postal Code" value={postalCode} onChange={e => setPostalCode(e.target.value.replace(/\D/g, ''))} />
                 </div>
               </div>
 
               <div className="form-grid-2">
                 <div>
-                  <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Website URL</label>
+                  <label className="mb-8 block font-medium">Website URL</label>
                   <input type="url" className="search-input w-full" placeholder="https://example.com" value={website} onChange={e => setWebsite(e.target.value)} />
                 </div>
                 <div>
-                  <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Company Logo URL</label>
+                  <label className="mb-8 block font-medium">Company Logo URL</label>
                   <input type="url" className="search-input w-full" placeholder="Link to your image" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} />
                 </div>
               </div>
 
               <div>
-                <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>About the Company</label>
+                <label className="mb-8 block font-medium">About the Company</label>
                 <textarea className="search-input w-full" style={{ height: '120px', resize: 'vertical' }} placeholder="Describe your company..." value={description} onChange={e => setDescription(e.target.value)} />
               </div>
 
-              {/* CONTACT PERSON SECTION */}
               <div className="sub-card">
                 <h4 className="mb-16 m-0">Company Representative</h4>
                 <div className="flex-col gap-16">
                   <div className="form-grid-2">
                     <div>
-                      <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Full Name</label>
+                      <label className="mb-8 block font-medium">Full Name</label>
                       <input type="text" className="search-input w-full" placeholder="e.g. Jane Doe" value={contactPersonName} onChange={e => setContactPersonName(e.target.value)} />
                     </div>
                     <div>
-                      <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Profile Picture URL</label>
+                      <label className="mb-8 block font-medium">Profile Picture URL</label>
                       <input type="url" className="search-input w-full" placeholder="Link to profile image" value={contactPersonPic} onChange={e => setContactPersonPic(e.target.value)} />
                     </div>
                   </div>
                   
                   <div className="form-grid-2">
                     <div>
-                      <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Email Address</label>
+                      <label className="mb-8 block font-medium">Email Address</label>
                       <input type="email" className="search-input w-full" placeholder="e.g. jane@company.com" value={contactPersonEmail} onChange={e => setContactPersonEmail(e.target.value)} />
                     </div>
                     <div>
-                      <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Phone Number</label>
+                      <label className="mb-8 block font-medium">Phone Number</label>
                       <input type="tel" className="search-input w-full" placeholder="e.g. 1234567890" value={contactPersonNumber} onChange={e => setContactPersonNumber(e.target.value.replace(/\D/g, ''))} />
                     </div>
                   </div>
@@ -207,7 +213,6 @@ export default function EditCompanyModal({ companyId, onClose }) {
                 <button type="button" className="btn-outline" onClick={onClose} disabled={isSubmitting}>Cancel</button>
                 <button type="submit" className="btn-black" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save Changes'}</button>
               </div>
-
             </form>
           )}
         </div>
