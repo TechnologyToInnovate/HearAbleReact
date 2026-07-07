@@ -1,72 +1,109 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 
-export default function LocationSelect({ country, setCountry, city, setCity, disabledCountry = false }) {
-  const [data, setData] = useState([]);
-  const [cities, setCities] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function LocationSelect({ country, setCountry, city, setCity }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [phCities, setPhCities] = useState([]);
+  const dropdownRef = useRef(null);
 
-  // 1. Fetch the global country/city data once on mount
+  // 1. Automatically set the country for the database so you don't have to change your other files
   useEffect(() => {
-    fetch('https://countriesnow.space/api/v0.1/countries')
-      .then(res => res.json())
-      .then(json => {
-        if (!json.error) {
-          setData(json.data);
-        }
-        setIsLoading(false);
-      })
-      .catch(err => {
-        console.error("Failed to fetch location data:", err);
-        setIsLoading(false);
-      });
+    if (country !== 'Philippines') {
+      setCountry('Philippines');
+    }
+  }, [country, setCountry]);
+
+  // 2. Fetch the strict, official list of Philippine Cities & Municipalities on mount
+  useEffect(() => {
+    async function fetchPHLocations() {
+      try {
+        const res = await fetch('https://psgc.gitlab.io/api/cities-municipalities/');
+        const data = await res.json();
+        
+        // Extract just the names and sort them alphabetically A-Z
+        const sortedCities = data.map(place => place.name).sort();
+        setPhCities(sortedCities);
+      } catch (error) {
+        console.error("Failed to fetch Philippine locations:", error);
+      }
+    }
+    fetchPHLocations();
   }, []);
 
-  // 🚨 2. Watch for changes to the 'country' prop (Handles asynchronous database loads!)
-  useEffect(() => {
-    if (data.length > 0 && country) {
-      const foundCountry = data.find(c => c.country === country);
-      setCities(foundCountry ? foundCountry.cities.sort() : []);
-    }
-  }, [country, data]);
+  // 3. Filter the city list based on what the user types in the text box
+  const filteredCities = useMemo(() => {
+    if (!city) return phCities;
+    return phCities.filter(c => c.toLowerCase().includes(city.toLowerCase()));
+  }, [city, phCities]);
 
-  const handleCountryChange = (e) => {
-    const selectedCountry = e.target.value;
-    setCountry(selectedCountry);
-    setCity(''); // Reset city when the user changes the country manually
-  };
+  // 4. Close the dropdown automatically if the user clicks outside of it
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
-    <div className="form-grid-2">
-      <div>
-        <select 
-          className="search-input w-full" 
-          value={country} 
-          onChange={handleCountryChange}
-          // 🚨 3. Lock the country if the disabledCountry prop is true
-          disabled={isLoading || disabledCountry}
-          required
-        >
-          <option value="" disabled>{isLoading ? 'Loading...' : 'Select Country'}</option>
-          {data.map((c, i) => (
-            <option key={i} value={c.country}>{c.country}</option>
-          ))}
-        </select>
-      </div>
+    <div style={{ position: 'relative', width: '100%' }} ref={dropdownRef}>
       
-      <div>
-        <select 
-          className="search-input w-full" 
-          value={city} 
-          onChange={(e) => setCity(e.target.value)}
-          disabled={!country || cities.length === 0}
-          required
-        >
-          <option value="" disabled>{!country ? 'Select a country first' : 'Select City'}</option>
-          {cities.map((c, i) => (
-            <option key={i} value={c}>{c}</option>
+      {/* The Text Box */}
+      <input 
+        type="text" 
+        className="search-input w-full" 
+        value={city} 
+        onChange={(e) => {
+          setCity(e.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        placeholder={phCities.length === 0 ? "Loading Philippine cities..." : "Type or select a city/municipality..."}
+        disabled={phCities.length === 0}
+        required
+        autoComplete="off"
+      />
+      
+      {/* The Small, Scrollable Choice Box */}
+      {isOpen && filteredCities.length > 0 && (
+        <ul style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          maxHeight: '180px', /* STRICT LIMIT: Keeps the box small */
+          overflowY: 'auto',  /* Enables normal vertical scrolling */
+          backgroundColor: 'var(--card-bg, #ffffff)',
+          border: '1px solid var(--border-color, #e5e7eb)',
+          borderRadius: '8px',
+          marginTop: '4px',
+          padding: 0,
+          listStyle: 'none',
+          zIndex: 50,
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+        }}>
+          {filteredCities.map((cityName, i) => (
+            <li 
+              key={`${cityName}-${i}`} 
+              onClick={() => {
+                setCity(cityName);
+                setIsOpen(false); // Close dropdown when an item is clicked
+              }}
+              style={{
+                padding: '10px 12px',
+                cursor: 'pointer',
+                fontSize: '0.95rem',
+                borderBottom: '1px solid var(--border-color, #f3f4f6)'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--hover-bg, #f9fafb)'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+            >
+              {cityName}
+            </li>
           ))}
-        </select>
-      </div>
+        </ul>
+      )}
     </div>
   );
 }

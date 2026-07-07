@@ -39,7 +39,7 @@ function AppRoutes() {
   const { role, setRole } = useAuth();
 
   // 🚨 This works perfectly now because AppRoutes is inside the Router!
-  useAutoLogout(1800000);
+  useAutoLogout(600000);
 
   useEffect(() => {
     const applyTheme = (isDark) => {

@@ -188,14 +188,26 @@ export default function Login({ setRole }) {
               {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
             </button>
           </form>
-        </div>
-      </div>
 
-      {/* Legal Links */}
-      <div className="flex-row gap-16 justify-center mt-32 text-sm text-secondary">
-        <Link to="/privacy-policy" style={{ textDecoration: 'underline' }}>Privacy Policy</Link>
-        <span>•</span>
-        <Link to="/terms" style={{ textDecoration: 'underline' }}>Terms & Conditions</Link>
+          {/* --- THE NEW DISCLAIMER TEXT --- */}
+          <div className="text-center mt-24">
+            <p className="text-secondary m-0" style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
+              By continuing, you agree to HearAble's{' '}
+              <Link to="/terms" style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: '600' }}>
+                User Agreement
+              </Link>
+              ,{' '}
+              <Link to="/privacy-policy" style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: '600' }}>
+                Privacy Policy
+              </Link>
+              , and{' '}
+              <Link to="/cookies" style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: '600' }}>
+                Cookie Policy
+              </Link>.
+            </p>
+          </div>
+
+        </div>
       </div>
     </div>
   );

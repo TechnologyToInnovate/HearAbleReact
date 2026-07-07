@@ -5,40 +5,35 @@ import { useAuth } from '../context/AuthContext';
 import SkillBadge from '../components/common/SkillBadge'; 
 import AddSkillModal from '../components/modals/AddSkillModal'; 
 
+import LocationSelect from '../components/common/LocationSelect';
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, role } = useAuth(); 
   
-  // Wizard state
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Step 1: Basic Profile State
   const [firstName, setFirstName] = useState(''); 
   const [lastName, setLastName] = useState('');
   const [degree, setDegree] = useState(''); 
   const [batch, setBatch] = useState('');   
   
-  // Step 2: Contact & Location State
   const [contactNumber, setContactNumber] = useState('');
   const [country, setCountry] = useState(''); 
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   
-  // Dropdown options for UI
   const [degreeOptions, setDegreeOptions] = useState([]);
   const [batchOptions, setBatchOptions] = useState([]);
 
-  // Step 3: Skills State
   const [selectedSkills, setSelectedSkills] = useState([]); 
   const [showSkillModal, setShowSkillModal] = useState(false);
 
-  // Enforce route protection: only users marked as needing onboarding can access this
   useEffect(() => {
     if (role !== 'needs_onboarding') navigate('/');
   }, [role, navigate]);
 
-  // Fetch the available degrees and batches to populate the dropdown menus
   useEffect(() => {
     async function fetchOptions() {
       const [degRes, batchRes] = await Promise.all([
@@ -52,7 +47,6 @@ export default function Onboarding() {
     fetchOptions();
   }, []);
 
-  // Adds a skill to the local list ensuring no duplicates
   const handleAddSkill = (skillObj) => {
     if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) {
       setSelectedSkills([...selectedSkills, skillObj]);
@@ -64,12 +58,10 @@ export default function Onboarding() {
     setSelectedSkills(selectedSkills.filter(skill => skill.id !== idToRemove));
   };
 
-  // Finalizes the onboarding process by saving all data to the database
   async function handleSubmit() {
     if (!user) return;
     setIsSubmitting(true);
     
-    // 1. Save location data into the normalized locations table first
     let locationId = null;
     if (country.trim() || city.trim() || postalCode.trim()) {
       const { data: locData } = await supabase
@@ -87,7 +79,6 @@ export default function Onboarding() {
       }
     }
 
-    // 2. Prepare the main profile payload
     const payload = {
       first_name: firstName.trim(), 
       last_name: lastName.trim(), 
@@ -97,7 +88,6 @@ export default function Onboarding() {
       degree_id: degree || null 
     };
 
-    // 3. Update the existing auth profile, or insert it if it doesn't exist yet
     let { data: updatedProfile, error: profileError } = await supabase
       .from('profiles')
       .update(payload)
@@ -117,7 +107,6 @@ export default function Onboarding() {
       return;
     }
 
-    // 4. Save the user's selected skills to the junction table
     if (selectedSkills.length > 0) {
       await supabase
         .from('profile_skills')
@@ -125,18 +114,14 @@ export default function Onboarding() {
     }
 
     setIsSubmitting(false);
-    
-    // Hard refresh to reload the global auth context and role resolution
     window.location.href = '/'; 
   }
 
-  // Ensure users cannot progress past Step 1 without filling out required fields
   const isStep1Valid = firstName.trim() && lastName.trim() && degree && batch;
 
   return (
     <div className="page-container" style={{ maxWidth: '700px', marginTop: '48px' }}>
       
-      {/* Reusable Skill Modal */}
       <AddSkillModal 
         isOpen={showSkillModal} 
         onClose={() => setShowSkillModal(false)} 
@@ -146,7 +131,6 @@ export default function Onboarding() {
 
       <div className="card p-0 flex-col overflow-hidden">
         
-        {/* Wizard Header */}
         <div className="flex-between p-24" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <h2 className="m-0">Set Up Your Profile</h2>
           <span className="text-secondary font-bold text-sm">Step {step} of 3</span>
@@ -154,7 +138,6 @@ export default function Onboarding() {
 
         <div className="p-32">
           
-          {/* STEP 1: Basic Information */}
           {step === 1 && (
             <div className="flex-col gap-24">
               <h3 className="m-0">Basic Information</h3>
@@ -187,7 +170,6 @@ export default function Onboarding() {
             </div>
           )}
 
-          {/* STEP 2: Contact & Location */}
           {step === 2 && (
             <div className="flex-col gap-24">
               <h3 className="m-0">Contact & Location</h3>
@@ -195,24 +177,24 @@ export default function Onboarding() {
                 <label className="font-bold text-sm">Contact Number</label>
                 <input type="tel" className="search-input w-full" value={contactNumber} onChange={e => setContactNumber(e.target.value)} placeholder="e.g. +1 234 567 8900" />
               </div>
-              <div className="form-grid-3">
-                <div className="flex-col gap-8">
-                  <label className="font-bold text-sm">Country</label>
-                  <input type="text" className="search-input w-full" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. USA" />
-                </div>
-                <div className="flex-col gap-8">
-                  <label className="font-bold text-sm">City</label>
-                  <input type="text" className="search-input w-full" value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. New York" />
-                </div>
-                <div className="flex-col gap-8">
-                  <label className="font-bold text-sm">Postal Code</label>
-                  <input type="text" className="search-input w-full" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 10001" />
-                </div>
+              
+              <div className="flex-col gap-8">
+                <label className="font-bold text-sm">Location</label>
+                <LocationSelect 
+                  country={country} 
+                  setCountry={setCountry} 
+                  city={city} 
+                  setCity={setCity} 
+                />
+              </div>
+
+              <div className="flex-col gap-8">
+                <label className="font-bold text-sm">Postal Code</label>
+                <input type="text" className="search-input w-full" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 10001" />
               </div>
             </div>
           )}
 
-          {/* STEP 3: Skills */}
           {step === 3 && (
             <div className="flex-col gap-24">
               <div className="flex-between align-center">
@@ -228,7 +210,6 @@ export default function Onboarding() {
           )}
         </div>
 
-        {/* Wizard Controls */}
         <div className="flex-between align-center p-24" style={{ borderTop: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <div>
             {step > 1 && <button type="button" className="btn-outline btn-sm" onClick={() => setStep(step - 1)}>← Back</button>}
