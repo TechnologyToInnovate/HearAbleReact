@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext'; 
 
-// 🚨 NEW IMPORTS: Common Components
+// Shared UI and Feature Components
 import JobCard from '../components/jobs/JobCard';
 import JobFormModal from '../components/modals/JobFormModal';
 import JobDetailsPane from '../components/jobs/JobDetailsPane';
@@ -16,45 +16,63 @@ export default function MyJobs() {
   const location = useLocation();
   const { user: currentUser, role } = useAuth(); 
 
+  // Core data and loading state
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Tracks which job is currently selected for the right-hand details pane
   const [selectedJobId, setSelectedJobId] = useState(null);
   
-  // Filter State
+  // UI filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModality, setFilterModality] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [filterDate, setFilterDate] = useState('All');
 
+  // Modal and submission states
   const [showAddForm, setShowAddForm] = useState(false);
   const [isEditingJob, setIsEditingJob] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Derived state: find the full job object for the currently selected ID
   const selectedJob = jobs.find(job => job.id === selectedJobId);
 
+  // Protect the route: ensure only authenticated companies can access this dashboard
   useEffect(() => {
-    if (role !== 'company') { navigate('/'); return; }
+    if (role !== 'company') { 
+      navigate('/'); 
+      return; 
+    }
     fetchMyJobs();
-    if (location.state?.selectedJobId) setSelectedJobId(location.state.selectedJobId);
+    
+    // Automatically select a job if navigated here with a specific job ID in state
+    if (location.state?.selectedJobId) {
+      setSelectedJobId(location.state.selectedJobId);
+    }
   }, [role, navigate, location.state]);
 
+  // Fetches the company's job postings and aggregates related data (location, skills, applicant counts)
   async function fetchMyJobs() {
     setIsLoading(true);
-    if (!currentUser) { setIsLoading(false); return; }
+    if (!currentUser) { 
+      setIsLoading(false); 
+      return; 
+    }
     
+    // Fetch the company's base profile, their jobs (with locations and skills), and all relevant applications
     const { data: companyData } = await supabase.from('companies').select('*').eq('id', currentUser.id).single();
-    // 🚨 UPDATED: Joined the locations table to pull the job location string
     const { data: jobsData } = await supabase.from('jobs').select('*, locations(city, country), job_skills(skills(id, name))').eq('company_id', currentUser.id).order('created_at', { ascending: false });
     const { data: appsData } = await supabase.from('applications').select('job_id');
 
     if (jobsData && companyData) {
+      // Map the relational database structure into a flat, UI-friendly format
       const mappedJobs = jobsData.map(job => {
+        // Calculate total applicants for this specific job
         const applicantCount = appsData ? appsData.filter(app => app.job_id === job.id).length : 0;
         const formattedSkills = job.job_skills ? job.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [];
 
         return {
           ...job,
-          // 🚨 UPDATED: Retrieve location string from the joined locations table
           location: job.locations?.city ? job.locations.city : '',
           skills: formattedSkills,
           company: companyData.name,
@@ -68,14 +86,17 @@ export default function MyJobs() {
     setIsLoading(false);
   }
 
+  // Handles the creation of a new job posting, enforcing limits and managing relational data
   async function handlePostJob(formData) {
     if (!currentUser) return;
+    
+    // Platform limitation: companies can only have up to 3 active postings at a time
     if (jobs.length >= 3) return alert("You have reached the maximum limit of 3 active job postings.");
 
     setIsSubmitting(true);
     const { skills, location: jobLocationString, ...jobDetails } = formData;
     
-    // 🚨 NEW: Create location record and obtain ID
+    // 1. Create a new location record in the database if a location was provided
     let locationId = null;
     if (jobLocationString && jobLocationString.trim() !== '') {
         const { data: locData, error: locError } = await supabase
@@ -90,12 +111,16 @@ export default function MyJobs() {
         if (locData) {
             locationId = locData.id;
         } else {
-             console.error("Location saving error", locError)
+             console.error("Location saving error", locError);
         }
     }
 
-    // 🚨 UPDATED: Include location_id instead of the raw location string
-    const { data: newJob, error: jobError } = await supabase.from('jobs').insert([{ ...jobDetails, location_id: locationId, company_id: currentUser.id, status: 'Pending' }]).select().single();
+    // 2. Insert the main job record using the generated location_id
+    const { data: newJob, error: jobError } = await supabase
+      .from('jobs')
+      .insert([{ ...jobDetails, location_id: locationId, company_id: currentUser.id, status: 'Pending' }])
+      .select()
+      .single();
     
     if (jobError) {
       alert("Failed to post job: " + jobError.message);
@@ -103,6 +128,7 @@ export default function MyJobs() {
       return;
     }
 
+    // 3. Map the selected skills to the new job in the junction table
     if (skills && skills.length > 0) {
       await supabase.from('job_skills').insert(skills.map(skill => ({ job_id: newJob.id, skill_id: skill.id })));
     }
@@ -113,10 +139,12 @@ export default function MyJobs() {
     setIsSubmitting(false);
   }
 
+  // Handles modifying an existing job posting, tracking edit limits to prevent abuse
   async function handleUpdateJob(formData) {
     setIsSubmitting(true);
     const currentEditCount = selectedJob.edit_count || 0;
     
+    // Platform limitation: restrict the number of times a single job post can be heavily edited
     if (currentEditCount >= 3) {
       alert("This job post has already reached its edit limit.");
       setIsSubmitting(false);
@@ -125,10 +153,9 @@ export default function MyJobs() {
 
     const { skills, location: jobLocationString, ...jobDetails } = formData;
     
-    // 🚨 NEW: Manage location record processing for updates
     let locationId = selectedJob.location_id; 
 
-    // Only create a new location record if the string has changed to avoid redundant entries
+    // Only create a new location database record if the string was actually changed, avoiding bloat
     if (jobLocationString && jobLocationString.trim() !== selectedJob.location) {
         const { data: locData } = await supabase
           .from('locations')
@@ -144,8 +171,11 @@ export default function MyJobs() {
         }
     }
 
-    // 🚨 UPDATED: Include location_id in the update payload
-    const { error: jobError } = await supabase.from('jobs').update({ ...jobDetails, location_id: locationId, edit_count: currentEditCount + 1 }).eq('id', selectedJob.id);
+    // 1. Update the core job record and increment the edit counter
+    const { error: jobError } = await supabase
+      .from('jobs')
+      .update({ ...jobDetails, location_id: locationId, edit_count: currentEditCount + 1 })
+      .eq('id', selectedJob.id);
     
     if (jobError) {
       alert("Failed to update job: " + jobError.message);
@@ -153,6 +183,7 @@ export default function MyJobs() {
       return;
     }
 
+    // 2. Overwrite the job's skills by clearing out old ones and inserting the new selection
     await supabase.from('job_skills').delete().eq('job_id', selectedJob.id);
     if (skills && skills.length > 0) {
       await supabase.from('job_skills').insert(skills.map(skill => ({ job_id: selectedJob.id, skill_id: skill.id })));
@@ -163,6 +194,7 @@ export default function MyJobs() {
     setIsSubmitting(false);
   }
 
+  // Permanently deletes a job posting from the database
   async function handleDeleteJob() {
     if (!window.confirm("Are you sure you want to delete this job posting? This action cannot be undone.")) return;
     const { error } = await supabase.from('jobs').delete().eq('id', selectedJob.id);
@@ -175,11 +207,13 @@ export default function MyJobs() {
     }
   }
 
+  // Master filtering logic for the job list view
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = (job.title || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesModality = filterModality === 'All' || job.work_model === filterModality;
     const matchesType = filterType === 'All' || job.type === filterType;
     let matchesDate = true;
+    
     if (filterDate !== 'All' && job.created_at) {
       const jobDate = new Date(job.created_at);
       const diffDays = Math.ceil(Math.abs(new Date() - jobDate) / (1000 * 60 * 60 * 24));
@@ -187,28 +221,30 @@ export default function MyJobs() {
       else if (filterDate === '7d') matchesDate = diffDays <= 7;
       else if (filterDate === '30d') matchesDate = diffDays <= 30;
     }
+    
     return matchesSearch && matchesModality && matchesType && matchesDate;
   });
 
   return (
     <div className="page-container-wide">
       
+      {/* --- MODALS --- */}
       <JobFormModal isOpen={showAddForm} onClose={() => setShowAddForm(false)} onSubmit={handlePostJob} isSubmitting={isSubmitting} />
       <JobFormModal isOpen={isEditingJob} onClose={() => setIsEditingJob(false)} onSubmit={handleUpdateJob} initialData={selectedJob} isEditing={true} isSubmitting={isSubmitting} />
 
-      {/* 1. Unified SearchBar Component */}
+      {/* --- HEADER & FILTERS --- */}
       <div className="mb-16">
         <SearchBar value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search your job titles..." />
       </div>
       
       <div className="flex-between align-center mb-32">
-        {/* 2. Unified JobFilters Component */}
         <JobFilters 
           filterModality={filterModality} setFilterModality={setFilterModality}
           filterType={filterType} setFilterType={setFilterType}
           filterDate={filterDate} setFilterDate={setFilterDate}
         />
         
+        {/* Job Posting Limit Indicator */}
         {!isLoading && (
           <div className="flex-col" style={{ alignItems: 'flex-end' }}>
             <button 
@@ -226,7 +262,9 @@ export default function MyJobs() {
         )}
       </div>
 
+      {/* --- MAIN CONTENT AREA --- */}
       {!selectedJobId ? (
+        // VIEW MODE 1: Standard List View (No job selected)
         <div>
           {isLoading ? (
             <p className="text-center text-secondary p-20">Loading your postings...</p>
@@ -235,8 +273,8 @@ export default function MyJobs() {
               {filteredJobs.map(job => (
                 <div key={job.id} style={{ position: 'relative' }}>
                   
+                  {/* Overlay Badges for List View */}
                   <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, display: 'flex', gap: '8px', pointerEvents: 'none' }}>
-                    {/* 3. Unified StatusBadge Component */}
                     <StatusBadge status={job.status || 'Pending'} />
                     {job.applicantCount > 0 && (
                       <div className="badge badge-primary">
@@ -256,15 +294,18 @@ export default function MyJobs() {
           )}
         </div>
       ) : (
+        // VIEW MODE 2: Split-Pane Detail View (A job is selected)
         <div className="jobs-split-layout active-split">
+          
+          {/* Left Column: Narrow scrollable job list */}
           <div className="jobs-list-column">
             <div className="flex-col gap-12">
               {filteredJobs.length > 0 ? filteredJobs.map(job => (
                 <div key={job.id} style={{ position: 'relative' }}>
                   
+                  {/* Overlay Badges for Split View */}
                   <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 2, display: 'flex', gap: '8px', pointerEvents: 'none' }}>
                     {job.id !== selectedJobId && (
-                      // 4. Unified StatusBadge Component
                       <StatusBadge status={job.status || 'Pending'} />
                     )}
                     {job.applicantCount > 0 && job.id !== selectedJobId && (
@@ -278,6 +319,7 @@ export default function MyJobs() {
             </div>
           </div>
 
+          {/* Right Column: Full job details and management actions */}
           <div className="job-details-column">
             <JobDetailsPane
               selectedJob={selectedJob}

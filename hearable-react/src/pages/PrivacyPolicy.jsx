@@ -4,12 +4,16 @@ import { useNavigate } from 'react-router-dom';
 export default function PrivacyPolicy() {
   const navigate = useNavigate();
 
+  // Ensures the page loads at the very top of the window,
+  // which is especially useful if the user scrolled down on the previous page.
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   return (
     <div className="page-container" style={{ paddingBottom: '64px' }}>
+      
+      {/* Navigation control to return the user to their previous page */}
       <button className="btn-outline btn-sm mb-24" onClick={() => navigate(-1)}>
         ← Go Back
       </button>
@@ -18,6 +22,7 @@ export default function PrivacyPolicy() {
         <h1 className="m-0 mb-8" style={{ fontSize: '2rem', color: 'var(--primary-color)' }}>Data Privacy Policy</h1>
         <p className="text-secondary mb-32">Last Updated: July 2026</p>
 
+        {/* --- POLICY SECTIONS --- */}
         <div className="flex-col gap-24" style={{ lineHeight: '1.7' }}>
           <section>
             <h3 className="m-0 mb-12">1. Introduction</h3>

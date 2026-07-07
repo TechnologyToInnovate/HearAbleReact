@@ -3,45 +3,56 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import SkillBadge from '../components/common/SkillBadge'; 
-import AddSkillModal from '../components/modals/AddSkillModal'; // 🚨 IMPORT REUSABLE MODAL
+import AddSkillModal from '../components/modals/AddSkillModal'; 
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, role } = useAuth(); 
   
+  // Wizard state
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [firstName, setFirstName] = useState(''); const [lastName, setLastName] = useState('');
+  // Step 1: Basic Profile State
+  const [firstName, setFirstName] = useState(''); 
+  const [lastName, setLastName] = useState('');
+  const [degree, setDegree] = useState(''); 
+  const [batch, setBatch] = useState('');   
+  
+  // Step 2: Contact & Location State
   const [contactNumber, setContactNumber] = useState('');
-  const [degree, setDegree] = useState(''); const [batch, setBatch] = useState('');   
-  const [country, setCountry] = useState(''); const [city, setCity] = useState('');
+  const [country, setCountry] = useState(''); 
+  const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   
+  // Dropdown options for UI
   const [degreeOptions, setDegreeOptions] = useState([]);
   const [batchOptions, setBatchOptions] = useState([]);
 
+  // Step 3: Skills State
   const [selectedSkills, setSelectedSkills] = useState([]); 
   const [showSkillModal, setShowSkillModal] = useState(false);
 
+  // Enforce route protection: only users marked as needing onboarding can access this
   useEffect(() => {
     if (role !== 'needs_onboarding') navigate('/');
   }, [role, navigate]);
 
+  // Fetch the available degrees and batches to populate the dropdown menus
   useEffect(() => {
     async function fetchOptions() {
-      // 🚨 REMOVED SKILLS FETCHING (AddSkillModal handles it)
       const [degRes, batchRes] = await Promise.all([
         supabase.from('degrees').select('*').order('name'),
         supabase.from('batches').select('*').order('batch_number', { ascending: false })
       ]);
+      
       if (degRes.data) setDegreeOptions(degRes.data);
       if (batchRes.data) setBatchOptions(batchRes.data);
     }
     fetchOptions();
   }, []);
 
-  // 🚨 REFACTORED TO RECEIVE THE SKILL OBJECT DIRECTLY FROM THE COMPONENT
+  // Adds a skill to the local list ensuring no duplicates
   const handleAddSkill = (skillObj) => {
     if (skillObj && !selectedSkills.some(s => s.id === skillObj.id)) {
       setSelectedSkills([...selectedSkills, skillObj]);
@@ -49,13 +60,16 @@ export default function Onboarding() {
     setShowSkillModal(false);
   };
   
-  const removeSkill = (idToRemove) => setSelectedSkills(selectedSkills.filter(skill => skill.id !== idToRemove));
+  const removeSkill = (idToRemove) => {
+    setSelectedSkills(selectedSkills.filter(skill => skill.id !== idToRemove));
+  };
 
-async function handleSubmit() {
+  // Finalizes the onboarding process by saving all data to the database
+  async function handleSubmit() {
     if (!user) return;
     setIsSubmitting(true);
     
-    // 🚨 NEW: Save location data into the normalized locations table
+    // 1. Save location data into the normalized locations table first
     let locationId = null;
     if (country.trim() || city.trim() || postalCode.trim()) {
       const { data: locData } = await supabase
@@ -73,7 +87,7 @@ async function handleSubmit() {
       }
     }
 
-    // 🚨 UPDATED: Removed country, city, and postalCode. Added location_id.
+    // 2. Prepare the main profile payload
     const payload = {
       first_name: firstName.trim(), 
       last_name: lastName.trim(), 
@@ -83,32 +97,46 @@ async function handleSubmit() {
       degree_id: degree || null 
     };
 
-    let { data: updatedProfile, error: profileError } = await supabase.from('profiles').update(payload).eq('id', user.id).select();
+    // 3. Update the existing auth profile, or insert it if it doesn't exist yet
+    let { data: updatedProfile, error: profileError } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', user.id)
+      .select();
 
     if (!profileError && (!updatedProfile || updatedProfile.length === 0)) {
-      const { error: insertError } = await supabase.from('profiles').insert([{ ...payload, id: user.id, status: 'Pending' }]);
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert([{ ...payload, id: user.id, status: 'Pending' }]);
       if (insertError) profileError = insertError;
     }
 
     if (profileError) { 
       alert("Error saving profile. Please try again."); 
-      setIsSubmitting(false); return;
+      setIsSubmitting(false); 
+      return;
     }
 
+    // 4. Save the user's selected skills to the junction table
     if (selectedSkills.length > 0) {
-      await supabase.from('profile_skills').insert(selectedSkills.map(skill => ({ profile_id: user.id, skill_id: skill.id })));
+      await supabase
+        .from('profile_skills')
+        .insert(selectedSkills.map(skill => ({ profile_id: user.id, skill_id: skill.id })));
     }
 
     setIsSubmitting(false);
+    
+    // Hard refresh to reload the global auth context and role resolution
     window.location.href = '/'; 
   }
 
+  // Ensure users cannot progress past Step 1 without filling out required fields
   const isStep1Valid = firstName.trim() && lastName.trim() && degree && batch;
 
   return (
     <div className="page-container" style={{ maxWidth: '700px', marginTop: '48px' }}>
       
-      {/* 🚨 REPLACED HARDCODED MODAL WITH REUSABLE COMPONENT */}
+      {/* Reusable Skill Modal */}
       <AddSkillModal 
         isOpen={showSkillModal} 
         onClose={() => setShowSkillModal(false)} 
@@ -118,6 +146,7 @@ async function handleSubmit() {
 
       <div className="card p-0 flex-col overflow-hidden">
         
+        {/* Wizard Header */}
         <div className="flex-between p-24" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <h2 className="m-0">Set Up Your Profile</h2>
           <span className="text-secondary font-bold text-sm">Step {step} of 3</span>
@@ -125,6 +154,7 @@ async function handleSubmit() {
 
         <div className="p-32">
           
+          {/* STEP 1: Basic Information */}
           {step === 1 && (
             <div className="flex-col gap-24">
               <h3 className="m-0">Basic Information</h3>
@@ -157,6 +187,7 @@ async function handleSubmit() {
             </div>
           )}
 
+          {/* STEP 2: Contact & Location */}
           {step === 2 && (
             <div className="flex-col gap-24">
               <h3 className="m-0">Contact & Location</h3>
@@ -181,6 +212,7 @@ async function handleSubmit() {
             </div>
           )}
 
+          {/* STEP 3: Skills */}
           {step === 3 && (
             <div className="flex-col gap-24">
               <div className="flex-between align-center">
@@ -196,8 +228,11 @@ async function handleSubmit() {
           )}
         </div>
 
+        {/* Wizard Controls */}
         <div className="flex-between align-center p-24" style={{ borderTop: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
-          <div>{step > 1 && <button type="button" className="btn-outline btn-sm" onClick={() => setStep(step - 1)}>← Back</button>}</div>
+          <div>
+            {step > 1 && <button type="button" className="btn-outline btn-sm" onClick={() => setStep(step - 1)}>← Back</button>}
+          </div>
           
           <div className="flex-row gap-24 align-center">
             {step > 1 ? (

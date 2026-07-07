@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // 🚨 NEW: Global Auth
+import { useAuth } from '../context/AuthContext'; 
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { user, role, signOut } = useAuth(); // 🚨 Pulls session instantly, no props needed
+  // Access current user session, role, and logout function globally
+  const { user, role, signOut } = useAuth(); 
 
+  // State for security updates and UI theme
   const [newPassword, setNewPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  
+  // Initialize dark mode state based on the presence of the class on the document body
   const [isDarkMode, setIsDarkMode] = useState(document.body.classList.contains('dark-theme'));
 
-  // Handle Dark Mode Toggle
+  // Toggles the platform theme and persists the user's preference in local storage
   const toggleDarkMode = () => {
     const nextMode = !isDarkMode;
     setIsDarkMode(nextMode);
@@ -25,7 +29,7 @@ export default function Settings() {
     }
   };
 
-  // Handle Password Change
+  // Validates and submits a new password to Supabase Auth
   const handleUpdatePassword = async (e) => {
     e.preventDefault();
     if (newPassword.length < 6) {
@@ -45,21 +49,22 @@ export default function Settings() {
     }
   };
 
-  // Handle Account Soft-Deletion
+  // Soft-deletes the user's account by changing their status to 'Archived' 
+  // instead of permanently wiping records, maintaining database integrity.
   const handleDeleteAccount = async () => {
     const confirmDelete = window.confirm(
       "WARNING: Are you sure you want to delete your account? Your profile and data will be permanently hidden from the network."
     );
     if (!confirmDelete || !user) return;
 
-    // "Soft Delete" by changing their status based on role
+    // Archive logic branches depending on whether the user is a company or a standard talent profile
     if (role === 'company') {
       await supabase.from('companies').update({ status: 'Archived' }).eq('id', user.id);
     } else if (['user', 'pending_user', 'rejected_user'].includes(role)) {
       await supabase.from('profiles').update({ status: 'Archived' }).eq('id', user.id);
     }
 
-    // Sign out natively using the Auth Context
+    // Terminate the active session and redirect to the landing page
     await signOut();
     navigate('/');
     alert("Your account has been deactivated and removed from the network.");
@@ -69,7 +74,7 @@ export default function Settings() {
     <div className="page-container" style={{ maxWidth: '700px' }}>
       <h1 className="mb-32">Account Settings</h1>
 
-      {/* APPEARANCE SECTION */}
+      {/* --- APPEARANCE SECTION --- */}
       <div className="card p-24 mb-24">
         <h3 className="mb-16 m-0 pb-12" style={{ borderBottom: '1px solid var(--border-color)' }}>
           Appearance
@@ -92,7 +97,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* SECURITY SECTION */}
+      {/* --- SECURITY SECTION --- */}
       <div className="card p-24 mb-24">
         <h3 className="mb-16 m-0 pb-12" style={{ borderBottom: '1px solid var(--border-color)' }}>
           Security
@@ -116,7 +121,7 @@ export default function Settings() {
         </form>
       </div>
 
-      {/* DANGER ZONE */}
+      {/* --- DANGER ZONE --- */}
       <div className="card p-24" style={{ border: '1px solid #fecaca', background: '#fff1f2' }}>
         <h3 className="mb-16 m-0 pb-12" style={{ borderBottom: '1px solid #fecaca', color: '#dc2626' }}>
           Danger Zone

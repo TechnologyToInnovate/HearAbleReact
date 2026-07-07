@@ -13,14 +13,17 @@ export default function Applicants() {
   const location = useLocation();
   const { role } = useAuth(); 
   
+  // Core state for storing applications and available job postings
   const [applications, setApplications] = useState([]);
+  const [availableJobs, setAvailableJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   
+  // UI and Filtering State
+  const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState(location.state?.filterJobId ? 'all' : 'grouped'); 
   const [filterJobId, setFilterJobId] = useState(location.state?.filterJobId || 'all');
-  const [availableJobs, setAvailableJobs] = useState([]);
 
+  // Protect the route: Only Admins and Companies should access the applicant management dashboard
   useEffect(() => {
     if (['user', 'pending_user', 'rejected_user', 'guest'].includes(role)) {
       navigate('/');
@@ -29,6 +32,7 @@ export default function Applicants() {
     fetchApplicants();
   }, [role, navigate]);
 
+  // Fetches and aggregates all necessary data to display comprehensive applicant profiles
   async function fetchApplicants() {
     setIsLoading(true);
     
@@ -36,6 +40,7 @@ export default function Applicants() {
     if (!session) return;
     const currentUserId = session.user.id;
 
+    // Fetch all related entities concurrently to build the applicant view and calculate match scores
     const [appsData, jobsData, profilesData, companiesData, jobSkillsData, profileSkillsData, skillsData] = await Promise.all([
       supabase.from('applications').select('*').order('id', { ascending: false }).then(res => res.data),
       supabase.from('jobs').select('*').then(res => res.data),
@@ -48,6 +53,7 @@ export default function Applicants() {
 
     if (appsData && jobsData && profilesData && companiesData) {
       
+      // Map through raw applications to attach job, company, and applicant details
       let mappedApps = appsData.map(app => {
         const job = jobsData.find(j => j.id === app.job_id) || {};
         const profile = profilesData.find(p => p.id === app.applicant_id) || {};
@@ -55,6 +61,7 @@ export default function Applicants() {
         
         const applicantFullName = formatFullName(profile.first_name, profile.last_name, 'Unknown Candidate');
 
+        // Extract skills for both the applicant and the job to calculate a compatibility match
         const pSkills = profileSkillsData ? profileSkillsData.filter(ps => ps.profile_id === app.applicant_id).map(ps => ps.skill_id) : [];
         const jSkills = jobSkillsData ? jobSkillsData.filter(js => js.job_id === app.job_id).map(js => js.skill_id) : [];
         
@@ -77,6 +84,7 @@ export default function Applicants() {
         };
       });
 
+      // Map through available jobs to attach company details and stringify required skills
       let mappedJobs = jobsData.map(job => {
         const company = companiesData.find(c => c.id === job.company_id) || {};
         const jobSkillIds = jobSkillsData ? jobSkillsData.filter(js => js.job_id === job.id).map(js => js.skill_id) : [];
@@ -90,6 +98,7 @@ export default function Applicants() {
         };
       });
 
+      // Filter data so companies only see their own jobs and applicants
       if (role === 'company') {
         mappedApps = mappedApps.filter(app => app.company_id === currentUserId);
         mappedJobs = mappedJobs.filter(j => j.company_id === currentUserId);
@@ -102,9 +111,11 @@ export default function Applicants() {
     setIsLoading(false);
   }
 
+  // Updates the status of an application and triggers a system notification for the applicant
   async function handleStatusChange(appId, newStatus) {
     const appToUpdate = applications.find(app => app.id === appId);
 
+    // Optimistic UI update
     setApplications(applications.map(app => 
       app.id === appId ? { ...app, status: newStatus } : app
     ));
@@ -112,6 +123,7 @@ export default function Applicants() {
     const { error } = await supabase.from('applications').update({ status: newStatus }).eq('id', appId);
 
     if (!error && appToUpdate) {
+      // Notify the user about their application update
       await supabase.from('notifications').insert([{
         user_id: appToUpdate.applicant_id,
         title: newStatus === 'Approved' ? 'Application Approved! ✅' : 'Application Update',
@@ -123,6 +135,7 @@ export default function Applicants() {
     }
   }
 
+  // Filter applications based on the active search query and selected job filter
   let displayApps = applications.filter(app => 
     app.applicant_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     app.job_title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -132,6 +145,7 @@ export default function Applicants() {
     displayApps = displayApps.filter(app => app.job_id === filterJobId);
   }
 
+  // Aggregate applications into job buckets for the "Grouped by Post" view
   const jobGroups = availableJobs.map(job => {
     const appsForThisJob = applications.filter(app => app.job_id === job.id);
     return { ...job, applicantCount: appsForThisJob.length };
@@ -142,6 +156,7 @@ export default function Applicants() {
   return (
     <div className="page-container-wide">
       
+      {/* Header and Controls when viewing the master lists */}
       {filterJobId === 'all' ? (
         <>
           <div className="flex-between align-center mb-8">
@@ -163,7 +178,7 @@ export default function Applicants() {
             </div>
           </div>
 
-          {/* Navigation Tabs for Admin */}
+          {/* Navigation Tabs (Admin Only) to switch between managing jobs and applicants */}
           {role === 'admin' && (
             <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
               <button
@@ -200,6 +215,7 @@ export default function Applicants() {
               />
             </div>
 
+            {/* Dropdown to filter the direct applicant feed by a specific job post */}
             {viewMode === 'all' && (
               <select className="search-input" style={{ flex: 1 }} value={filterJobId} onChange={(e) => setFilterJobId(e.target.value)}>
                 <option value="all">🏢 All Job Postings</option>
@@ -211,6 +227,7 @@ export default function Applicants() {
           </div>
         </>
       ) : (
+        /* Detailed Job Header displayed when the user dives into a specific job's applicant pool */
         <div className="mb-32 flex-between align-start" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '24px' }}>
           <div className="flex-col gap-12">
             <h1 style={{ margin: 0, color: 'var(--primary-color)' }}>{selectedJob?.title || 'Job Posting'}</h1>
@@ -228,6 +245,7 @@ export default function Applicants() {
 
       {isLoading && <p className="text-center text-secondary">Loading applications...</p>}
       
+      {/* Grouped View: Displays job postings as cards detailing their applicant counts */}
       {!isLoading && viewMode === 'grouped' && filterJobId === 'all' && (
         jobGroups.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
@@ -268,6 +286,7 @@ export default function Applicants() {
         )
       )}
 
+      {/* All View: Displays individual applications (either filtered by job or globally) */}
       {!isLoading && viewMode === 'all' && (
         displayApps.length > 0 ? (
           <div className="flex-col gap-16">
@@ -287,8 +306,9 @@ export default function Applicants() {
   );
 }
 
+// Sub-component rendering individual applicant details and action controls
 function ApplicantCard({ app, role, handleStatusChange, navigate }) {
-  // Dynamic colors for the badge based on percentage
+  // Dynamically assign badge colors based on the applicant's skill match percentage
   const matchColor = app.matchPercentage >= 80 ? '#065f46' : app.matchPercentage >= 50 ? '#b45309' : '#991b1b';
   const matchBg = app.matchPercentage >= 80 ? '#ecfdf5' : app.matchPercentage >= 50 ? '#fffbeb' : '#fef2f2';
   const matchBorder = app.matchPercentage >= 80 ? '#a7f3d0' : app.matchPercentage >= 50 ? '#fde68a' : '#fecaca';
@@ -320,7 +340,7 @@ function ApplicantCard({ app, role, handleStatusChange, navigate }) {
         <div className="flex-col align-end gap-8" style={{ flexShrink: 0 }}>
           <StatusBadge status={app.status || 'Pending'} />
           
-          {/* 🚨 UPDATED: Styled identically to the badges in MatchedJobsWidget.jsx and JobCard.jsx */}
+          {/* Match Score Badge */}
           {app.hasSkillsRequired ? (
             <span style={{ 
               background: matchBg, 
@@ -353,8 +373,8 @@ function ApplicantCard({ app, role, handleStatusChange, navigate }) {
           </button>
         </div>
 
+        {/* Action buttons: Admins cannot accept/reject candidates, only the hiring company can */}
         <div className="flex-row gap-8">
-          {/* Admin restriction ensures only the hiring company can accept/reject */}
           {role !== 'admin' && app.status !== 'Approved' && (
             <button className="btn-sm" onClick={() => handleStatusChange(app.id, 'Approved')} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>
               ✓ Approve

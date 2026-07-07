@@ -4,12 +4,17 @@ import { useNavigate } from 'react-router-dom';
 export default function TermsAndConditions() {
   const navigate = useNavigate();
 
+  // Ensures the page always loads at the very top.
+  // This is especially important for long text documents where the user 
+  // might have scrolled down on the previous page before clicking the link.
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   return (
     <div className="page-container" style={{ paddingBottom: '64px' }}>
+      
+      {/* Navigation control to return the user to the exact page they came from */}
       <button className="btn-outline btn-sm mb-24" onClick={() => navigate(-1)}>
         ← Go Back
       </button>
@@ -18,7 +23,9 @@ export default function TermsAndConditions() {
         <h1 className="m-0 mb-8" style={{ fontSize: '2rem', color: 'var(--primary-color)' }}>Terms and Conditions</h1>
         <p className="text-secondary mb-32">Last Updated: July 2026</p>
 
+        {/* --- LEGAL SECTIONS --- */}
         <div className="flex-col gap-24" style={{ lineHeight: '1.7' }}>
+          
           <section>
             <h3 className="m-0 mb-12">1. Agreement to Terms</h3>
             <p className="m-0 text-secondary">
@@ -64,6 +71,7 @@ export default function TermsAndConditions() {
               We reserve the right to change, modify, or remove the contents of the platform at any time or for any reason at our sole discretion without notice. We will not be liable to you or any third party for any modification, price change, suspension, or discontinuance of the platform.
             </p>
           </section>
+
         </div>
       </div>
     </div>

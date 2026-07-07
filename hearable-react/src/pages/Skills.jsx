@@ -7,6 +7,7 @@ export default function Skills() {
   const { role } = useAuth();
   const navigate = useNavigate();
 
+  // Core state for data display
   const [skills, setSkills] = useState([]);
   const [degrees, setDegrees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +27,7 @@ export default function Skills() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Protect the route so only admins can manage the platform's skill database
   useEffect(() => {
     if (role !== 'admin') {
       navigate('/');
@@ -34,22 +36,23 @@ export default function Skills() {
     fetchData();
   }, [role, navigate]);
 
+  // Fetches both skills and available degrees to populate the UI and forms
   async function fetchData() {
     setIsLoading(true);
     
-    // 🚨 FIX 1: Fetch through the new degree_skills junction table
+    // Fetch skills alongside their linked degrees via the degree_skills junction table
     const { data: skillsData } = await supabase
       .from('skills')
       .select('*, degree_skills(degree_id, degrees(name, abbreviation))')
       .order('name', { ascending: true });
       
+    // Fetch the list of all degrees for the dropdown menus
     const { data: degreesData } = await supabase
       .from('degrees')
       .select('*')
       .order('name', { ascending: true });
 
     if (skillsData) {
-      // 🚨 FIX 2: Map the many-to-many relationship back to the 1-to-1 format the UI expects
       const mappedSkills = skillsData.map(skill => {
         const firstLink = skill.degree_skills && skill.degree_skills.length > 0 ? skill.degree_skills[0] : null;
         return {
@@ -66,19 +69,21 @@ export default function Skills() {
     setIsLoading(false);
   }
 
+  // Handles the creation of a new skill and its optional linkage to a degree
   async function handleAddSkill(e) {
     e.preventDefault();
     if (!newSkillName.trim()) return;
     
     setIsAdding(true);
-    // 🚨 FIX 3: Insert the skill WITHOUT the degree_id
+    
+    // Step 1: Insert the base skill record into the skills table
     const { data: newSkill, error: skillError } = await supabase
       .from('skills')
       .insert([{ name: newSkillName.trim() }])
       .select()
       .single();
     
-    // 🚨 FIX 4: If successful, link it to the degree using the junction table
+    // Step 2: If the skill was created successfully and a degree was selected, link them in the junction table
     if (!skillError && newSkill && newSkillDegree) {
       await supabase.from('degree_skills').insert([{ 
         skill_id: newSkill.id, 
@@ -97,6 +102,7 @@ export default function Skills() {
     }
   }
 
+  // Permanently deletes a skill from the database (which cascades to remove it from user profiles and jobs)
   async function handleDeleteSkill(id, name) {
     if (!window.confirm(`Are you sure you want to delete the skill: ${name}? This will remove it from all users and jobs.`)) return;
     
@@ -112,6 +118,7 @@ export default function Skills() {
   }
 
   // --- EDIT FUNCTIONS ---
+  // Pre-fills the inline editing form with the skill's current data
   function startEditing(skill) {
     setEditingId(skill.id);
     setEditName(skill.name);
@@ -124,18 +131,19 @@ export default function Skills() {
     setEditDegree('');
   }
 
+  // Saves modifications to an existing skill
   async function handleSaveEdit(id) {
     if (!editName.trim()) return;
     
     setIsSavingEdit(true);
 
-    // 🚨 FIX 5: Update the skill name
+    // Step 1: Update the base skill name
     const { error: skillError } = await supabase
       .from('skills')
       .update({ name: editName.trim() })
       .eq('id', id);
 
-    // 🚨 FIX 6: Update the junction table by deleting the old link and inserting the new one
+    // Step 2: Re-sync the junction table. We delete any existing link, then insert the new one (if applicable).
     if (!skillError) {
       await supabase.from('degree_skills').delete().eq('skill_id', id);
       
@@ -150,14 +158,14 @@ export default function Skills() {
     setIsSavingEdit(false);
 
     if (!skillError) {
-      fetchData(); // Refetch to ensure everything is synced cleanly
+      fetchData(); // Refetch fully to ensure the UI perfectly matches the database
       cancelEditing();
     } else {
       alert("Failed to update skill.");
     }
   }
 
-  // --- PAGINATION LOGIC ---
+  // Calculate pagination slices
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentSkills = skills.slice(indexOfFirstItem, indexOfLastItem);
@@ -166,13 +174,13 @@ export default function Skills() {
   return (
     <div className="page-container" style={{ maxWidth: '800px' }}>
       
-      {/* Header without Back Button */}
       <div className="flex-between align-center mb-24">
         <div className="flex-row gap-16 align-center">
           <h1 className="m-0">Manage Skills</h1>
         </div>
       </div>
 
+      {/* --- ADD SKILL FORM --- */}
       <div className="card p-24 mb-32">
         <h3 className="mb-16 m-0">Add New Skill</h3>
         <form onSubmit={handleAddSkill} className="flex-row gap-16 align-center" style={{ flexWrap: 'wrap' }}>
@@ -204,6 +212,7 @@ export default function Skills() {
         </form>
       </div>
 
+      {/* --- SKILL DATABASE LIST --- */}
       <div className="card p-0" style={{ overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <h3 className="m-0">Skill Database</h3>
@@ -217,7 +226,7 @@ export default function Skills() {
               <div key={skill.id} className="flex-between align-center" style={{ padding: '16px 24px', borderBottom: index !== currentSkills.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                 
                 {editingId === skill.id ? (
-                  // EDIT MODE
+                  // INLINE EDITING MODE
                   <div className="flex-row gap-12 align-center w-full" style={{ flexWrap: 'wrap' }}>
                     <input 
                       type="text" 

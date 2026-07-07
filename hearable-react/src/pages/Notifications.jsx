@@ -3,18 +3,20 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-// 🚨 NEW IMPORT: Date Utility
+// Utility for consistent date formatting
 import { formatStandardDate } from '../utils/dateUtils';
 
 export default function Notifications() {
   const { user, role } = useAuth();
   const navigate = useNavigate();
   
+  // Core notification state
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('All');
   
   // --- STANDARD NOTIFICATIONS STATE ---
+  // Tracks notifications that have been soft-deleted and are waiting for the "Undo" timer to expire
   const [pendingDeletes, setPendingDeletes] = useState({});
   const pendingDeletesRef = useRef(pendingDeletes);
 
@@ -30,22 +32,27 @@ export default function Notifications() {
   const [broadcastHistory, setBroadcastHistory] = useState([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
+  // Keep a mutable ref of pending deletes synchronized so the cleanup effect has access to the latest state
   useEffect(() => {
     pendingDeletesRef.current = pendingDeletes;
   }, [pendingDeletes]);
 
+  // Fetch the user's specific notifications when the component mounts
   useEffect(() => {
     if (user) {
       fetchNotifications();
     }
   }, [user]);
 
+  // If the user is an admin viewing the Announcements tab, fetch the global broadcast history
   useEffect(() => {
     if (role === 'admin' && activeTab === 'Announcements') {
       fetchBroadcastHistory();
     }
   }, [role, activeTab]);
 
+  // Cleanup Effect: If the user navigates away from the page while the "Undo" timer is still running,
+  // immediately execute the hard delete for all pending notifications to ensure they aren't orphaned.
   useEffect(() => {
     return () => {
       Object.entries(pendingDeletesRef.current).forEach(([id, timeoutId]) => {
@@ -55,6 +62,7 @@ export default function Notifications() {
     };
   }, []);
 
+  // Dynamically render tabs based on the user's role
   let tabs = [];
   if (role === 'admin') {
     tabs = ['All', 'Reports', 'Feedbacks', 'Users', 'Companies', 'Announcements'];
@@ -64,6 +72,7 @@ export default function Notifications() {
     tabs = ['All', 'Jobs', 'Announcements'];
   }
 
+  // Fetches notifications specifically targeted at the current authenticated user
   async function fetchNotifications() {
     setIsLoading(true);
     const { data, error } = await supabase
@@ -78,6 +87,7 @@ export default function Notifications() {
     setIsLoading(false);
   }
 
+  // Fetches the log of past platform-wide announcements created by admins
   async function fetchBroadcastHistory() {
     setIsHistoryLoading(true);
     const { data } = await supabase
@@ -89,24 +99,31 @@ export default function Notifications() {
     setIsHistoryLoading(false);
   }
 
+  // Updates the unread status in the database and routes the user if a link is provided
   async function handleMarkAsRead(id, link) {
     await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    
+    // Optimistic UI update
     setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
     if (link) navigate(link);
   }
 
+  // Permanently removes a notification from the database
   const commitDelete = async (id) => {
     const { error } = await supabase.from('notifications').delete().eq('id', id);
     
     if (error) {
       console.error("Error deleting notification:", error.message);
       alert("Failed to delete notification: " + error.message);
+      
+      // Remove from the pending queue on failure
       setPendingDeletes(prev => {
         const newDeletes = { ...prev };
         delete newDeletes[id];
         return newDeletes;
       });
     } else {
+      // Remove from the main UI list and the pending queue on success
       setNotifications(prev => prev.filter(n => n.id !== id));
       setPendingDeletes(prev => {
         const newDeletes = { ...prev };
@@ -116,6 +133,7 @@ export default function Notifications() {
     }
   };
 
+  // Initiates the soft-delete flow by starting a 5-second timer before hard deletion
   const handleDelete = (id) => {
     const timeoutId = setTimeout(() => {
       commitDelete(id);
@@ -123,6 +141,7 @@ export default function Notifications() {
     setPendingDeletes(prev => ({ ...prev, [id]: timeoutId }));
   };
 
+  // Cancels the soft-delete timer and restores the notification to the UI
   const handleUndo = (id) => {
     clearTimeout(pendingDeletes[id]);
     setPendingDeletes(prev => {
@@ -132,6 +151,7 @@ export default function Notifications() {
     });
   };
 
+  // Triggers a database RPC (Remote Procedure Call) to broadcast a message to multiple users
   async function handleSendBroadcast(e) {
     e.preventDefault();
     if (!broadcastTitle.trim() || !broadcastMessage.trim()) return;
@@ -139,6 +159,7 @@ export default function Notifications() {
 
     setIsBroadcasting(true);
 
+    // Call the custom PostgreSQL function stored in Supabase
     const { error } = await supabase.rpc('create_broadcast_announcement', {
       p_title: broadcastTitle.trim(),
       p_message: broadcastMessage.trim(),
@@ -150,6 +171,7 @@ export default function Notifications() {
       alert("Error broadcasting announcement: " + error.message);
       console.error(error);
     } else {
+      // Clear form and refresh views on success
       setBroadcastTitle('');
       setBroadcastMessage('');
       setBroadcastAudience('all');
@@ -161,6 +183,7 @@ export default function Notifications() {
     setIsBroadcasting(false);
   }
 
+  // Filter the user's notifications based on the currently selected tab
   const filteredNotifications = notifications.filter(n => {
     if (activeTab === 'All') return true;
     
@@ -178,6 +201,8 @@ export default function Notifications() {
 
   return (
     <div className="page-container-wide">
+      
+      {/* --- PAGE HEADER --- */}
       <div className="flex-between align-center mb-24">
         <h1 className="m-0">Notifications</h1>
         {role === 'admin' && activeTab === 'Announcements' && (
@@ -187,6 +212,7 @@ export default function Notifications() {
         )}
       </div>
 
+      {/* --- TABS --- */}
       <div className="flex-row gap-8 mb-32" style={{ overflowX: 'auto', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>
         {tabs.map(tab => (
           <button
@@ -209,8 +235,11 @@ export default function Notifications() {
         ))}
       </div>
 
+      {/* --- ADMIN BROADCAST CONTROLS --- */}
       {role === 'admin' && activeTab === 'Announcements' && (
         <div className="mb-32">
+          
+          {/* Broadcast Creation Modal */}
           {isModalOpen && (
             <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
               <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px' }}>
@@ -264,6 +293,7 @@ export default function Notifications() {
             </div>
           )}
 
+          {/* Broadcast History Log */}
           <div className="card p-0" style={{ overflow: 'hidden' }}>
             <div className="p-20" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-color)' }}>
               <h3 className="m-0">Broadcast History</h3>
@@ -296,13 +326,17 @@ export default function Notifications() {
         </div>
       )}
 
+      {/* --- NOTIFICATIONS INBOX --- */}
       {isLoading ? (
         <p className="text-secondary text-center p-32">Loading notifications...</p>
       ) : filteredNotifications.length > 0 ? (
         <div className="flex-col gap-16">
           {filteredNotifications.map(notification => {
+            
+            // Check if this specific notification is currently in the 5-second deletion window
             const isPendingDelete = pendingDeletes.hasOwnProperty(notification.id);
 
+            // Render the "Undo" state
             if (isPendingDelete) {
               return (
                 <div key={notification.id} className="card flex-between align-center p-16" style={{ background: 'var(--bg-color)', borderStyle: 'dashed' }}>
@@ -317,9 +351,12 @@ export default function Notifications() {
               );
             }
 
+            // Render the standard notification state
             return (
               <div key={notification.id} className={`card p-20 ${!notification.is_read ? 'selected-card' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div className="flex-between-start">
+                  
+                  {/* Clickable area for marking as read and navigating */}
                   <div onClick={() => handleMarkAsRead(notification.id, notification.link)} style={{ cursor: notification.link ? 'pointer' : 'default', flex: 1 }}>
                     <div className="flex-row align-center gap-8 mb-8">
                       {!notification.is_read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--primary-color)' }}></span>}
@@ -329,17 +366,18 @@ export default function Notifications() {
                     </div>
                     <p className="m-0 text-secondary" style={{ lineHeight: '1.5' }}>{notification.message}</p>
                     
-                    {/* 🚨 UPDATED: Using formatStandardDate */}
                     <span className="text-sm text-secondary mt-12 block">
                       {formatStandardDate(notification.created_at)} at {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
-
                   </div>
+
+                  {/* Delete Button */}
                   <button onClick={() => handleDelete(notification.id)} className="nav-icon-btn" title="Delete Notification" style={{ flexShrink: 0, marginLeft: '16px' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                     </svg>
                   </button>
+
                 </div>
               </div>
             );

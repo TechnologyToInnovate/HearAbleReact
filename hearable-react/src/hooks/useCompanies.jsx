@@ -8,12 +8,19 @@ export const useCompanies = () => {
   const fetchCompanies = async () => {
     setIsLoading(true);
 
-    const { data: regData } = await supabase.from('companies').select('*');
+    // Fetch registered companies with their nested location data
+    const { data: regData } = await supabase
+      .from('companies')
+      .select('*, locations(city, country)');
     const registered = regData || [];
 
-    const { data: preData } = await supabase.from('pre_approved_companies').select('*');
+    // Fetch pre-approved companies with their nested location data
+    const { data: preData } = await supabase
+      .from('pre_approved_companies')
+      .select('*, locations(city, country)');
     const preApprovedList = preData || [];
 
+    // Map existing names to avoid duplicating companies that have already completed registration
     const registeredNames = registered.map(c => c.name.toLowerCase());
 
     const pendingPreApproved = preApprovedList

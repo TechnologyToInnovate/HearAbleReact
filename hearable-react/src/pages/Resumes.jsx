@@ -2,35 +2,46 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
-// 🚨 NEW IMPORT: Date Utility
+// Utility for consistent date formatting
 import { formatStandardDate } from '../utils/dateUtils';
 
 export default function Resumes() {
   const { user: currentUser, role } = useAuth();
+  
+  // Core state for managing the user's resumes
   const [resumes, setResumes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  // State for the PDF upload modal and form data
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  
   const [newTitle, setNewTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fetch the user's resumes on component mount or when the user session changes
   useEffect(() => {
     if (currentUser) fetchResumes();
   }, [currentUser]);
 
+  // Retrieves the list of resume records from the database for the active user
   async function fetchResumes() {
     setIsLoading(true);
-    const { data } = await supabase.from('resumes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false });
+      
     if (data) setResumes(data);
     setIsLoading(false);
   }
 
+  // Handles the two-step process of uploading a PDF to Supabase Storage and saving its URL to the database
   async function handleUploadResume(e) {
     e.preventDefault();
     if (!newTitle || !selectedFile) return alert("Please provide a title and select a PDF file.");
     
+    // Enforce file type validation on the client side
     if (selectedFile.type !== 'application/pdf') {
       return alert("Only PDF files are allowed.");
     }
@@ -38,20 +49,24 @@ export default function Resumes() {
     setIsSubmitting(true);
 
     try {
+      // Create a unique file name using the user's ID and a timestamp to prevent overwriting
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
       const filePath = `${currentUser.id}/${fileName}`;
 
+      // Step 1: Upload the actual file to the Supabase 'resumes' storage bucket
       const { error: uploadError } = await supabase.storage
         .from('resumes')
         .upload(filePath, selectedFile);
 
       if (uploadError) throw uploadError;
 
+      // Step 2: Retrieve the public URL for the newly uploaded file
       const { data: { publicUrl } } = supabase.storage
         .from('resumes')
         .getPublicUrl(filePath);
 
+      // Step 3: Insert a new record into the database containing the title and the file URL
       const { error: dbError } = await supabase.from('resumes').insert([{ 
         user_id: currentUser.id, 
         title: newTitle, 
@@ -60,10 +75,12 @@ export default function Resumes() {
 
       if (dbError) throw dbError;
 
+      // Clean up form state and close modal on success
       setNewTitle('');
       setSelectedFile(null);
       setIsUploadModalOpen(false);
       
+      // Refresh the UI to show the new resume
       fetchResumes();
 
     } catch (error) {
@@ -74,14 +91,18 @@ export default function Resumes() {
     }
   }
 
+  // Handles the removal of a resume record and attempts to clean up the associated file in storage
   async function handleDelete(id, fileUrl) {
     if (!window.confirm("Are you sure you want to delete this resume?")) return;
     
+    // Step 1: Delete the record from the database
     const { error: dbError } = await supabase.from('resumes').delete().eq('id', id);
     
     if (!dbError) {
+      // Optimistically update the UI
       setResumes(resumes.filter(r => r.id !== id));
       
+      // Step 2: Extract the relative file path from the URL and remove the file from storage
       if (fileUrl) {
         const urlParts = fileUrl.split('/resumes/');
         if (urlParts.length > 1) {
@@ -94,6 +115,7 @@ export default function Resumes() {
     }
   }
 
+  // Access Control: Only standard users (approved, pending, or rejected) can utilize the resume manager
   if (role !== 'user' && role !== 'pending_user' && role !== 'rejected_user') {
     return <div className="page-container-wide"><p className="text-center p-32">Only standard users can manage resumes.</p></div>;
   }
@@ -101,6 +123,7 @@ export default function Resumes() {
   return (
     <div className="page-container-wide">
 
+      {/* --- ACTION CARDS --- */}
       <div className="flex-row-wrap gap-16 mb-32">
         <button 
           className="card flex-row align-center gap-12" 
@@ -125,6 +148,7 @@ export default function Resumes() {
           </div>
         </button>
 
+        {/* Disabled placeholder card for future platform features */}
         <button 
           className="card flex-row align-center gap-12" 
           style={{ 
@@ -146,6 +170,7 @@ export default function Resumes() {
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '32px 0' }} />
 
+      {/* --- RESUME LIST --- */}
       <h3 className="mb-16">Saved Resumes</h3>
       {isLoading ? <p className="text-secondary">Loading...</p> : resumes.length > 0 ? (
         <div className="flex-col gap-16">
@@ -153,7 +178,6 @@ export default function Resumes() {
             <div key={resume.id} className="card p-20 flex-between align-center">
               <div>
                 <h3 className="m-0 mb-4" style={{ fontSize: '1.15rem' }}>{resume.title}</h3>
-                {/* 🚨 UPDATED: Using formatStandardDate */}
                 <p className="text-secondary text-sm m-0">Uploaded: {formatStandardDate(resume.created_at)}</p>
               </div>
               
@@ -177,6 +201,7 @@ export default function Resumes() {
         </div>
       )}
 
+      {/* --- UPLOAD MODAL --- */}
       {isUploadModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
           

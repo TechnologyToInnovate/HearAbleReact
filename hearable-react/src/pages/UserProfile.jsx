@@ -9,7 +9,7 @@ import SkillBadge from '../components/common/SkillBadge';
 import Avatar from '../components/common/Avatar';
 import { formatFullName, formatLocation } from '../utils/formatUtils';
 
-// 🚨 Import your new widget!
+// External widget for displaying and managing the user's job search preferences
 import JobPreferencesWidget from '../components/profile/JobPreferencesWidget';
 
 export default function UserProfile() {
@@ -18,28 +18,33 @@ export default function UserProfile() {
   const location = useLocation();
   const { user: currentUser } = useAuth();
   
+  // Core profile state
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   
-  // State for skills & modal
+  // State for managing the user's skills and the skill-addition modal
   const [isUpdatingSkills, setIsUpdatingSkills] = useState(false);
   const [showAddSkillPopup, setShowAddSkillPopup] = useState(false);
 
+  // Fetch the user's data whenever the profile ID in the URL changes
   useEffect(() => {
     fetchUser();
   }, [id]);
 
+  // Handle auto-opening the add skill modal if the user was redirected here with that specific intent
   useEffect(() => {
     if (location.state?.openAddSkill && currentUser?.id === id) {
       setShowAddSkillPopup(true);
+      // Clear the state so it doesn't reopen on subsequent re-renders
       window.history.replaceState({}, document.title);
     }
   }, [location.state, currentUser, id]);
 
+  // Fetches the user's profile data along with relational data (degrees, batches, skills, and locations)
   async function fetchUser() {
     setIsLoading(true);
-    // 🚨 UPDATED: Added `locations ( city, country )` to the select query
+    
     const { data } = await supabase
       .from('profiles')
       .select(`*, degrees ( name, abbreviation ), batches ( batch_number ), profile_skills ( skills ( name ) ), locations ( city, country )`)
@@ -47,6 +52,7 @@ export default function UserProfile() {
       .maybeSingle();
     
     if (data) {
+      // Flatten the skills array from the many-to-many junction table to a simple array of strings
       const formattedUser = {
         ...data,
         skills: data.profile_skills ? data.profile_skills.map(ps => ps.skills.name) : []
@@ -56,6 +62,7 @@ export default function UserProfile() {
     setIsLoading(false);
   }
 
+  // Links a new skill to the user's profile via the profile_skills junction table
   async function handleAddSkill(skillObj) {
     if (!skillObj || !user || !currentUser) return;
     setIsUpdatingSkills(true);
@@ -65,8 +72,10 @@ export default function UserProfile() {
         .from('profile_skills')
         .insert([{ profile_id: currentUser.id, skill_id: skillObj.id }]);
 
+      // Ignore uniqueness constraint errors in case the user rapidly double-clicks
       if (linkError && linkError.code !== '23505') throw linkError;
 
+      // Optimistically update the local state to avoid a full data refetch
       if (!user.skills.includes(skillObj.name)) {
         setUser({ ...user, skills: [...user.skills, skillObj.name] });
       }
@@ -81,11 +90,13 @@ export default function UserProfile() {
     }
   }
 
+  // Removes a skill from the user's profile by deleting the corresponding record in the junction table
   async function handleRemoveSkill(skillToRemove) {
     if (!user || !currentUser) return;
     setIsUpdatingSkills(true);
 
     try {
+      // First, find the ID of the skill they want to remove based on its name
       const { data: skillData } = await supabase
         .from('skills')
         .select('id')
@@ -93,12 +104,14 @@ export default function UserProfile() {
         .single();
 
       if (skillData) {
+        // Delete the relationship link
         await supabase
           .from('profile_skills')
           .delete()
           .match({ profile_id: currentUser.id, skill_id: skillData.id });
       }
 
+      // Optimistically remove the skill from the local state
       setUser({
         ...user,
         skills: user.skills.filter(skill => skill !== skillToRemove)
@@ -110,6 +123,7 @@ export default function UserProfile() {
     }
   }
 
+  // Loading and error states
   if (isLoading) return <div className="page-container-wide text-center mt-32"><p className="text-secondary">Loading profile...</p></div>;
   if (!user) return (
     <div className="page-container-wide text-center mt-32">
@@ -119,14 +133,17 @@ export default function UserProfile() {
     </div>
   );
 
+  // Determine if the current authenticated user is viewing their own profile
   const isOwnProfile = currentUser?.id === user.id;
   
-  // 🚨 UPDATED: Formats the location using the joined locations table data
+  // Safely format the user's location based on the joined locations data
   const locationText = formatLocation(user.locations?.city, user.locations?.country, '');
   const fullName = formatFullName(user.first_name, user.last_name);
 
   return (
     <div className="page-container-wide">
+      
+      {/* --- MODALS --- */}
       <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} userId={user.id} onSuccess={fetchUser} />
 
       <AddSkillModal 
@@ -137,6 +154,7 @@ export default function UserProfile() {
         isUpdating={isUpdatingSkills}
       />
 
+      {/* --- HERO SECTION --- */}
       <div className="card p-0 mb-32" style={{ overflow: 'hidden' }}>
         <div style={{ height: '120px', backgroundColor: 'var(--primary-color)', opacity: 0.9 }}></div>
         
@@ -154,6 +172,7 @@ export default function UserProfile() {
               </div>
             </div>
 
+            {/* Only allow editing if the user is viewing their own profile */}
             {isOwnProfile && (
               <div style={{ marginTop: '56px' }}>
                 <button className="btn-outline" onClick={() => setShowEditModal(true)}>Edit Profile</button>
@@ -163,7 +182,10 @@ export default function UserProfile() {
         </div>
       </div>
 
+      {/* --- PROFILE BODY --- */}
       <div className="dashboard-layout">
+        
+        {/* Main Content Column */}
         <div className="flex-col gap-32">
           
           <div className="card p-24">
@@ -189,6 +211,7 @@ export default function UserProfile() {
                     style={{ padding: '6px 12px', fontSize: '0.95rem', display: 'inline-flex' }}
                   >
                     {skill}
+                    {/* Render the delete (X) button if viewing their own profile */}
                     {isOwnProfile && (
                       <button 
                         onClick={() => handleRemoveSkill(skill)}
@@ -219,9 +242,9 @@ export default function UserProfile() {
           
         </div>
 
+        {/* Sidebar Details Column */}
         <div style={{ position: 'sticky', top: '90px' }}>
           
-          {/* 🚨 PLUG IN THE NEW WIDGET HERE */}
           <JobPreferencesWidget 
             user={user} 
             isOwnProfile={isOwnProfile} 

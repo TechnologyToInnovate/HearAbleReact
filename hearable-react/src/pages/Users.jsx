@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
+// Custom hooks and utilities
 import { useUsers } from '../hooks/useUsers';
 import { sortData } from '../utils/sortUtils';
+
+// Shared UI components
 import SearchBar from '../components/common/SearchBar';
 import Avatar from '../components/common/Avatar';
 import StatusBadge from '../components/common/StatusBadge';
@@ -11,32 +14,41 @@ import StatusBadge from '../components/common/StatusBadge';
 export default function Users({ role }) {
   const navigate = useNavigate();
   
+  // Fetch users and manage loading state via our custom hook
   const { users, isLoading, setUsers } = useUsers(role);
 
+  // UI state for search, tabs, and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   const [sortBy, setSortBy] = useState('name_asc');
   const [filterDegree, setFilterDegree] = useState('All');
   const [filterBatch, setFilterBatch] = useState('All');
 
+  // Protect the route: Only admins can access the user management dashboard
   useEffect(() => {
     if (role !== 'admin') navigate('/');
   }, [role, navigate]);
 
+  // Automatically default to sorting by oldest first when viewing the 'Pending' queue
   useEffect(() => {
     setSortBy(activeTab === 'Pending' ? 'date_asc' : 'name_asc');
   }, [activeTab]);
 
+  // Handles updating a user's status (e.g., Approving or Rejecting an account)
   async function handleUpdateStatus(userId, newStatus) {
     const updatePayload = { 
       status: newStatus,
+      // Timestamp the approval if the admin is setting the status to 'Approved'
       ...(newStatus === 'Approved' ? { approved_at: new Date().toISOString() } : {})
     };
 
     const { error } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
 
     if (!error) {
+      // Optimistically update the local state to reflect the change immediately
       setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+      
+      // If approved, automatically trigger a welcome/approval notification to the user
       if (newStatus === 'Approved') {
         await supabase.from('notifications').insert([{
           user_id: userId, title: 'Account Approved!', 
@@ -48,6 +60,7 @@ export default function Users({ role }) {
     }
   }
 
+  // Soft-deletes a user account to preserve database integrity and relational data
   async function handleArchiveUser(userId, userName) {
     if (!window.confirm(`Are you sure you want to archive ${userName}?`)) return;
 
@@ -60,9 +73,11 @@ export default function Users({ role }) {
     }
   }
 
+  // Dynamically extract unique degrees and batches from the user list to populate the filter dropdowns
   const uniqueDegrees = ['All', ...[...new Set(users.map(u => u.degreeText).filter(Boolean))].sort()];
   const uniqueBatches = ['All', ...[...new Set(users.map(u => u.batchText).filter(Boolean))].sort()];
   
+  // Apply all active filters (search query, tab status, degree, and batch)
   const processedUsers = users.filter(user => {
     const matchesSearch = (user.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (user.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -75,11 +90,13 @@ export default function Users({ role }) {
     return matchesSearch && matchesTab && matchesDegree && matchesBatch;
   });
 
+  // Apply the selected sorting criteria to the filtered list
   const sortedUsers = sortData(processedUsers, sortBy, 'name', 'created_at');
 
   return (
     <div className="page-container-wide">
 
+      {/* --- HEADER & NAVIGATION --- */}
       <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
         <h1 style={{ margin: 0 }}>Manage Users</h1>
         <div className="flex-row gap-12">
@@ -89,6 +106,7 @@ export default function Users({ role }) {
         </div>
       </div>
 
+      {/* --- STATUS TABS --- */}
       <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
         {['All', 'Pending', 'Approved', 'Rejected', 'Archived'].map(tab => (
           <button
@@ -105,6 +123,7 @@ export default function Users({ role }) {
         ))}
       </div>
 
+      {/* --- SEARCH & FILTERS --- */}
       <div className="mb-16">
         <SearchBar 
           value={searchQuery} 
@@ -128,6 +147,7 @@ export default function Users({ role }) {
         </select>
       </div>
 
+      {/* --- USER GRID --- */}
       {isLoading ? (
         <p className="text-center text-secondary mt-32">Loading users...</p>
       ) : sortedUsers.length > 0 ? (
@@ -137,6 +157,7 @@ export default function Users({ role }) {
 
               <div className="flex-between-start mb-16">
                 
+                {/* Left section: Avatar, Name, Email */}
                 <div 
                   className="flex-row gap-12 align-start" 
                   style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
@@ -161,6 +182,7 @@ export default function Users({ role }) {
                   </div>
                 </div>
 
+                {/* Right section: Badges and Dates */}
                 <div className="flex-col align-end gap-8" style={{ flexShrink: 0, marginLeft: '12px' }}>
                   <StatusBadge status={user.status} />
                   <span className="text-sm text-secondary" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
@@ -169,6 +191,7 @@ export default function Users({ role }) {
                 </div>
               </div>
 
+              {/* Middle section: Education Details */}
               <div className="mb-24 flex-grow" style={{ background: 'var(--bg-color)', padding: '12px', borderRadius: '8px', minWidth: 0 }}>
                 <div style={{ marginBottom: '8px', minWidth: 0 }}>
                   <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '2px' }}>Degree</span>
@@ -187,6 +210,7 @@ export default function Users({ role }) {
                 </div>
               </div>
 
+              {/* Bottom section: Admin Actions */}
               <div className="flex-col gap-8 mt-auto">
                 {user.status !== 'Archived' && (
                   <div className="flex-row gap-8">

@@ -21,11 +21,12 @@ export default function CompanyProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [refreshData, setRefreshData] = useState(0);
 
+  // Fetch company profile, associated location, contact details, and active jobs
   useEffect(() => {
     async function fetchCompanyData() {
       setIsLoading(true);
 
-      // 🚨 FIX 1: Added `locations(*)` and `company_contacts(*)` to the select query
+      // Fetch company data along with its joined location and contact details
       const { data: companyData } = await supabase
         .from('companies')
         .select('*, locations(*), company_contacts(*)')
@@ -34,6 +35,7 @@ export default function CompanyProfile() {
         
       if (companyData) setCompany(companyData);
       
+      // If the company exists, fetch their active job postings
       if (companyData) {
         const { data: jobsData } = await supabase
           .from('jobs')
@@ -58,13 +60,14 @@ export default function CompanyProfile() {
   if (isLoading) return <div className="page-container-wide text-center mt-32"><p className="text-secondary">Loading company profile...</p></div>;
   if (!company) return <div className="page-container-wide text-center mt-32"><h2>🏢</h2><p className="text-secondary">Company not found.</p></div>;
 
+  // Determine if the current user is viewing their own company profile
   const isOwnProfile = currentUser?.id === id;
   
-  // 🚨 FIX 2: Safely extract location data from the joined locations table
+  // Safely extract and format location data from the joined locations table
   const loc = company.locations || {};
   const locationText = formatLocation(loc.city, loc.country, '');
   
-  // 🚨 FIX 3: Safely extract contact person data from the joined company_contacts table (array)
+  // Safely extract the primary contact person's details, if available
   const contact = company.company_contacts && company.company_contacts.length > 0 ? company.company_contacts[0] : {};
   const hasContact = contact.name || contact.email || contact.contact_number;
 
@@ -77,7 +80,7 @@ export default function CompanyProfile() {
         />
       )}
 
-      {/* --- HERO SECTION --- */}
+      {/* --- HERO SECTION: Displays company logo, name, accessibility badge, and basic info --- */}
       <div className="card p-0 mb-32" style={{ overflow: 'hidden' }}>
         <div style={{ height: '120px', backgroundColor: 'var(--primary-color)', opacity: 0.9 }}></div>
         
@@ -94,7 +97,6 @@ export default function CompanyProfile() {
                 </h1>
                 
                 <div className="flex-row-wrap gap-16 text-secondary text-sm">
-                  {/* 🚨 Removed company.address fallback since it was normalized out */}
                   {locationText && <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📍 {locationText}</span>}
                   {company.website && (
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -116,9 +118,10 @@ export default function CompanyProfile() {
         </div>
       </div>
 
-      {/* --- PROFILE BODY --- */}
+      {/* --- PROFILE BODY: Displays description, active jobs, and company details --- */}
       <div className="dashboard-layout">
         <div className="flex-col gap-32">
+          
           <div className="card p-24">
             <h3 className="mb-16 m-0">About Us</h3>
             <p className="text-secondary" style={{ lineHeight: '1.7', whiteSpace: 'pre-wrap', margin: 0 }}>
@@ -142,6 +145,7 @@ export default function CompanyProfile() {
           </div>
         </div>
 
+        {/* Sidebar displaying quick company stats and representative info */}
         <div style={{ position: 'sticky', top: '90px' }}>
           <div className="card p-24">
             <h3 className="mb-16 m-0">Company Details</h3>
@@ -156,18 +160,16 @@ export default function CompanyProfile() {
               </div>
               <div>
                 <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Headquarters</span>
-                {/* 🚨 Removed company.address fallback */}
                 <strong style={{ fontSize: '1rem' }}>{locationText || 'Not specified'}</strong>
               </div>
             </div>
           </div>
 
-          {/* --- CONTACT PERSON CARD --- */}
+          {/* --- CONTACT PERSON CARD: Displays the representative's details if available --- */}
           {hasContact && (
             <div className="card p-24" style={{ marginTop: '24px' }}>
               <h3 className="mb-16 m-0">Representative</h3>
               <div className="flex-row gap-16 align-center">
-                {/* 🚨 Updated UI references to use the extracted 'contact' object */}
                 <Avatar src={contact.profile_pic_url} fallbackName={contact.name} size="md" type="user" />
                 <div style={{ overflow: 'hidden' }}>
                   <strong style={{ display: 'block', fontSize: '1.05rem', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

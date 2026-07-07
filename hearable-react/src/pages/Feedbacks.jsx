@@ -5,25 +5,30 @@ import { formatStandardDate } from '../utils/dateUtils';
 
 export default function Feedbacks() {
   const { user: currentUser, role } = useAuth();
+  
+  // State for storing the list of feedbacks and managing the loading UI
   const [feedbacks, setFeedbacks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal & Form State
+  // State for managing the feedback submission modal and its form fields
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newPurpose, setNewPurpose] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fetch feedbacks whenever the component mounts or the user context changes
   useEffect(() => {
     if (currentUser) fetchFeedbacks();
   }, [currentUser, role]);
 
+  // Retrieves feedback from the database based on the user's role
   async function fetchFeedbacks() {
     setIsLoading(true);
     
     let query = supabase.from('feedbacks').select('*').order('created_at', { ascending: false });
     
+    // Admins see all platform feedback; standard users only see the feedback they have submitted
     if (role !== 'admin') {
       query = query.eq('user_id', currentUser.id);
     }
@@ -33,13 +38,14 @@ export default function Feedbacks() {
     setIsLoading(false);
   }
 
+  // Handles the submission of a new feedback entry via the modal form
   async function handleSubmit(e) {
     e.preventDefault();
     if (!newMessage.trim() || !newTitle.trim() || !newPurpose) return;
     
     setIsSubmitting(true);
     
-    // 🚨 UPDATED: Include the new title and purpose fields in the payload
+    // Insert the new feedback into the database, tagging it with the current user's ID
     const { error } = await supabase.from('feedbacks').insert([{ 
       user_id: currentUser.id, 
       title: newTitle.trim(),
@@ -48,10 +54,13 @@ export default function Feedbacks() {
     }]);
 
     if (!error) {
+      // Clear form state and close the modal upon successful submission
       setNewTitle('');
       setNewPurpose('');
       setNewMessage('');
-      setIsModalOpen(false); // Close the modal on success
+      setIsModalOpen(false); 
+      
+      // Refresh the feedback list to display the newly added item
       fetchFeedbacks();
       alert("Thank you for your feedback!");
     } else {
@@ -61,6 +70,7 @@ export default function Feedbacks() {
     setIsSubmitting(false);
   }
 
+  // Restrict access: companies are not permitted to use the feedback system
   if (role === 'company') {
     return <div className="page-container-wide"><p className="text-center p-32">This page is for standard users and admins only.</p></div>;
   }
@@ -68,7 +78,7 @@ export default function Feedbacks() {
   return (
     <div className="page-container">
       
-      {/* 🚨 UPDATED: Header now includes the "New Feedback" button that triggers the modal */}
+      {/* Page Header: Displays the title and conditionally renders the New Feedback button for non-admins */}
       <div className="flex-between align-center mb-24">
         <h1 className="m-0">{role === 'admin' ? 'All Platform Feedback' : 'My Feedback'}</h1>
         {role !== 'admin' && (
@@ -78,7 +88,7 @@ export default function Feedbacks() {
         )}
       </div>
 
-      {/* 🚨 NEW: The Popup Modal Form */}
+      {/* Feedback Submission Modal */}
       {isModalOpen && role !== 'admin' && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '600px' }}>
@@ -142,7 +152,7 @@ export default function Feedbacks() {
         </div>
       )}
 
-      {/* 🚨 UPDATED: Displaying the Feedbacks */}
+      {/* Feedback List Display */}
       <h3 className="mb-16">Previous Feedback</h3>
       {isLoading ? <p className="text-secondary">Loading...</p> : feedbacks.length > 0 ? (
         <div className="flex-col gap-16">
@@ -159,6 +169,7 @@ export default function Feedbacks() {
                   </span>
                 </div>
                 
+                {/* Admins can see a snippet of the submitting user's ID for reference */}
                 {role === 'admin' && (
                   <div className="badge badge-neutral" style={{ flexShrink: 0 }}>
                     User ID: {fb.user_id?.substring(0, 8)}...
