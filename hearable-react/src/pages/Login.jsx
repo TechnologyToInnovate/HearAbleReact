@@ -201,10 +201,6 @@ export default function Login({ setRole }) {
               <Link to="/privacy-policy" style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: '600' }}>
                 Privacy Policy
               </Link>
-              , and{' '}
-              <Link to="/cookies" style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: '600' }}>
-                Cookie Policy
-              </Link>.
             </p>
           </div>
 
