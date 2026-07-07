@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import AddSkillModal from './AddSkillModal';
 import Avatar from '../common/Avatar';
-// 🚨 NEW: Import LocationSelect
 import LocationSelect from '../common/LocationSelect';
 
 export default function EditProfileModal({ isOpen, onClose, userId, onSuccess }) {
@@ -54,7 +53,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 🚨 NEW: Handlers to pass to LocationSelect
   const handleCountryChange = (val) => setFormData({ ...formData, country: val });
   const handleCityChange = (val) => setFormData({ ...formData, city: val });
 
@@ -79,12 +77,16 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
 
     try {
       let locationId = null;
-      if (formData.city || formData.country) {
+      
+      const safeCountry = String(formData.country).trim();
+      const safeCity = String(formData.city).trim();
+
+      if (safeCity || safeCountry) {
         const { data: locData, error: locError } = await supabase
           .from('locations')
           .insert([{ 
-            city: formData.city || 'Not specified', 
-            country: formData.country || 'Not specified' 
+            city: safeCity || 'Not specified', 
+            country: safeCountry || 'Not specified' 
           }])
           .select()
           .single();
@@ -150,12 +152,14 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       
+      {/* 🚨 THE UPDATED SKILL MODAL */}
       <AddSkillModal 
         isOpen={showAddSkillPopup}
         onClose={() => setShowAddSkillPopup(false)}
         onAddSkill={handleAddSkillToForm}
         existingSkills={formData.skills || []} 
-        isUpdating={false} 
+        isUpdating={false}
+        userId={userId} 
       />
 
       <div className="card p-32" style={{ width: '100%', maxWidth: '600px', margin: '16px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -207,7 +211,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
 
             <div className="flex-col gap-8">
               <label className="font-medium">Location</label>
-              {/* 🚨 PLUG IN THE COMPONENT HERE */}
               <LocationSelect 
                 country={formData.country} 
                 setCountry={handleCountryChange} 
