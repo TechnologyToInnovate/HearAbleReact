@@ -17,21 +17,42 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
       ) : recentJobs.length > 0 ? (
         <div className="flex-col gap-0">
           {recentJobs.map((job, index) => (
-            /* 🚨 'mobile-stack' added here */
             <div 
               key={job.id} 
               className="flex-between align-center mobile-stack" 
               style={{ padding: '20px 0', borderBottom: index !== recentJobs.length - 1 ? '1px solid var(--border-color)' : 'none', cursor: 'pointer' }}
               onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })}
             >
-              <div>
+              <div style={{ width: '100%', minWidth: 0, paddingRight: '16px' }}>
                 <h4 className="text-lg m-0 mb-4 text-primary">
                   {job.title}
                 </h4>
                 
-                <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8 flex-wrap">
-                  <span>{job.company || 'Unknown Company'} {job.location && `• ${job.location}`}</span>
-                  {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
+                {/* 🚨 UPDATED: Company truncation logic */}
+                <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8" style={{ width: '100%', minWidth: 0 }}>
+                  <span 
+                    style={{ 
+                      whiteSpace: 'nowrap', 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis',
+                      maxWidth: '50%'
+                    }}
+                    title={job.company || 'Unknown Company'}
+                  >
+                    {job.company || 'Unknown Company'}
+                  </span>
+                  
+                  {job.location && (
+                    <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      • {job.location}
+                    </span>
+                  )}
+
+                  {job.is_deaf_accessible && (
+                    <div style={{ flexShrink: 0 }}>
+                      <DeafAccessibleBadge size="sm" showText={true} />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex-row gap-8 flex-wrap">
@@ -48,7 +69,7 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
                 </div>
               </div>
               
-              <button className="btn-outline btn-sm mobile-w-full">View Role</button>
+              <button className="btn-outline btn-sm mobile-w-full" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>View Role</button>
             </div>
           ))}
         </div>

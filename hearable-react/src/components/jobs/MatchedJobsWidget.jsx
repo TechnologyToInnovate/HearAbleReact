@@ -34,14 +34,13 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
       
       <div className="flex-col gap-0">
         {matchedJobs.map((job, index) => (
-          /* 🚨 'mobile-stack' added here */
           <div 
             key={job.id} 
             className="flex-between align-center mobile-stack" 
             style={{ padding: '20px 0', borderBottom: index !== matchedJobs.length - 1 ? '1px solid var(--border-color)' : 'none', cursor: 'pointer' }}
             onClick={() => onSelectJob(job.id)}
           >
-            <div>
+            <div style={{ width: '100%', minWidth: 0, paddingRight: '16px' }}>
               <h4 className="text-lg m-0 mb-4 text-primary flex-row align-center gap-8 flex-wrap">
                 {job.title}
                 <span style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
@@ -49,9 +48,31 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
                 </span>
               </h4>
               
-              <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8 flex-wrap">
-                <span>{job.company || 'Unknown Company'} {job.location && `• ${job.location}`}</span>
-                {job.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
+              {/* 🚨 UPDATED: Company truncation logic */}
+              <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8" style={{ width: '100%', minWidth: 0 }}>
+                <span 
+                  style={{ 
+                    whiteSpace: 'nowrap', 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis',
+                    maxWidth: '50%'
+                  }}
+                  title={job.company || 'Unknown Company'}
+                >
+                  {job.company || 'Unknown Company'}
+                </span>
+                
+                {job.location && (
+                  <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    • {job.location}
+                  </span>
+                )}
+
+                {job.is_deaf_accessible && (
+                  <div style={{ flexShrink: 0 }}>
+                    <DeafAccessibleBadge size="sm" showText={true} />
+                  </div>
+                )}
               </div>
               
               <div className="flex-row gap-8 flex-wrap">
@@ -68,7 +89,7 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
               </div>
             </div>
             
-            <button className="btn-outline btn-sm mobile-w-full">View Role</button>
+            <button className="btn-outline btn-sm mobile-w-full" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>View Role</button>
           </div>
         ))}
       </div>

@@ -16,6 +16,8 @@ export default function DeafAccessibleBadge({ size = 'sm', showText = true }) {
       display: 'inline-flex',
       alignItems: 'center',
       gap: '6px',
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
       ...styles[size] 
     }}>
       ✓ {showText ? (size === 'lg' ? 'Certified Deaf Accessible' : 'Deaf Accessible') : ''}
