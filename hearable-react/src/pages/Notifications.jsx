@@ -99,6 +99,21 @@ export default function Notifications() {
     setIsHistoryLoading(false);
   }
 
+  // 🚨 NEW: Deletes a specific global announcement from the history log
+  async function handleDeleteAnnouncement(id) {
+    if (!window.confirm("Are you sure you want to permanently delete this broadcast announcement?")) return;
+
+    const { error } = await supabase.from('system_announcements').delete().eq('id', id);
+
+    if (!error) {
+      // Optimistically remove the announcement from the local state
+      setBroadcastHistory(prev => prev.filter(item => item.id !== id));
+    } else {
+      console.error(error);
+      alert("Failed to delete announcement.");
+    }
+  }
+
   // Updates the unread status in the database and routes the user if a link is provided
   async function handleMarkAsRead(id, link) {
     await supabase.from('notifications').update({ is_read: true }).eq('id', id);
@@ -312,7 +327,19 @@ export default function Notifications() {
                       </div>
                     </div>
                     <p className="text-secondary m-0 mb-12 text-sm">{item.message}</p>
-                    <span className="text-sm text-secondary" style={{ fontSize: '0.75rem' }}>Sent: {new Date(item.created_at).toLocaleString()}</span>
+                    
+                    {/* 🚨 UPDATED: Delete Button added to the bottom row */}
+                    <div className="flex-between align-center">
+                      <span className="text-sm text-secondary" style={{ fontSize: '0.75rem' }}>
+                        Sent: {new Date(item.created_at).toLocaleString()}
+                      </span>
+                      <button 
+                        onClick={() => handleDeleteAnnouncement(item.id)}
+                        style={{ background: 'transparent', color: '#dc2626', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

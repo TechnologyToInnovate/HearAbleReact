@@ -8,9 +8,10 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
   const { user } = useAuth();
 
   const matchedJobs = jobs
+    // 🚨 REVERTED: Strictly filters out 0% matches to keep the feed highly relevant
     .filter(job => job.matchScore && job.matchScore > 0)
     .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 5); 
+    .slice(0, 6); 
 
   if (matchedJobs.length === 0) {
     return (
@@ -48,7 +49,6 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
                 </span>
               </h4>
               
-              {/* 🚨 UPDATED: Company truncation logic */}
               <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8" style={{ width: '100%', minWidth: 0 }}>
                 <span 
                   style={{ 
