@@ -18,7 +18,6 @@ export default function Admins({ role }) {
   const [adminMsg, setAdminMsg] = useState({ type: '', text: '' });
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
 
-  // Protect the route: ensure only admins can access this page
   useEffect(() => {
     if (role !== 'admin') { 
       navigate('/'); 
@@ -27,7 +26,6 @@ export default function Admins({ role }) {
     fetchAdmins();
   }, [role, navigate]);
 
-  // Fetch the list of all registered administrators from the database
   async function fetchAdmins() {
     setIsLoadingAdmins(true);
     const { data, error } = await supabase.from('admins').select('*').order('email', { ascending: true });
@@ -38,12 +36,10 @@ export default function Admins({ role }) {
     setIsLoadingAdmins(false);
   }
 
-  // Handles updating the currently logged-in admin's password via Supabase Auth
   async function handleUpdatePassword(e) {
     e.preventDefault();
     setPassMsg({ type: '', text: '' });
 
-    // Validate password length and match before submitting
     if (newPassword !== confirmPassword) { 
       setPassMsg({ type: 'error', text: 'Passwords do not match.' }); 
       return; 
@@ -66,26 +62,49 @@ export default function Admins({ role }) {
     }
   }
 
-  // Grants admin privileges to a new user by adding their email to the admins table
   async function handleAddAdmin(e) {
     e.preventDefault();
     setAdminMsg({ type: '', text: '' });
     if (!newAdminEmail.trim()) return;
 
     setIsAddingAdmin(true);
-    const { error } = await supabase.from('admins').insert([{ email: newAdminEmail.trim().toLowerCase() }]);
-    setIsAddingAdmin(false);
+    const emailToCheck = newAdminEmail.trim().toLowerCase();
 
-    if (error) {
-      setAdminMsg({ type: 'error', text: 'Failed to add. This email might already be an admin.' });
-    } else {
+    try {
+      // 🚨 CROSS-VERIFICATION SECURITY CHECKS
+      
+      // 1. Check if email is already a Company
+      const { data: isCompany } = await supabase.from('pre_approved_companies').select('email').eq('email', emailToCheck).maybeSingle();
+      if (isCompany) {
+        setAdminMsg({ type: 'error', text: 'Blocked: This email is already registered as a Company.' });
+        setIsAddingAdmin(false);
+        return;
+      }
+
+      // 2. Check if email is already a Standard User
+      const { data: isUser } = await supabase.from('profiles').select('id').eq('email', emailToCheck).maybeSingle();
+      if (isUser) {
+        setAdminMsg({ type: 'error', text: 'Blocked: This email is already registered as a Standard User.' });
+        setIsAddingAdmin(false);
+        return;
+      }
+
+      // If checks pass, proceed with insertion
+      const { error } = await supabase.from('admins').insert([{ email: emailToCheck }]);
+      
+      if (error) throw error;
+
       setAdminMsg({ type: 'success', text: 'Administrator added successfully!' });
       setNewAdminEmail(''); 
       fetchAdmins(); 
+
+    } catch (error) {
+      setAdminMsg({ type: 'error', text: 'Failed to add. This email might already be an admin.' });
+    } finally {
+      setIsAddingAdmin(false);
     }
   }
 
-  // Revokes admin privileges from a user
   async function handleRemoveAdmin(id, email) {
     if (!window.confirm(`Are you sure you want to revoke admin privileges for ${email}?`)) return;
     
@@ -97,7 +116,6 @@ export default function Admins({ role }) {
     }
   }
 
-  // Helper function to render success or error messages in the UI consistently
   const renderMessage = (msgObj) => {
     if (!msgObj.text) return null;
     const isError = msgObj.type === 'error';
@@ -116,7 +134,6 @@ export default function Admins({ role }) {
         <button className="btn-outline btn-sm" onClick={() => navigate('/')}>← Back to Home</button>
       </div>
 
-      {/* --- Security Section: Update Current Admin Password --- */}
       <div className="card p-32">
         <h2 style={{ margin: '0 0 8px 0' }}>Security</h2>
         <p className="text-secondary mb-24">Update the password for your current administrator account.</p>
@@ -137,7 +154,6 @@ export default function Admins({ role }) {
         </form>
       </div>
 
-      {/* --- Access Management Section: Add or Remove Administrators --- */}
       <div className="card p-0" style={{ overflow: 'hidden' }}>
         <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <h2 style={{ margin: '0 0 8px 0' }}>Manage Access</h2>
@@ -166,7 +182,6 @@ export default function Admins({ role }) {
                       <div className="avatar" style={{ width: '32px', height: '32px', fontSize: '0.9rem', flexShrink: 0 }}>A</div>
                       <span style={{ fontWeight: '500' }}>{admin.email}</span>
                     </div>
-                    {/* Protect the master admin account from being removed via the UI */}
                     {admin.email !== 'admin@hearable.com' ? (
                       <button onClick={() => handleRemoveAdmin(admin.id, admin.email)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem' }}>
                         Revoke Access

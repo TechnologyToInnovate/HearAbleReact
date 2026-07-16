@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-
-// Custom hooks and utilities for fetching, sorting, and formatting company data
 import { useCompanies } from '../hooks/useCompanies';
 import { sortData } from '../utils/sortUtils';
 import { formatLocation } from '../utils/formatUtils';
 import { formatShortDate } from '../utils/dateUtils';
-
-// Shared UI Components
 import SearchBar from '../components/common/SearchBar';
 import Avatar from '../components/common/Avatar';
 import StatusBadge from '../components/common/StatusBadge';
@@ -16,24 +12,17 @@ import DeafAccessibleBadge from '../components/common/DeafAccessibleBadge';
 
 export default function Companies({ role }) {
   const navigate = useNavigate();
-  
-  // Fetch company data and manage loading/refetching states via our custom hook
   const { companies, isLoading, setCompanies, refetch } = useCompanies();
   
-  // UI filters and sorting state
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   const [sortBy, setSortBy] = useState('name_asc'); 
-
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const companiesPerPage = 10;
 
-  // Admin Add Company Form visibility and submission loading states
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State for capturing new company details in the pre-approval admin form
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newCountry, setNewCountry] = useState('');
@@ -44,23 +33,39 @@ export default function Companies({ role }) {
   const [newWebsite, setNewWebsite] = useState('');
   const [newDescription, setNewDescription] = useState('');
 
-  // Reset pagination to the first page whenever search filters or sorting criteria change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, activeTab, sortBy]);
 
-  // Automatically default to sorting by oldest first when viewing the 'Pending' queue
   useEffect(() => {
     setSortBy(activeTab === 'Pending' ? 'date_asc' : 'name_asc');
   }, [activeTab]);
 
-  // Handles the submission of the admin form to pre-approve a new company
   async function handleAddCompany(e) {
     e.preventDefault();
     setIsSubmitting(true);
+    const emailToCheck = newEmail.toLowerCase().trim();
 
     try {
-      // 1. Locations are stored in a separate table. We must insert the location first to generate a foreign key location_id.
+      // 🚨 CROSS-VERIFICATION SECURITY CHECKS
+
+      // 1. Check if email is already an Administrator
+      const { data: isAdmin } = await supabase.from('admins').select('email').eq('email', emailToCheck).maybeSingle();
+      if (isAdmin) {
+        alert("Registration Blocked: This email is already registered as a System Administrator.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 2. Check if email is already a Standard User
+      const { data: isUser } = await supabase.from('profiles').select('id').eq('email', emailToCheck).maybeSingle();
+      if (isUser) {
+        alert("Registration Blocked: This email is already registered as a Standard User.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Proceed with inserting location first
       let locationId = null;
       if (newCountry.trim() || newCity.trim() || newPostalCode.trim()) {
         const { data: locData, error: locError } = await supabase
@@ -77,9 +82,9 @@ export default function Companies({ role }) {
         if (locData) locationId = locData.id;
       }
 
-      // 2. Insert the company into the pre-approved roster. When they register, these details will automatically populate their profile.
+      // Insert company into pre_approved_companies
       const { error: companyError } = await supabase.from('pre_approved_companies').insert([{
-        email: newEmail.toLowerCase().trim(), 
+        email: emailToCheck, 
         name: newName, 
         location_id: locationId,
         industry: newIndustry.trim() || null, 
@@ -90,42 +95,34 @@ export default function Companies({ role }) {
 
       if (companyError) throw companyError;
 
-      alert(`Success! ${newEmail} is on the roster.`);
+      alert(`Success! ${emailToCheck} is on the roster.`);
       
-      // Clear form fields on successful insertion
       setNewEmail(''); setNewName(''); setNewCountry(''); setNewCity(''); setNewPostalCode('');
       setNewIndustry(''); setNewFoundedYear(''); setNewWebsite(''); setNewDescription('');
       setShowAddForm(false);
-      
-      // Refresh the main list to show the newly added pre-approved company
       refetch(); 
       
     } catch (error) {
       console.error(error);
-      alert("Failed to pre-approve company.");
+      alert("Failed to pre-approve company. Ensure the email is not already on the roster.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  // Updates the administrative status of a company (e.g., Active, Inactive, Archived)
   async function handleUpdateStatus(e, id, newStatus) {
-    e.stopPropagation(); // Prevent the click from triggering the parent card's navigation
+    e.stopPropagation(); 
     const updatePayload = { status: newStatus };
-    
-    // Timestamp the approval time if the company is being set to Active
     if (newStatus === 'Active') updatePayload.approved_at = new Date().toISOString();
 
     const { error } = await supabase.from('companies').update(updatePayload).eq('id', id);
     if (!error) {
-      // Optimistically update local state instead of doing a full refetch
       setCompanies(companies.map(c => c.id === id ? { ...c, status: newStatus } : c));
     } else {
       alert("Failed to update status.");
     }
   }
 
-  // Toggles the deaf-accessible status/badge for a specific company profile
   async function handleToggleDeafAccessibility(e, id, currentStatus) {
     e.stopPropagation();
     const newStatus = !currentStatus;
@@ -138,9 +135,7 @@ export default function Companies({ role }) {
     }
   }
 
-  // Filter the full list of companies based on the user's search query and active tab
   let filteredCompanies = companies.filter(company => {
-    // 🚨 DEFENSIVE FALLBACK: Check both the nested location object and root properties
     const searchCity = company.locations?.city || company.city || '';
     const searchCountry = company.locations?.country || company.country || '';
 
@@ -149,20 +144,15 @@ export default function Companies({ role }) {
       searchCity.toLowerCase().includes(searchQuery.toLowerCase()) ||
       searchCountry.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Normalize 'Approved' statuses to 'Active' so our display logic is consistent
     const currentStatus = company.status === 'Approved' ? 'Active' : (company.status || 'Active');
 
-    // Standard users should only ever see Active/Approved companies
     if (role !== 'admin') return matchesSearch && currentStatus === 'Active';
 
     const matchesTab = activeTab === 'All' ? true : currentStatus === activeTab;
     return matchesSearch && matchesTab;
   });
 
-  // Apply selected sorting criteria
   const sortedCompanies = sortData(filteredCompanies, sortBy, 'name', 'created_at');
-
-  // Calculate pagination slices
   const indexOfLastCompany = currentPage * companiesPerPage;
   const indexOfFirstCompany = indexOfLastCompany - companiesPerPage;
   const currentCompanies = sortedCompanies.slice(indexOfFirstCompany, indexOfLastCompany);
@@ -257,8 +247,6 @@ export default function Companies({ role }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
               {currentCompanies.map(company => {
                 const currentStatus = company.status === 'Approved' ? 'Active' : (company.status || 'Active');
-                
-                //Check both the nested location fields and root fallback
                 const city = company.locations?.city || company.city;
                 const country = company.locations?.country || company.country;
                 const locationText = formatLocation(city, country);
@@ -271,29 +259,19 @@ export default function Companies({ role }) {
                     onClick={() => !company.isPreApprovedOnly && navigate(`/company/${company.id}`)}
                   >
                     <div className="flex-between-start mb-16">
-                      
-                      {/* Left container: Avatar and Name, using truncation to prevent layout breaking on long company titles */}
                       <div className="flex-row gap-16 align-start" style={{ flex: 1, minWidth: 0, paddingRight: '16px' }}>
                         <div style={{ flexShrink: 0 }}>
                           <Avatar src={company.logo_url} fallbackName={company.name} size="md" type="company" />
                         </div>
-                        
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <h3 
-                            className="text-lg" 
-                            style={{ margin: '0 0 4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                            title={company.name}
-                          >
+                          <h3 className="text-lg" style={{ margin: '0 0 4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={company.name}>
                             {company.name}
                           </h3>
-                          
-                          {/* Only admins can view the email address directly on the cards */}
                           {role === 'admin' && (
                             <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {company.email || 'Email not provided'}
                             </p>
                           )}
-                          
                           <p className="text-sm text-secondary" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {locationText}
                             {company.founded_year && ` • Est. ${company.founded_year}`}
@@ -301,10 +279,8 @@ export default function Companies({ role }) {
                         </div>
                       </div>
 
-                      {/* Right container: Badges and Admin status indicators */}
                       <div className="flex-col align-end gap-8" style={{ flexShrink: 0 }}>
                         {company.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
-                        
                         {role === 'admin' && (
                           <>
                             <StatusBadge status={currentStatus} />
