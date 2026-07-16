@@ -7,7 +7,8 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
 
   return (
     <>
-      <div className="flex-between align-center mb-16" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+      {/* 🚨 UPDATED: Added flex-wrap and gap to prevent header text and button collision */}
+      <div className="flex-between align-center mb-16 flex-wrap gap-12" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
         <h3 className="m-0">Recently Posted Jobs</h3>
         <button className="btn-outline btn-sm" onClick={() => navigate('/jobs')}>View All Jobs</button>
       </div>
@@ -28,7 +29,6 @@ export default function RecentJobsCard({ recentJobs, isLoading }) {
                   {job.title}
                 </h4>
                 
-                {/* 🚨 UPDATED: Company truncation logic */}
                 <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8" style={{ width: '100%', minWidth: 0 }}>
                   <span 
                     style={{ 

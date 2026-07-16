@@ -207,7 +207,9 @@ return (
           <p className="text-lg m-0 mb-32" style={{ color: 'var(--bg-color)', opacity: 0.9 }}>
             Connect with top companies and find the perfect role for your skills.
           </p>
-          <div className="flex-row gap-16 align-center" style={{ justifyContent: 'center' }}>
+          
+          {/* 🚨 UPDATED: Added mobile-action-group to stack buttons seamlessly on smaller screens */}
+          <div className="flex-row gap-16 align-center mobile-action-group" style={{ justifyContent: 'center' }}>
             <button onClick={() => navigate('/jobs')} style={{ backgroundColor: 'var(--card-bg)', color: 'var(--primary-color)', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
               Browse Jobs
             </button>

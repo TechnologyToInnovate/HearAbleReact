@@ -72,7 +72,8 @@ export default function JobDetailsPane({
           </div>
         )}
 
-        <div className="flex-between-start mb-12">
+        {/* 🚨 UPDATED: Added mobile-stack so the date moves underneath the title on small screens */}
+        <div className="flex-between-start mb-12 mobile-stack">
           <h1 className="m-0" style={{ fontSize: '1.75rem', paddingRight: '16px', lineHeight: '1.2' }}>
             {selectedJob.title}
           </h1>
@@ -120,7 +121,7 @@ export default function JobDetailsPane({
             </button>
           </div>
         ) : (role !== 'company' && role !== 'admin') ? (
-          <div className="flex-row gap-12 mt-8">
+          <div className="flex-row gap-12 mt-8 mobile-action-group">
             <button className={`btn-apply ${hasApplied ? 'success' : ''}`} style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleApply} disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}>
               {isApplying ? 'Sending Application...' : hasApplied ? 'Application Sent' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
             </button>
@@ -131,7 +132,6 @@ export default function JobDetailsPane({
         ) : null}
       </div>
 
-      {/* BODY SECTION */}
       <div className="p-24" style={{ flex: 1 }}>
         
         <h3 className="mb-16 m-0" style={{ fontSize: '1.2rem' }}>Job Details</h3>
@@ -212,7 +212,6 @@ export default function JobDetailsPane({
                 >
                   {selectedCompany.name}
                 </h4>
-                {/* 🚨 FIX 4: Corrected to use the nested locations object instead of the deleted columns */}
                 <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>
                   {formatLocation(selectedCompany.locations?.city, selectedCompany.locations?.country, "Location not specified")}
                 </p>
