@@ -18,7 +18,7 @@ export default function Companies({ role }) {
   const [activeTab, setActiveTab] = useState('All');
   const [sortBy, setSortBy] = useState('name_asc'); 
   const [currentPage, setCurrentPage] = useState(1);
-  const companiesPerPage = 10;
+  const companiesPerPage = 6;
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,9 +47,6 @@ export default function Companies({ role }) {
     const emailToCheck = newEmail.toLowerCase().trim();
 
     try {
-      // 🚨 CROSS-VERIFICATION SECURITY CHECKS
-
-      // 1. Check if email is already an Administrator
       const { data: isAdmin } = await supabase.from('admins').select('email').eq('email', emailToCheck).maybeSingle();
       if (isAdmin) {
         alert("Registration Blocked: This email is already registered as a System Administrator.");
@@ -57,7 +54,6 @@ export default function Companies({ role }) {
         return;
       }
 
-      // 2. Check if email is already a Standard User
       const { data: isUser } = await supabase.from('profiles').select('id').eq('email', emailToCheck).maybeSingle();
       if (isUser) {
         alert("Registration Blocked: This email is already registered as a Standard User.");
@@ -65,7 +61,6 @@ export default function Companies({ role }) {
         return;
       }
 
-      // Proceed with inserting location first
       let locationId = null;
       if (newCountry.trim() || newCity.trim() || newPostalCode.trim()) {
         const { data: locData, error: locError } = await supabase
@@ -82,7 +77,6 @@ export default function Companies({ role }) {
         if (locData) locationId = locData.id;
       }
 
-      // Insert company into pre_approved_companies
       const { error: companyError } = await supabase.from('pre_approved_companies').insert([{
         email: emailToCheck, 
         name: newName, 
@@ -244,7 +238,7 @@ export default function Companies({ role }) {
           {isLoading ? (
             <p className="text-center text-secondary">Loading companies...</p>
           ) : currentCompanies.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '20px' }}>
               {currentCompanies.map(company => {
                 const currentStatus = company.status === 'Approved' ? 'Active' : (company.status || 'Active');
                 const city = company.locations?.city || company.city;
@@ -254,11 +248,11 @@ export default function Companies({ role }) {
                 return (
                   <div
                     key={company.id}
-                    className="card p-20"
+                    className="card p-16"
                     style={{ display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer', opacity: currentStatus === 'Archived' ? 0.6 : 1 }}
                     onClick={() => !company.isPreApprovedOnly && navigate(`/company/${company.id}`)}
                   >
-                    <div className="flex-between-start mb-16">
+                    <div className="flex-between-start mb-12">
                       <div className="flex-row gap-16 align-start" style={{ flex: 1, minWidth: 0, paddingRight: '16px' }}>
                         <div style={{ flexShrink: 0 }}>
                           <Avatar src={company.logo_url} fallbackName={company.name} size="md" type="company" />
@@ -292,7 +286,7 @@ export default function Companies({ role }) {
                       </div>
                     </div>
 
-                    <p className="text-sm text-secondary mb-24" style={{ lineHeight: '1.5', flexGrow: 1, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <p className="text-sm text-secondary mb-16" style={{ lineHeight: '1.5', flexGrow: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {company.description || "No description provided."}
                     </p>
 
@@ -343,8 +337,8 @@ export default function Companies({ role }) {
                 Showing {indexOfFirstCompany + 1} to {Math.min(indexOfLastCompany, sortedCompanies.length)} of {sortedCompanies.length} companies
               </p>
               <div className="flex-row gap-8">
-                <button className="btn-outline btn-sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>Previous</button>
-                <button className="btn-outline btn-sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>Next</button>
+                <button className="btn-outline btn-sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>&larr; Previous</button>
+                <button className="btn-outline btn-sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>Next &rarr;</button>
               </div>
             </div>
           )}

@@ -24,10 +24,19 @@ export default function Users({ role }) {
   const [filterDegree, setFilterDegree] = useState('All');
   const [filterBatch, setFilterBatch] = useState('All');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 6;
+
   // Protect the route: Only admins can access the user management dashboard
   useEffect(() => {
     if (role !== 'admin') navigate('/');
   }, [role, navigate]);
+
+  // Reset pagination to the first page whenever search filters or sorting criteria change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeTab, sortBy, filterDegree, filterBatch]);
 
   // Automatically default to sorting by oldest first when viewing the 'Pending' queue
   useEffect(() => {
@@ -38,17 +47,14 @@ export default function Users({ role }) {
   async function handleUpdateStatus(userId, newStatus) {
     const updatePayload = { 
       status: newStatus,
-      // Timestamp the approval if the admin is setting the status to 'Approved'
       ...(newStatus === 'Approved' ? { approved_at: new Date().toISOString() } : {})
     };
 
     const { error } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
 
     if (!error) {
-      // Optimistically update the local state to reflect the change immediately
       setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u));
       
-      // If approved, automatically trigger a welcome/approval notification to the user
       if (newStatus === 'Approved') {
         await supabase.from('notifications').insert([{
           user_id: userId, title: 'Account Approved!', 
@@ -92,6 +98,12 @@ export default function Users({ role }) {
 
   // Apply the selected sorting criteria to the filtered list
   const sortedUsers = sortData(processedUsers, sortBy, 'name', 'created_at');
+
+  // Calculate pagination slices
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = sortedUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(sortedUsers.length / usersPerPage);
 
   return (
     <div className="page-container-wide">
@@ -150,12 +162,12 @@ export default function Users({ role }) {
       {/* --- USER GRID --- */}
       {isLoading ? (
         <p className="text-center text-secondary mt-32">Loading users...</p>
-      ) : sortedUsers.length > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-          {sortedUsers.map(user => (
-            <div key={user.id} className="card p-20 flex-col" style={{ height: '100%', opacity: user.status === 'Archived' ? 0.6 : 1, minWidth: 0 }}>
+      ) : currentUsers.length > 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '20px' }}>
+          {currentUsers.map(user => (
+            <div key={user.id} className="card p-16 flex-col" style={{ height: '100%', opacity: user.status === 'Archived' ? 0.6 : 1, minWidth: 0 }}>
 
-              <div className="flex-between-start mb-16">
+              <div className="flex-between-start mb-12">
                 
                 {/* Left section: Avatar, Name, Email */}
                 <div 
@@ -192,7 +204,7 @@ export default function Users({ role }) {
               </div>
 
               {/* Middle section: Education Details */}
-              <div className="mb-24 flex-grow" style={{ background: 'var(--bg-color)', padding: '12px', borderRadius: '8px', minWidth: 0 }}>
+              <div className="mb-16 flex-grow" style={{ background: 'var(--bg-color)', padding: '12px', borderRadius: '8px', minWidth: 0 }}>
                 <div style={{ marginBottom: '8px', minWidth: 0 }}>
                   <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '2px' }}>Degree</span>
                   <strong 
@@ -249,6 +261,18 @@ export default function Users({ role }) {
         <div className="card text-center text-secondary p-32 mt-32">
           <h3 className="mb-8">No users found</h3>
           <p>Try adjusting your search or filters.</p>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex-between align-center mt-32">
+          <p className="text-sm text-secondary" style={{ margin: 0 }}>
+            Showing {indexOfFirstUser + 1} to {Math.min(indexOfLastUser, sortedUsers.length)} of {sortedUsers.length} users
+          </p>
+          <div className="flex-row gap-8">
+            <button className="btn-outline btn-sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>&larr; Previous</button>
+            <button className="btn-outline btn-sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>Next &rarr;</button>
+          </div>
         </div>
       )}
     </div>

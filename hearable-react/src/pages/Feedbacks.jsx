@@ -70,6 +70,21 @@ export default function Feedbacks() {
     setIsSubmitting(false);
   }
 
+  // Deletes a feedback entry from the database (Admin or Original Owner)
+  async function handleDeleteFeedback(id) {
+    if (!window.confirm("Are you sure you want to permanently delete this feedback?")) return;
+
+    const { error } = await supabase.from('feedbacks').delete().eq('id', id);
+
+    if (!error) {
+      // Instantly remove the deleted feedback from the UI
+      setFeedbacks(feedbacks.filter(fb => fb.id !== id));
+    } else {
+      console.error(error);
+      alert("Failed to delete feedback.");
+    }
+  }
+
   // Restrict access: companies are not permitted to use the feedback system
   if (role === 'company') {
     return <div className="page-container-wide"><p className="text-center p-32">This page is for standard users and admins only.</p></div>;
@@ -181,9 +196,23 @@ export default function Feedbacks() {
                 <p className="m-0" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>"{fb.message}"</p>
               </div>
               
-              <p className="text-secondary text-sm mt-16 m-0 text-right">
-                Submitted: {formatStandardDate(fb.created_at)}
-              </p>
+              {/* Bottom row housing the Admin/User Delete Button and the Date */}
+              <div className="flex-between align-center mt-16">
+                <div>
+                  {/* Both Admins and the original author can now see the delete button */}
+                  {(role === 'admin' || fb.user_id === currentUser?.id) && (
+                    <button 
+                      className="btn-danger btn-sm" 
+                      onClick={() => handleDeleteFeedback(fb.id)}
+                    >
+                      Delete Feedback
+                    </button>
+                  )}
+                </div>
+                <p className="text-secondary text-sm m-0">
+                  Submitted: {formatStandardDate(fb.created_at)}
+                </p>
+              </div>
             </div>
           ))}
         </div>

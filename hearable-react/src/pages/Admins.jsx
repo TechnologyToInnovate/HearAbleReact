@@ -5,12 +5,6 @@ import { useNavigate } from 'react-router-dom';
 export default function Admins({ role }) {
   const navigate = useNavigate();
 
-  // --- PASSWORD MANAGEMENT STATE ---
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [passMsg, setPassMsg] = useState({ type: '', text: '' });
-
   // --- ADMIN LIST MANAGEMENT STATE ---
   const [adminsList, setAdminsList] = useState([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
@@ -18,6 +12,7 @@ export default function Admins({ role }) {
   const [adminMsg, setAdminMsg] = useState({ type: '', text: '' });
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
 
+  // Protect the route: ensure only admins can access this page
   useEffect(() => {
     if (role !== 'admin') { 
       navigate('/'); 
@@ -26,6 +21,7 @@ export default function Admins({ role }) {
     fetchAdmins();
   }, [role, navigate]);
 
+  // Fetch the list of all registered administrators from the database
   async function fetchAdmins() {
     setIsLoadingAdmins(true);
     const { data, error } = await supabase.from('admins').select('*').order('email', { ascending: true });
@@ -36,32 +32,7 @@ export default function Admins({ role }) {
     setIsLoadingAdmins(false);
   }
 
-  async function handleUpdatePassword(e) {
-    e.preventDefault();
-    setPassMsg({ type: '', text: '' });
-
-    if (newPassword !== confirmPassword) { 
-      setPassMsg({ type: 'error', text: 'Passwords do not match.' }); 
-      return; 
-    }
-    if (newPassword.length < 6) { 
-      setPassMsg({ type: 'error', text: 'Password must be at least 6 characters long.' }); 
-      return; 
-    }
-
-    setIsUpdatingPassword(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setIsUpdatingPassword(false);
-
-    if (error) {
-      setPassMsg({ type: 'error', text: error.message });
-    } else {
-      setPassMsg({ type: 'success', text: 'Password updated successfully!' });
-      setNewPassword(''); 
-      setConfirmPassword('');
-    }
-  }
-
+  // Grants admin privileges to a new user by adding their email to the admins table
   async function handleAddAdmin(e) {
     e.preventDefault();
     setAdminMsg({ type: '', text: '' });
@@ -105,6 +76,7 @@ export default function Admins({ role }) {
     }
   }
 
+  // Revokes admin privileges from a user
   async function handleRemoveAdmin(id, email) {
     if (!window.confirm(`Are you sure you want to revoke admin privileges for ${email}?`)) return;
     
@@ -116,6 +88,7 @@ export default function Admins({ role }) {
     }
   }
 
+  // Helper function to render success or error messages in the UI consistently
   const renderMessage = (msgObj) => {
     if (!msgObj.text) return null;
     const isError = msgObj.type === 'error';
@@ -134,26 +107,7 @@ export default function Admins({ role }) {
         <button className="btn-outline btn-sm" onClick={() => navigate('/')}>← Back to Home</button>
       </div>
 
-      <div className="card p-32">
-        <h2 style={{ margin: '0 0 8px 0' }}>Security</h2>
-        <p className="text-secondary mb-24">Update the password for your current administrator account.</p>
-        {renderMessage(passMsg)}
-        
-        <form onSubmit={handleUpdatePassword} className="flex-col gap-16" style={{ maxWidth: '400px' }}>
-          <div>
-            <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>New Password</label>
-            <input type="password" className="search-input w-full" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} />
-          </div>
-          <div>
-            <label className="mb-8" style={{ display: 'block', fontWeight: '500' }}>Confirm New Password</label>
-            <input type="password" className="search-input w-full" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength={6} />
-          </div>
-          <button type="submit" className="btn-black mt-8" disabled={isUpdatingPassword} style={{ width: 'fit-content' }}>
-            {isUpdatingPassword ? 'Updating...' : 'Change Password'}
-          </button>
-        </form>
-      </div>
-
+      {/* --- Access Management Section: Add or Remove Administrators --- */}
       <div className="card p-0" style={{ overflow: 'hidden' }}>
         <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <h2 style={{ margin: '0 0 8px 0' }}>Manage Access</h2>
@@ -182,6 +136,7 @@ export default function Admins({ role }) {
                       <div className="avatar" style={{ width: '32px', height: '32px', fontSize: '0.9rem', flexShrink: 0 }}>A</div>
                       <span style={{ fontWeight: '500' }}>{admin.email}</span>
                     </div>
+                    {/* Protect the master admin account from being removed via the UI */}
                     {admin.email !== 'admin@hearable.com' ? (
                       <button onClick={() => handleRemoveAdmin(admin.id, admin.email)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontWeight: '500', fontSize: '0.9rem' }}>
                         Revoke Access
