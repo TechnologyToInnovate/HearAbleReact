@@ -24,6 +24,7 @@ import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import Resumes from './pages/Resumes';
 import Feedbacks from './pages/Feedbacks';
+import ResetPassword from './pages/ResetPassword'; 
 
 // --- ADMIN PAGES ---
 import Degrees from './pages/Degrees';
@@ -114,6 +115,8 @@ function AppRoutes() {
 
           <Route path="/settings" element={role === 'guest' ? <Navigate to="/login" /> : <Settings role={role} setRole={setRole} />} />
           <Route path="/notifications" element={role === 'guest' ? <Navigate to="/login" /> : <Notifications />} />
+          
+          <Route path="/reset-password" element={<ResetPassword />} /> 
 
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsAndConditions />} />
