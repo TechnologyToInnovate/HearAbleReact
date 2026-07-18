@@ -99,7 +99,6 @@ export default function Navbar() {
     <ul className="nav-links">
       <li><Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Home</Link></li>
       
-      {/* 🚨 UPDATED: Dynamic text for the Jobs route based on role */}
       <li>
         <Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>
           {role === 'admin' ? 'Manage Jobs' : 'Job Postings'}
@@ -109,15 +108,22 @@ export default function Navbar() {
       {['user', 'pending_user', 'rejected_user', 'guest'].includes(role) && (
         <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Companies</Link></li>
       )}
+      
       {['user', 'pending_user', 'rejected_user'].includes(role) && (
-        <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Feedback</Link></li>
+        <>
+          <li><Link to="/user-jobs" className={`nav-link ${location.pathname === '/user-jobs' ? 'active' : ''}`}>Applications</Link></li>
+          <li><Link to="/resumes" className={`nav-link ${location.pathname === '/resumes' ? 'active' : ''}`}>Resumes</Link></li>
+          <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Feedback</Link></li>
+        </>
       )}
+
       {role === 'company' && (
         <>
-          <li><Link to="/my-jobs" className={`nav-link ${location.pathname === '/my-jobs' ? 'active' : ''}`}>My Postings</Link></li>
+          <li><Link to="/my-jobs" className={`nav-link ${location.pathname === '/my-jobs' ? 'active' : ''}`}>Postings</Link></li>
           <li><Link to="/applicants" className={`nav-link ${location.pathname === '/applicants' ? 'active' : ''}`}>Applicants</Link></li>
         </>
       )}
+      
       {role === 'admin' && (
         <>
           <li><Link to="/users" className={`nav-link ${['/users', '/degrees', '/skills', '/batches'].includes(location.pathname) ? 'active' : ''}`}>Manage Users</Link></li>
@@ -144,16 +150,7 @@ export default function Navbar() {
         {!isMinimalNav && (
           <div className="user-profile desktop-user-profile flex-row align-center gap-16">
             <div className="flex-row align-center gap-4">
-              {['user', 'pending_user', 'rejected_user'].includes(role) && (
-                <>
-                  <button onClick={() => navigate('/resumes')} className="nav-icon-btn" title="My Resumes">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-                  </button>
-                  <button onClick={() => navigate('/user-jobs')} className="nav-icon-btn" title="My Applications">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
-                  </button>
-                </>
-              )}
+              
               {role !== 'guest' && (
                 <button onClick={() => navigate('/notifications')} className="nav-icon-btn" title="Notifications" style={{ position: 'relative' }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
@@ -215,11 +212,10 @@ export default function Navbar() {
         )}
       </div>
 
-{isMobileMenuOpen && !isMinimalNav && (
+      {isMobileMenuOpen && !isMinimalNav && (
         <div className="mobile-nav-dropdown">
           <NavLinksList />
           
-          {/* 🚨 NEW: Added the missing Profile & Admin Links specifically for the mobile view */}
           {user && role !== 'guest' && !isOnboarding && (
             <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '16px', marginTop: '-8px' }}>
               {role === 'company' && (

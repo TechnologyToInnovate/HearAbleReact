@@ -7,13 +7,13 @@ import EditCompanyModal from '../components/modals/EditCompanyModal';
 import JobCard from '../components/jobs/JobCard';
 import Avatar from '../components/common/Avatar';
 import DeafAccessibleBadge from '../components/common/DeafAccessibleBadge';
+import StatusBadge from '../components/common/StatusBadge'; // 🚨 NEW: Imported StatusBadge
 import { formatLocation } from '../utils/formatUtils';
 import { formatStandardDate } from '../utils/dateUtils';
 
 export default function CompanyProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  // 🚨 UPDATED: Extract the role from useAuth so we can check if they are a guest
   const { user: currentUser, role } = useAuth(); 
   
   const [company, setCompany] = useState(null);
@@ -22,12 +22,10 @@ export default function CompanyProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [refreshData, setRefreshData] = useState(0);
 
-  // Fetch company profile, associated location, contact details, and active jobs
   useEffect(() => {
     async function fetchCompanyData() {
       setIsLoading(true);
 
-      // Fetch company data along with its joined location and contact details
       const { data: companyData } = await supabase
         .from('companies')
         .select('*, locations(*), company_contacts(*)')
@@ -36,7 +34,6 @@ export default function CompanyProfile() {
         
       if (companyData) setCompany(companyData);
       
-      // If the company exists, fetch their active job postings
       if (companyData) {
         const { data: jobsData } = await supabase
           .from('jobs')
@@ -58,19 +55,46 @@ export default function CompanyProfile() {
     fetchCompanyData();
   }, [id, refreshData]); 
 
+  // 🚨 NEW: Admin action to update company status
+  async function handleUpdateStatus(newStatus) {
+    if (role !== 'admin') return;
+    const updatePayload = { status: newStatus };
+    if (newStatus === 'Active') updatePayload.approved_at = new Date().toISOString();
+
+    const { error } = await supabase.from('companies').update(updatePayload).eq('id', company.id);
+    if (!error) {
+      setCompany({ ...company, status: newStatus });
+    } else {
+      alert("Failed to update status.");
+    }
+  }
+
+  // 🚨 NEW: Admin action to toggle accessibility
+  async function handleToggleDeafAccessibility() {
+    if (role !== 'admin') return;
+    const newStatus = !company.is_deaf_accessible;
+    const { error } = await supabase.from('companies').update({ is_deaf_accessible: newStatus }).eq('id', company.id);
+    
+    if (!error) {
+      setCompany({ ...company, is_deaf_accessible: newStatus });
+    } else {
+      alert("Failed to update accessibility status.");
+    }
+  }
+
   if (isLoading) return <div className="page-container-wide text-center mt-32"><p className="text-secondary">Loading company profile...</p></div>;
   if (!company) return <div className="page-container-wide text-center mt-32"><h2>🏢</h2><p className="text-secondary">Company not found.</p></div>;
 
-  // Determine if the current user is viewing their own company profile
   const isOwnProfile = currentUser?.id === id;
+  const isAdmin = role === 'admin';
   
-  // Safely extract and format location data from the joined locations table
   const loc = company.locations || {};
   const locationText = formatLocation(loc.city, loc.country, '');
   
-  // Safely extract the primary contact person's details, if available
   const contact = company.company_contacts && company.company_contacts.length > 0 ? company.company_contacts[0] : {};
   const hasContact = contact.name || contact.email || contact.contact_number;
+
+  const currentStatus = company.status === 'Approved' ? 'Active' : (company.status || 'Active');
 
   return (
     <div className="page-container-wide">
@@ -81,8 +105,7 @@ export default function CompanyProfile() {
         />
       )}
 
-      {/* --- HERO SECTION: Displays company logo, name, accessibility badge, and basic info --- */}
-      <div className="card p-0 mb-32" style={{ overflow: 'hidden' }}>
+      <div className="card p-0 mb-24" style={{ overflow: 'hidden' }}>
         <div style={{ height: '120px', backgroundColor: 'var(--primary-color)', opacity: 0.9 }}></div>
         
         <div style={{ padding: '0 32px 32px 32px', position: 'relative' }}>
@@ -119,10 +142,34 @@ export default function CompanyProfile() {
         </div>
       </div>
 
-      {/* --- PROFILE BODY: Displays description, active jobs, and company details --- */}
+      {/* 🚨 NEW: Dedicated Admin Controls Bar */}
+      {isAdmin && (
+        <div className="card p-16 mb-32 flex-between align-center" style={{ border: '1px solid var(--primary-color)', background: 'var(--card-bg)' }}>
+          <div className="flex-row gap-12 align-center">
+            <strong style={{ color: 'var(--primary-color)' }}>Admin Controls:</strong>
+            <StatusBadge status={currentStatus} />
+          </div>
+          <div className="flex-row gap-8 flex-wrap">
+            {currentStatus !== 'Active' && <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Active')} style={{ borderColor: '#86efac', color: '#166534', background: '#ecfdf5' }}>Set Active</button>}
+            {currentStatus !== 'Inactive' && <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Inactive')} style={{ borderColor: '#fde047', color: '#854d0e', background: '#fefce8' }}>Set Inactive</button>}
+            {currentStatus !== 'Archived' && <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Archived')} style={{ borderColor: '#d1d5db', color: '#374151', background: '#f9fafb' }}>Archive</button>}
+            <button 
+              className="btn-outline btn-sm" 
+              onClick={handleToggleDeafAccessibility} 
+              style={{ 
+                borderColor: company.is_deaf_accessible ? '#93c5fd' : '#d1d5db', 
+                color: company.is_deaf_accessible ? '#1d4ed8' : '#4b5563', 
+                background: company.is_deaf_accessible ? '#eff6ff' : '#f3f4f6' 
+              }}
+            >
+              {company.is_deaf_accessible ? 'Revoke Deaf Access' : 'Set Deaf Accessible'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="dashboard-layout">
         <div className="flex-col gap-32">
-          
           <div className="card p-24">
             <h3 className="mb-16 m-0">About Us</h3>
             <p className="text-secondary" style={{ lineHeight: '1.7', whiteSpace: 'pre-wrap', margin: 0 }}>
@@ -133,7 +180,6 @@ export default function CompanyProfile() {
           <div>
             <h3 className="mb-16 m-0">Active Job Postings</h3>
             
-            {/* 🚨 UPDATED: Conditional render to mask jobs for guests */}
             {role === 'guest' ? (
               <div className="card text-center p-32" style={{ border: '2px dashed var(--border-color)', backgroundColor: 'transparent', boxShadow: 'none' }}>
                 <h3 className="m-0 mb-8 text-xl">Sign In To View Active Jobs</h3>
@@ -158,7 +204,6 @@ export default function CompanyProfile() {
           </div>
         </div>
 
-        {/* Sidebar displaying quick company stats and representative info */}
         <div style={{ position: 'sticky', top: '90px' }}>
           <div className="card p-24">
             <h3 className="mb-16 m-0">Company Details</h3>
@@ -178,7 +223,6 @@ export default function CompanyProfile() {
             </div>
           </div>
 
-          {/* --- CONTACT PERSON CARD: Displays the representative's details if available --- */}
           {hasContact && (
             <div className="card p-24" style={{ marginTop: '24px' }}>
               <h3 className="mb-16 m-0">Representative</h3>

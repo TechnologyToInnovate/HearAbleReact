@@ -12,7 +12,7 @@ import DeafAccessibleBadge from '../components/common/DeafAccessibleBadge';
 
 export default function Companies({ role }) {
   const navigate = useNavigate();
-  const { companies, isLoading, setCompanies, refetch } = useCompanies();
+  const { companies, isLoading, refetch } = useCompanies();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('All');
@@ -101,31 +101,6 @@ export default function Companies({ role }) {
       alert("Failed to pre-approve company. Ensure the email is not already on the roster.");
     } finally {
       setIsSubmitting(false);
-    }
-  }
-
-  async function handleUpdateStatus(e, id, newStatus) {
-    e.stopPropagation(); 
-    const updatePayload = { status: newStatus };
-    if (newStatus === 'Active') updatePayload.approved_at = new Date().toISOString();
-
-    const { error } = await supabase.from('companies').update(updatePayload).eq('id', id);
-    if (!error) {
-      setCompanies(companies.map(c => c.id === id ? { ...c, status: newStatus } : c));
-    } else {
-      alert("Failed to update status.");
-    }
-  }
-
-  async function handleToggleDeafAccessibility(e, id, currentStatus) {
-    e.stopPropagation();
-    const newStatus = !currentStatus;
-    const { error } = await supabase.from('companies').update({ is_deaf_accessible: newStatus }).eq('id', id);
-    
-    if (!error) {
-      setCompanies(companies.map(c => c.id === id ? { ...c, is_deaf_accessible: newStatus } : c));
-    } else {
-      alert("Failed to update accessibility status.");
     }
   }
 
@@ -262,11 +237,6 @@ export default function Companies({ role }) {
                           <h3 className="text-xl" style={{ margin: '0 0 8px 0' }}>
                             {company.name}
                           </h3>
-                          {role === 'admin' && (
-                            <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8 }}>
-                              {company.email || 'Email not provided'}
-                            </p>
-                          )}
                           <p className="text-sm text-secondary" style={{ margin: 0 }}>
                             {locationText}
                             {company.founded_year && ` • Est. ${company.founded_year}`}
@@ -276,7 +246,6 @@ export default function Companies({ role }) {
 
                       <div className="flex-col align-end gap-8" style={{ flexShrink: 0 }}>
                         <div className="flex-row gap-8 align-center">
-                          {/* 🚨 UPDATED: Added role !== 'guest' to hide the badge for guests */}
                           {company.is_deaf_accessible && role !== 'guest' && <DeafAccessibleBadge size="sm" showText={true} />}
                           {role === 'admin' && <StatusBadge status={currentStatus} />}
                         </div>
@@ -288,34 +257,12 @@ export default function Companies({ role }) {
                       </div>
                     </div>
 
-                    <p className="text-secondary m-0" style={{ fontSize: '0.95rem', lineHeight: '1.6', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {company.description || "No description provided."}
-                    </p>
+                    {/* 🚨 UPDATED: Removed company description rendering from this view */}
 
-                    <div className="flex-row align-center flex-between" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '8px', flexWrap: 'wrap', gap: '16px' }}>
-                      
-                      {role === 'admin' && !company.isPreApprovedOnly ? (
-                        <div className="flex-row gap-8" style={{ flexWrap: 'wrap' }}>
-                          {currentStatus !== 'Active' && <button className="btn-outline btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Active')} style={{ borderColor: '#86efac', color: '#166534', background: '#ecfdf5' }}>Set Active</button>}
-                          {currentStatus !== 'Inactive' && <button className="btn-outline btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Inactive')} style={{ borderColor: '#fde047', color: '#854d0e', background: '#fefce8' }}>Set Inactive</button>}
-                          {currentStatus !== 'Archived' && <button className="btn-outline btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Archived')} style={{ borderColor: '#d1d5db', color: '#374151', background: '#f9fafb' }}>Archive</button>}
-                          <button 
-                            className="btn-outline btn-sm" 
-                            onClick={(e) => handleToggleDeafAccessibility(e, company.id, company.is_deaf_accessible)} 
-                            style={{ 
-                              borderColor: company.is_deaf_accessible ? '#93c5fd' : '#d1d5db', 
-                              color: company.is_deaf_accessible ? '#1d4ed8' : '#4b5563', 
-                              background: company.is_deaf_accessible ? '#eff6ff' : '#f3f4f6' 
-                            }}
-                          >
-                            {company.is_deaf_accessible ? 'Revoke Deaf Access' : 'Set Deaf Accessible'}
-                          </button>
-                        </div>
-                      ) : <div />}
-
+                    <div className="flex-row align-center flex-end" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '8px', flexWrap: 'wrap', gap: '16px' }}>
                       {!company.isPreApprovedOnly && (
                         <button className="btn-black btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}>
-                          View Company Profile
+                          Review Full Profile
                         </button>
                       )}
                     </div>
