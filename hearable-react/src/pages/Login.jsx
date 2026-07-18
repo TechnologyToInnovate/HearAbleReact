@@ -39,29 +39,28 @@ export default function Login({ setRole }) {
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
 
-        // 🚨 NEW: Check if Supabase is waiting for email confirmation
-        if (data.user && !data.session) {
-          
-          // Still process company setup in the background if they are pre-approved
-          if (preApprovedData) {
-            await supabase.from('companies').insert([{
-              id: data.user.id, 
-              name: preApprovedData.name, 
-              location_id: preApprovedData.location_id, 
-              industry: preApprovedData.industry, 
-              founded_year: preApprovedData.founded_year,  
-              website: preApprovedData.website, 
-              description: preApprovedData.description,    
-              status: 'Approved'
-            }]);
-          }
+        // 1. Always process the background company setup immediately if they are pre-approved
+        if (data.user && preApprovedData) {
+          await supabase.from('companies').insert([{
+            id: data.user.id, 
+            name: preApprovedData.name, 
+            location_id: preApprovedData.location_id, 
+            industry: preApprovedData.industry, 
+            founded_year: preApprovedData.founded_year,  
+            website: preApprovedData.website, 
+            description: preApprovedData.description,    
+            status: 'Approved'
+          }]);
+        }
 
+        // 2. Handle routing based on whether a session was instantly created (Email confirmation OFF) or not (Email confirmation ON)
+        if (data.user && !data.session) {
           setSuccessMsg('Registration successful! Please check your email inbox for a verification link to activate your account.');
           setLoading(false);
           return; // Stop here! Do not navigate them yet.
         }
 
-        // If email confirmation is turned OFF in Supabase, this standard routing runs
+        // If email confirmation is turned OFF, execute this standard routing right away
         if (adminData || email.toLowerCase() === 'admin@hearable.com') {
           setRole('admin'); 
           navigate('/');
@@ -74,7 +73,7 @@ export default function Login({ setRole }) {
         }
       }
     } catch (err) { 
-      // 🚨 NEW: Catch the specific unverified error and make it friendly
+      // Catch the specific unverified error and make it friendly
       if (err.message.includes('Email not confirmed')) {
         setErrorMsg('Please verify your email address first. Check your inbox for the activation link.');
       } else {
@@ -97,8 +96,15 @@ export default function Login({ setRole }) {
     });
     
     setLoading(false);
-    if (error) setErrorMsg(error.message);
-    else setSuccessMsg('Password reset link sent! Please check your email inbox.');
+    
+    // We intentionally ignore the error to prevent account enumeration, 
+    // UNLESS it's a rate-limit error (too many requests)
+    if (error && error.status === 429) {
+      setErrorMsg('Too many requests. Please wait a minute and try again.');
+    } else {
+      // Generic success message shown whether the email exists or not
+      setSuccessMsg('If an account with that email exists, a password reset link has been sent!');
+    }
   }
 
   async function routeUserAfterLogin(user) {

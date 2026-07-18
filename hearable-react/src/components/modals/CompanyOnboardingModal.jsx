@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient';
 
 export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess }) {
   const [name, setName] = useState('');
-  const [country, setCountry] = useState('');
+  const [country, setCountry] = useState('Philippines');
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [industry, setIndustry] = useState('');
@@ -16,7 +16,7 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
   useEffect(() => {
     if (companyData) {
       setName(companyData.name || '');
-      setCountry(companyData.country || '');
+      setCountry(companyData.country || 'Philippines');
       setCity(companyData.city || '');
       setPostalCode(companyData.postal_code || '');
       setIndustry(companyData.industry || '');
@@ -35,7 +35,6 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
     const parsedYear = parseInt(founded, 10);
 
     try {
-      // 🚨 Handle Location creation/update
       let locationId = companyData.location_id;
       if (country.trim() || city.trim() || postalCode.trim()) {
         const locationPayload = {
@@ -52,7 +51,6 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
         }
       }
 
-      // 🚨 Update companies without the stripped columns
       const { error } = await supabase.from('companies').update({
         name, location_id: locationId, industry, website, description, 
         founded_year: isNaN(parsedYear) ? null : parsedYear
@@ -69,7 +67,6 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
   }
 
   return (
-    // 🚨 REPLACED INLINE STYLES[cite: 42]
     <div className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: '600px' }}>
         
@@ -87,7 +84,6 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
             
             <div>
               <label className="block mb-8 font-bold">Headquarters / Location *</label>
-              {/* 🚨 REPLACED INLINE STYLES WITH .form-grid-3[cite: 36] */}
               <div className="form-grid-3">
                 <input type="text" className="search-input w-full" placeholder="Country" value={country} onChange={e => setCountry(e.target.value)} required />
                 <input type="text" className="search-input w-full" placeholder="City" value={city} onChange={e => setCity(e.target.value)} required />

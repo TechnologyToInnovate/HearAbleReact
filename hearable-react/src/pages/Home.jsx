@@ -81,8 +81,8 @@ export default function Home() {
       if (compData) {
         setCompanyProfile(compData);
 
-        // Prompt the company to finish onboarding if their industry is missing
-        if (!compData.industry) {
+        // Prompt the company to confirm their profile if their description is missing
+        if (!compData.description) {
           setShowCompanyOnboarding(true);
         }
 

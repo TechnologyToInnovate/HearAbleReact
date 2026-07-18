@@ -25,7 +25,7 @@ export default function Companies({ role }) {
 
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
-  const [newCountry, setNewCountry] = useState('');
+  const [newCountry, setNewCountry] = useState('Philippines');
   const [newCity, setNewCity] = useState('');
   const [newPostalCode, setNewPostalCode] = useState('');
   const [newIndustry, setNewIndustry] = useState('');
@@ -91,7 +91,7 @@ export default function Companies({ role }) {
 
       alert(`Success! ${emailToCheck} is on the roster.`);
       
-      setNewEmail(''); setNewName(''); setNewCountry(''); setNewCity(''); setNewPostalCode('');
+      setNewEmail(''); setNewName(''); setNewCountry('Philippines'); setNewCity(''); setNewPostalCode('');
       setNewIndustry(''); setNewFoundedYear(''); setNewWebsite(''); setNewDescription('');
       setShowAddForm(false);
       refetch(); 
@@ -170,7 +170,7 @@ export default function Companies({ role }) {
               <div><label>Company Name *</label><input type="text" className="search-input w-full" value={newName} onChange={(e) => setNewName(e.target.value)} required /></div>
             </div>
             <div className="form-grid-3 mt-8">
-              <div><label>Industry</label><input type="text" className="search-input w-full" value={newIndustry} onChange={(e) => setNewIndustry(e.target.value)} /></div>
+              <div><label>Industry *</label><input type="text" className="search-input w-full" value={newIndustry} onChange={(e) => setNewIndustry(e.target.value)} required /></div>
               <div><label>Year Founded</label><input type="number" className="search-input w-full" value={newFoundedYear} onChange={(e) => setNewFoundedYear(e.target.value)} /></div>
               <div><label>Website</label><input type="url" className="search-input w-full" value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)} /></div>
             </div>
@@ -178,10 +178,10 @@ export default function Companies({ role }) {
               <label>About the Company</label>
               <textarea className="search-input w-full" rows="3" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
             </div>
-            <label style={{ display: 'block', fontWeight: '500', marginTop: '16px' }}>Location Details</label>
+            <label style={{ display: 'block', fontWeight: '500', marginTop: '16px' }}>Location Details *</label>
             <div className="form-grid-3">
-              <div><input type="text" className="search-input w-full" placeholder="Country" value={newCountry} onChange={(e) => setNewCountry(e.target.value)} /></div>
-              <div><input type="text" className="search-input w-full" placeholder="City" value={newCity} onChange={(e) => setNewCity(e.target.value)} /></div>
+              <div><input type="text" className="search-input w-full" placeholder="Country *" value={newCountry} onChange={(e) => setNewCountry(e.target.value)} required /></div>
+              <div><input type="text" className="search-input w-full" placeholder="City *" value={newCity} onChange={(e) => setNewCity(e.target.value)} required /></div>
               <div><input type="text" className="search-input w-full" placeholder="Postal Code" value={newPostalCode} onChange={(e) => setNewPostalCode(e.target.value.replace(/\D/g, ''))} /></div>
             </div>
             <button type="submit" className="btn-black w-full mt-24" disabled={isSubmitting}>
