@@ -132,36 +132,63 @@ export default function Jobs() {
   }
 
   // Master filtering logic combining search query, UI dropdowns, and role-based access rules
-  const filteredJobs = (jobs || []).filter(job => {
-    // Non-admins only see approved jobs
-    if (role !== 'admin' && job.status !== 'Approved') return false; 
-    
-    // Admins can filter by specific statuses (Pending, Approved, Rejected)
-    if (role === 'admin' && adminStatusFilter !== 'All' && job.status !== adminStatusFilter) return false;
+  const filteredJobs = (jobs || [])
+    .filter(job => {
+      // Non-admins only see approved jobs
+      if (role !== 'admin' && job.status !== 'Approved') return false; 
+      
+      // Admins can filter by specific statuses (Pending, Approved, Rejected)
+      if (role === 'admin' && adminStatusFilter !== 'All' && job.status !== adminStatusFilter) return false;
 
-    // Apply text search
-    const matchesSearch = (job.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (job.company || '').toLowerCase().includes(searchQuery.toLowerCase());
-                          
-    // Apply dropdown filters
-    const matchesModality = filterModality === 'All' || job.work_model === filterModality;
-    const matchesType = filterType === 'All' || job.type === filterType;
-    let matchesDate = true;
-    
-    if (filterDate !== 'All' && job.created_at) {
-      const jobDate = new Date(job.created_at);
-      const diffDays = Math.ceil(Math.abs(new Date() - jobDate) / (1000 * 60 * 60 * 24));
-      if (filterDate === '24h') matchesDate = diffDays <= 1;
-      else if (filterDate === '7d') matchesDate = diffDays <= 7;
-      else if (filterDate === '30d') matchesDate = diffDays <= 30;
-    }
-    
-    return matchesSearch && matchesModality && matchesType && matchesDate;
-  });
+      // Apply text search
+      const matchesSearch = (job.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            (job.company || '').toLowerCase().includes(searchQuery.toLowerCase());
+                            
+      // Apply dropdown filters
+      const matchesModality = filterModality === 'All' || job.work_model === filterModality;
+      const matchesType = filterType === 'All' || job.type === filterType;
+      let matchesDate = true;
+      
+      if (filterDate !== 'All' && job.created_at) {
+        const jobDate = new Date(job.created_at);
+        const diffDays = Math.ceil(Math.abs(new Date() - jobDate) / (1000 * 60 * 60 * 24));
+        if (filterDate === '24h') matchesDate = diffDays <= 1;
+        else if (filterDate === '7d') matchesDate = diffDays <= 7;
+        else if (filterDate === '30d') matchesDate = diffDays <= 30;
+      }
+      
+      return matchesSearch && matchesModality && matchesType && matchesDate;
+    })
+    .map(job => {
+      if (role === 'guest') {
+        return {
+          ...job,
+          company: 'Company Hidden',
+          location: 'Sign in to view location',
+          // 🚨 UPDATED: Removed `is_deaf_accessible: false` so the badge remains visible
+          pay: 'Sign in to view pay',
+          pay_rate: '',
+          description: 'Sign In To View Job Description'
+        };
+      }
+      return job;
+    });
 
   // Extract the full data objects for the currently selected job and its parent company
-  const selectedJobData = jobs?.find(j => j.id === selectedJobId);
-  const selectedCompanyData = selectedJobData ? companies?.find(c => c.id === selectedJobData.company_id) : null;
+  const selectedJobData = filteredJobs.find(j => j.id === selectedJobId);
+  let selectedCompanyData = selectedJobData ? companies?.find(c => c.id === selectedJobData.company_id) : null;
+
+  // Provide a template object for guests, keeping their accessibility status intact
+  if (role === 'guest' && selectedCompanyData) {
+    selectedCompanyData = {
+      ...selectedCompanyData,
+      name: 'Sign In To View Company',
+      description: 'Sign In To View Company Details and Full Profile',
+      // 🚨 UPDATED: Removed `is_deaf_accessible: false` here as well
+      locations: { city: 'Sign in to view location', country: '' },
+      logo_url: null 
+    };
+  }
 
   // Helper function to render the left-hand scrollable list of job cards
   const renderJobList = (jobList) => (

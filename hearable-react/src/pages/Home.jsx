@@ -135,11 +135,13 @@ export default function Home() {
       .limit(4);
 
     if (jobsData) {
+      const isGuest = role === 'guest';
+
       const formattedJobs = jobsData.map(job => ({
         ...job, 
-        // Safely extract the city from the job's location, falling back to the company's default location
-        location: job.locations?.city || job.companies?.locations?.city || 'Location not specified',
-        company: job.companies?.name || 'Unknown Company',
+        // Mask the location and company data if the user is a guest
+        location: isGuest ? 'Sign in to view location' : (job.locations?.city || job.companies?.locations?.city || 'Location not specified'),
+        company: isGuest ? 'Company Hidden' : (job.companies?.name || 'Unknown Company'),
         is_deaf_accessible: job.is_deaf_accessible || job.companies?.is_deaf_accessible
       }));
       setRecentJobs(formattedJobs);
@@ -200,22 +202,38 @@ return (
 
       {/* Hero Banner for Unauthenticated Guests */}
       {role === 'guest' && (
-        <div className="card text-center mb-32 p-32" style={{ backgroundColor: 'var(--primary-color)', color: 'var(--bg-color)', border: 'none' }}>
-          <h1 className="text-3xl m-0 mb-16" style={{ color: 'var(--bg-color)' }}>
-            Discover Your Next Opportunity
-          </h1>
-          <p className="text-lg m-0 mb-32" style={{ color: 'var(--bg-color)', opacity: 0.9 }}>
-            Connect with top companies and find the perfect role for your skills.
-          </p>
-          
-          {/* 🚨 UPDATED: Added mobile-action-group to stack buttons seamlessly on smaller screens */}
-          <div className="flex-row gap-16 align-center mobile-action-group" style={{ justifyContent: 'center' }}>
-            <button onClick={() => navigate('/jobs')} style={{ backgroundColor: 'var(--card-bg)', color: 'var(--primary-color)', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
-              Browse Jobs
-            </button>
-            <button onClick={() => navigate('/companies')} style={{ backgroundColor: 'transparent', color: 'var(--bg-color)', border: '2px solid var(--bg-color)', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
-              Explore Companies
-            </button>
+        <div className="flex-col gap-24 mb-32">
+          <div className="card text-center p-32" style={{ backgroundColor: 'var(--primary-color)', color: 'var(--bg-color)', border: 'none' }}>
+            <h1 className="text-3xl m-0 mb-16" style={{ color: 'var(--bg-color)' }}>
+              Empowering the Deaf Community in the Workplace
+            </h1>
+            <p className="text-lg m-0 mb-32" style={{ color: 'var(--bg-color)', opacity: 0.9, maxWidth: '800px', margin: '0 auto 32px' }}>
+              HearAble is a dedicated career platform designed to bridge the gap between talented deaf and hard-of-hearing professionals and inclusive employers.
+            </p>
+            
+            <div className="flex-row gap-16 align-center mobile-action-group" style={{ justifyContent: 'center' }}>
+              <button onClick={() => navigate('/jobs')} style={{ backgroundColor: 'var(--card-bg)', color: 'var(--primary-color)', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                Browse Jobs
+              </button>
+              <button onClick={() => navigate('/companies')} style={{ backgroundColor: 'transparent', color: 'var(--bg-color)', border: '2px solid var(--bg-color)', padding: '10px 24px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
+                Explore Companies
+              </button>
+            </div>
+          </div>
+
+          <div className="form-grid-2">
+            <div className="card p-24 text-center">
+              <h3 className="mb-16 mt-0">For Job Seekers</h3>
+              <p className="text-secondary m-0" style={{ lineHeight: '1.6' }}>
+                Find companies that value your talent and provide deaf-accessible environments. Build your profile, showcase your skills, and apply to roles where you can truly thrive.
+              </p>
+            </div>
+            <div className="card p-24 text-center">
+              <h3 className="mb-16 mt-0">For Inclusive Employers</h3>
+              <p className="text-secondary m-0" style={{ lineHeight: '1.6' }}>
+                Tap into a highly skilled, diverse talent pool. Post jobs, highlight your accessibility features, and hire exceptional professionals ready to make an impact.
+              </p>
+            </div>
           </div>
         </div>
       )}

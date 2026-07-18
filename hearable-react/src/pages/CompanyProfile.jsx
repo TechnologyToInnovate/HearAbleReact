@@ -13,7 +13,8 @@ import { formatStandardDate } from '../utils/dateUtils';
 export default function CompanyProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth(); 
+  // 🚨 UPDATED: Extract the role from useAuth so we can check if they are a guest
+  const { user: currentUser, role } = useAuth(); 
   
   const [company, setCompany] = useState(null);
   const [companyJobs, setCompanyJobs] = useState([]);
@@ -131,7 +132,19 @@ export default function CompanyProfile() {
 
           <div>
             <h3 className="mb-16 m-0">Active Job Postings</h3>
-            {companyJobs.length > 0 ? (
+            
+            {/* 🚨 UPDATED: Conditional render to mask jobs for guests */}
+            {role === 'guest' ? (
+              <div className="card text-center p-32" style={{ border: '2px dashed var(--border-color)', backgroundColor: 'transparent', boxShadow: 'none' }}>
+                <h3 className="m-0 mb-8 text-xl">Sign In To View Active Jobs</h3>
+                <p className="text-secondary m-0 mb-24" style={{ maxWidth: '500px', margin: '0 auto 24px auto', lineHeight: '1.6' }}>
+                  Create a free account to view open positions, salary details, and apply directly to {company.name}!
+                </p>
+                <button className="btn-black" style={{ padding: '12px 24px', fontSize: '1rem' }} onClick={() => navigate('/login')}>
+                  Sign In
+                </button>
+              </div>
+            ) : companyJobs.length > 0 ? (
               <div className="flex-col gap-16">
                 {companyJobs.map(job => (
                   <JobCard key={job.id} job={job} isSelected={false} onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })} />

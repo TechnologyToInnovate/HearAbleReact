@@ -40,7 +40,8 @@ export default function JobFilters({
         value={filterDate} 
         onChange={(e) => setFilterDate(e.target.value)}
       >
-        <option value="All">Any Time</option>
+        {/* 🚨 UPDATED: Changed from 'Any Time' to 'Date Posted' */}
+        <option value="All">Date Posted</option>
         <option value="24h">Past 24 Hours</option>
         <option value="7d">Past Week</option>
         <option value="30d">Past Month</option>

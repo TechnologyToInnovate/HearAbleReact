@@ -72,7 +72,6 @@ export default function JobDetailsPane({
           </div>
         )}
 
-        {/* 🚨 UPDATED: Added mobile-stack so the date moves underneath the title on small screens */}
         <div className="flex-between-start mb-12 mobile-stack">
           <h1 className="m-0" style={{ fontSize: '1.75rem', paddingRight: '16px', lineHeight: '1.2' }}>
             {selectedJob.title}
@@ -242,8 +241,13 @@ export default function JobDetailsPane({
               </div>
             )}
 
-            <button className="btn-outline w-full btn-sm" style={{ padding: '8px 12px' }} onClick={() => navigate(`/company/${selectedCompany.id}`)}>
-              View Full Company Profile
+            {/* 🚨 UPDATED: Checks role and routes appropriately to Login or Company Profile */}
+            <button 
+              className="btn-outline w-full btn-sm" 
+              style={{ padding: '8px 12px' }} 
+              onClick={() => navigate(role === 'guest' ? '/login' : `/company/${selectedCompany.id}`)}
+            >
+              {role === 'guest' ? 'Sign In To View Company Profile' : 'View Full Company Profile'}
             </button>
           </div>
         )}

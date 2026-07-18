@@ -238,7 +238,9 @@ export default function Companies({ role }) {
           {isLoading ? (
             <p className="text-center text-secondary">Loading companies...</p>
           ) : currentCompanies.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '20px' }}>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
               {currentCompanies.map(company => {
                 const currentStatus = company.status === 'Approved' ? 'Active' : (company.status || 'Active');
                 const city = company.locations?.city || company.city;
@@ -248,25 +250,24 @@ export default function Companies({ role }) {
                 return (
                   <div
                     key={company.id}
-                    className="card p-16"
-                    style={{ display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer', opacity: currentStatus === 'Archived' ? 0.6 : 1 }}
+                    className="card p-24"
+                    style={{ display: 'flex', flexDirection: 'column', gap: '16px', cursor: 'pointer', opacity: currentStatus === 'Archived' ? 0.6 : 1 }}
                     onClick={() => !company.isPreApprovedOnly && navigate(`/company/${company.id}`)}
                   >
-                    <div className="flex-between-start mb-12">
-                      <div className="flex-row gap-16 align-start" style={{ flex: 1, minWidth: 0, paddingRight: '16px' }}>
-                        <div style={{ flexShrink: 0 }}>
-                          <Avatar src={company.logo_url} fallbackName={company.name} size="md" type="company" />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <h3 className="text-lg" style={{ margin: '0 0 4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={company.name}>
+                    
+                    <div className="flex-between-start" style={{ flexWrap: 'wrap', gap: '16px' }}>
+                      <div className="flex-row gap-16 align-start" style={{ flex: '1 1 300px' }}>
+                        <Avatar src={company.logo_url} fallbackName={company.name} size="md" type="company" />
+                        <div>
+                          <h3 className="text-xl" style={{ margin: '0 0 8px 0' }}>
                             {company.name}
                           </h3>
                           {role === 'admin' && (
-                            <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <p className="text-sm m-0 mb-4" style={{ color: 'var(--text-color)', opacity: 0.8 }}>
                               {company.email || 'Email not provided'}
                             </p>
                           )}
-                          <p className="text-sm text-secondary" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <p className="text-sm text-secondary" style={{ margin: 0 }}>
                             {locationText}
                             {company.founded_year && ` • Est. ${company.founded_year}`}
                           </p>
@@ -274,52 +275,51 @@ export default function Companies({ role }) {
                       </div>
 
                       <div className="flex-col align-end gap-8" style={{ flexShrink: 0 }}>
-                        {company.is_deaf_accessible && <DeafAccessibleBadge size="sm" showText={true} />}
+                        <div className="flex-row gap-8 align-center">
+                          {/* 🚨 UPDATED: Added role !== 'guest' to hide the badge for guests */}
+                          {company.is_deaf_accessible && role !== 'guest' && <DeafAccessibleBadge size="sm" showText={true} />}
+                          {role === 'admin' && <StatusBadge status={currentStatus} />}
+                        </div>
                         {role === 'admin' && (
-                          <>
-                            <StatusBadge status={currentStatus} />
-                            <span className="text-sm text-secondary" style={{ fontSize: '0.8rem' }}>
-                              Joined: {formatShortDate(company.created_at)}
-                            </span>
-                          </>
+                          <span className="text-sm text-secondary" style={{ fontSize: '0.8rem' }}>
+                            Joined: {formatShortDate(company.created_at)}
+                          </span>
                         )}
                       </div>
                     </div>
 
-                    <p className="text-sm text-secondary mb-16" style={{ lineHeight: '1.5', flexGrow: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <p className="text-secondary m-0" style={{ fontSize: '0.95rem', lineHeight: '1.6', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {company.description || "No description provided."}
                     </p>
 
-                    <div className="flex-col gap-8">
-                      {role === 'admin' && !company.isPreApprovedOnly && (
-                        <>
-                          <div className="flex-row gap-8 mb-8">
-                            {currentStatus !== 'Active' && <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Active')} style={{ borderColor: '#86efac', color: '#166534', background: '#ecfdf5' }}>Set Active</button>}
-                            {currentStatus !== 'Inactive' && <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Inactive')} style={{ borderColor: '#fde047', color: '#854d0e', background: '#fefce8' }}>Set Inactive</button>}
-                            {currentStatus !== 'Archived' && <button className="btn-outline flex-grow btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Archived')} style={{ borderColor: '#d1d5db', color: '#374151', background: '#f9fafb' }}>Archive</button>}
-                          </div>
-                          <div className="flex-row gap-8 mb-8">
-                            <button 
-                              className="btn-outline flex-grow btn-sm" 
-                              onClick={(e) => handleToggleDeafAccessibility(e, company.id, company.is_deaf_accessible)} 
-                              style={{ 
-                                borderColor: company.is_deaf_accessible ? '#93c5fd' : '#d1d5db', 
-                                color: company.is_deaf_accessible ? '#1d4ed8' : '#4b5563', 
-                                background: company.is_deaf_accessible ? '#eff6ff' : '#f3f4f6' 
-                              }}
-                            >
-                              {company.is_deaf_accessible ? 'Revoke Deaf Access' : 'Set Deaf Accessible'}
-                            </button>
-                          </div>
-                        </>
-                      )}
+                    <div className="flex-row align-center flex-between" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '8px', flexWrap: 'wrap', gap: '16px' }}>
+                      
+                      {role === 'admin' && !company.isPreApprovedOnly ? (
+                        <div className="flex-row gap-8" style={{ flexWrap: 'wrap' }}>
+                          {currentStatus !== 'Active' && <button className="btn-outline btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Active')} style={{ borderColor: '#86efac', color: '#166534', background: '#ecfdf5' }}>Set Active</button>}
+                          {currentStatus !== 'Inactive' && <button className="btn-outline btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Inactive')} style={{ borderColor: '#fde047', color: '#854d0e', background: '#fefce8' }}>Set Inactive</button>}
+                          {currentStatus !== 'Archived' && <button className="btn-outline btn-sm" onClick={(e) => handleUpdateStatus(e, company.id, 'Archived')} style={{ borderColor: '#d1d5db', color: '#374151', background: '#f9fafb' }}>Archive</button>}
+                          <button 
+                            className="btn-outline btn-sm" 
+                            onClick={(e) => handleToggleDeafAccessibility(e, company.id, company.is_deaf_accessible)} 
+                            style={{ 
+                              borderColor: company.is_deaf_accessible ? '#93c5fd' : '#d1d5db', 
+                              color: company.is_deaf_accessible ? '#1d4ed8' : '#4b5563', 
+                              background: company.is_deaf_accessible ? '#eff6ff' : '#f3f4f6' 
+                            }}
+                          >
+                            {company.is_deaf_accessible ? 'Revoke Deaf Access' : 'Set Deaf Accessible'}
+                          </button>
+                        </div>
+                      ) : <div />}
 
                       {!company.isPreApprovedOnly && (
-                        <button className="btn-outline w-full" onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}>
+                        <button className="btn-black btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}>
                           View Company Profile
                         </button>
                       )}
                     </div>
+
                   </div>
                 );
               })}
