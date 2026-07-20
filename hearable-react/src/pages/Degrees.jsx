@@ -5,28 +5,23 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Degrees() {
   const navigate = useNavigate();
-  // Ensure only admins can access this route by pulling role from context
   const { role } = useAuth(); 
   
   const [degrees, setDegrees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // State for adding a new degree
   const [newDegree, setNewDegree] = useState('');
   const [newAbbrev, setNewAbbrev] = useState(''); 
   const [isAdding, setIsAdding] = useState(false);
 
-  // State for inline editing of an existing degree
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editAbbrev, setEditAbbrev] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Protect the route and fetch data on component mount
   useEffect(() => {
     if (role !== 'admin') {
       navigate('/');
@@ -35,7 +30,6 @@ export default function Degrees() {
     fetchDegrees();
   }, [role, navigate]);
 
-  // Fetches the full list of degrees, sorted alphabetically
   async function fetchDegrees() {
     setIsLoading(true);
     const { data, error } = await supabase
@@ -48,7 +42,6 @@ export default function Degrees() {
     setIsLoading(false);
   }
 
-  // Handles the creation of a new degree and resets the view to the first page
   async function handleAddDegree(e) {
     e.preventDefault();
     if (!newDegree.trim()) return;
@@ -70,7 +63,6 @@ export default function Degrees() {
     }
   }
 
-  // Deletes a degree and adjusts the current page if the last item on the page is removed
   async function handleDeleteDegree(id, name) {
     if (!window.confirm(`Are you sure you want to delete the degree: ${name}?`)) return;
     
@@ -85,7 +77,6 @@ export default function Degrees() {
     }
   }
 
-  // Pre-populates the inline editing form with the selected degree's current data
   function startEditing(degree) {
     setEditingId(degree.id);
     setEditName(degree.name);
@@ -98,7 +89,6 @@ export default function Degrees() {
     setEditAbbrev('');
   }
 
-  // Saves edits to the database and applies optimistic UI updates locally
   async function handleSaveEdit(id) {
     if (!editName.trim()) return;
     
@@ -116,7 +106,6 @@ export default function Degrees() {
     setIsSavingEdit(false);
 
     if (!error) {
-      // Update local state to reflect changes instantly without requiring a full network refetch
       setDegrees(degrees.map(d => d.id === id ? { ...d, ...updatedData } : d).sort((a, b) => a.name.localeCompare(b.name)));
       cancelEditing();
     } else {
@@ -124,7 +113,6 @@ export default function Degrees() {
     }
   }
 
-  // Calculate the subset of degrees to display for the current pagination page
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentDegrees = degrees.slice(indexOfFirstItem, indexOfLastItem);
@@ -132,6 +120,16 @@ export default function Degrees() {
 
   return (
     <div className="page-container" style={{ maxWidth: '800px' }}>
+
+      {/* 🚨 NEW: Back button */}
+      <button 
+        className="btn-outline btn-sm mb-16" 
+        onClick={() => navigate('/system-data')}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+      >
+        &larr; Back to System Data
+      </button>
+
       <div className="flex-between mb-24">
         <h1 style={{ margin: 0 }}>Manage Degrees</h1>
       </div>
@@ -174,7 +172,6 @@ export default function Degrees() {
               <div key={degree.id} className="flex-between" style={{ padding: '16px 24px', borderBottom: index !== currentDegrees.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                 
                 {editingId === degree.id ? (
-                  /* INLINE EDITING MODE */
                   <div className="flex-row gap-12 align-center w-full">
                     <input 
                       type="text" 
@@ -201,7 +198,6 @@ export default function Degrees() {
                     </div>
                   </div>
                 ) : (
-                  /* DISPLAY MODE */
                   <>
                     <span style={{ fontWeight: '500', fontSize: '1.05rem' }}>
                       {degree.abbreviation && <strong style={{ color: 'var(--primary-color)', marginRight: '8px' }}>[{degree.abbreviation}]</strong>}
@@ -231,7 +227,6 @@ export default function Degrees() {
           <p className="text-secondary text-center p-24 m-0">No degrees have been added yet.</p>
         )}
 
-        {/* PAGINATION CONTROLS */}
         {totalPages > 1 && (
           <div className="flex-between align-center" style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
             <p className="text-sm text-secondary" style={{ margin: 0 }}>

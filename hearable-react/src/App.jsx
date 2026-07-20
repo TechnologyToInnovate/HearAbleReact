@@ -23,6 +23,7 @@ import Onboarding from './pages/Onboarding';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import Resumes from './pages/Resumes';
+import UserResumes from './pages/UserResumes'; // 🚨 NEW: Imported UserResumes
 import Feedbacks from './pages/Feedbacks';
 import ResetPassword from './pages/ResetPassword'; 
 
@@ -31,6 +32,7 @@ import Degrees from './pages/Degrees';
 import Batches from './pages/Batches';
 import Admins from './pages/Admins';
 import Skills from './pages/Skills';
+import SystemData from './pages/SystemData'; 
 
 // --- LEGAL PAGES ---
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -39,7 +41,7 @@ import TermsAndConditions from './pages/TermsAndConditions';
 function AppRoutes() {
   const { role, setRole } = useAuth();
 
-  // 🚨 This works perfectly now because AppRoutes is inside the Router!
+  // This works perfectly now because AppRoutes is inside the Router!
   useAutoLogout(600000);
 
   useEffect(() => {
@@ -110,7 +112,11 @@ function AppRoutes() {
           <Route path="/batches" element={role === 'admin' ? <Batches role={role} /> : <Navigate to="/" />} />
           <Route path="/admins" element={role === 'admin' ? <Admins role={role} /> : <Navigate to="/" />} />
           <Route path="/skills" element={role === 'admin' ? <Skills /> : <Navigate to="/" />} />
-          <Route path="/resumes" element={<Resumes />} />
+          <Route path="/system-data" element={role === 'admin' ? <SystemData role={role} /> : <Navigate to="/" />} />
+
+          {/* 🚨 UPDATED: Dynamic route based on user role */}
+          <Route path="/resumes" element={role === 'admin' ? <Resumes /> : <UserResumes />} />
+
           <Route path="/feedback" element={<Feedbacks />} />
 
           <Route path="/settings" element={role === 'guest' ? <Navigate to="/login" /> : <Settings role={role} setRole={setRole} />} />
@@ -130,7 +136,6 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    // 🚨 UPDATED: Moved BrowserRouter to the very top level so AppRoutes can access navigation hooks!
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />

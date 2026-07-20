@@ -126,8 +126,9 @@ export default function Navbar() {
       
       {role === 'admin' && (
         <>
-          <li><Link to="/users" className={`nav-link ${['/users', '/degrees', '/skills', '/batches'].includes(location.pathname) ? 'active' : ''}`}>Manage Users</Link></li>
-          <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Manage Companies</Link></li>
+          <li><Link to="/users" className={`nav-link ${['/users', '/degrees', '/skills', '/batches', '/companies'].includes(location.pathname) ? 'active' : ''}`}>Manage Users</Link></li>
+          {/* 🚨 UPDATED: Replaced Manage Companies with Manage Resumes */}
+          <li><Link to="/resumes" className={`nav-link ${location.pathname === '/resumes' ? 'active' : ''}`}>Manage Resumes</Link></li>
           <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Manage Feedbacks</Link></li>
         </>
       )}

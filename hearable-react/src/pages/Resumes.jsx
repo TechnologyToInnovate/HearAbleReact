@@ -1,252 +1,149 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-// Utility for consistent date formatting
-import { formatStandardDate } from '../utils/dateUtils';
+import StatusBadge from '../components/common/StatusBadge';
+import Avatar from '../components/common/Avatar';
+import SearchBar from '../components/common/SearchBar';
 
 export default function Resumes() {
-  const { user: currentUser, role } = useAuth();
-  
-  // Core state for managing the user's resumes
+  const { role } = useAuth();
+  const navigate = useNavigate();
+
   const [resumes, setResumes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // State for the PDF upload modal and form data
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('Pending');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
-  // Fetch the user's resumes on component mount or when the user session changes
+  // Strict Admin Guard
   useEffect(() => {
-    if (currentUser) fetchResumes();
-  }, [currentUser]);
+    if (role !== 'admin') {
+      navigate('/');
+      return;
+    }
+    fetchResumes();
+  }, [role, navigate]);
 
-  // Retrieves the list of resume records from the database for the active user
+  useEffect(() => setCurrentPage(1), [searchQuery, activeTab]);
+
   async function fetchResumes() {
     setIsLoading(true);
-    const { data } = await supabase
-      .from('resumes')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false });
-      
-    if (data) setResumes(data);
+    const { data: resumesData } = await supabase.from('resumes').select('*').order('created_at', { ascending: false });
+    const { data: profilesData } = await supabase.from('profiles').select('id, first_name, last_name, profile_pic');
+    
+    if (resumesData && profilesData) {
+      const mapped = resumesData.map(r => {
+        const p = profilesData.find(prof => prof.id === r.user_id) || {};
+        return {
+          ...r,
+          user_name: p.first_name ? `${p.first_name} ${p.last_name}`.trim() : 'Unknown Candidate',
+          user_pic: p.profile_pic || ''
+        };
+      });
+      setResumes(mapped);
+    }
     setIsLoading(false);
   }
 
-  // Handles the two-step process of uploading a PDF to Supabase Storage and saving its URL to the database
-  async function handleUploadResume(e) {
-    e.preventDefault();
-    if (!newTitle || !selectedFile) return alert("Please provide a title and select a PDF file.");
-    
-    // Enforce file type validation on the client side
-    if (selectedFile.type !== 'application/pdf') {
-      return alert("Only PDF files are allowed.");
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // Create a unique file name using the user's ID and a timestamp to prevent overwriting
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
-      const filePath = `${currentUser.id}/${fileName}`;
-
-      // Step 1: Upload the actual file to the Supabase 'resumes' storage bucket
-      const { error: uploadError } = await supabase.storage
-        .from('resumes')
-        .upload(filePath, selectedFile);
-
-      if (uploadError) throw uploadError;
-
-      // Step 2: Retrieve the public URL for the newly uploaded file
-      const { data: { publicUrl } } = supabase.storage
-        .from('resumes')
-        .getPublicUrl(filePath);
-
-      // Step 3: Insert a new record into the database containing the title and the file URL
-      const { error: dbError } = await supabase.from('resumes').insert([{ 
-        user_id: currentUser.id, 
-        title: newTitle, 
-        file_url: publicUrl 
-      }]);
-
-      if (dbError) throw dbError;
-
-      // Clean up form state and close modal on success
-      setNewTitle('');
-      setSelectedFile(null);
-      setIsUploadModalOpen(false);
-      
-      // Refresh the UI to show the new resume
-      fetchResumes();
-
-    } catch (error) {
-      console.error("Upload error:", error);
-      alert("Failed to upload resume. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+  async function handleUpdateStatus(id, newStatus) {
+    const { error } = await supabase.from('resumes').update({ status: newStatus }).eq('id', id);
+    if (!error) {
+      setResumes(resumes.map(r => r.id === id ? { ...r, status: newStatus } : r));
+    } else alert('Failed to update resume status');
   }
 
-  // Handles the removal of a resume record and attempts to clean up the associated file in storage
-  async function handleDelete(id, fileUrl) {
-    if (!window.confirm("Are you sure you want to delete this resume?")) return;
-    
-    // Step 1: Delete the record from the database
-    const { error: dbError } = await supabase.from('resumes').delete().eq('id', id);
-    
-    if (!dbError) {
-      // Optimistically update the UI
-      setResumes(resumes.filter(r => r.id !== id));
-      
-      // Step 2: Extract the relative file path from the URL and remove the file from storage
-      if (fileUrl) {
-        const urlParts = fileUrl.split('/resumes/');
-        if (urlParts.length > 1) {
-          const filePath = urlParts[1];
-          await supabase.storage.from('resumes').remove([filePath]);
-        }
-      }
-    } else {
-      alert("Failed to delete resume.");
-    }
-  }
+  const processedResumes = resumes.filter(resume => {
+    const matchesSearch = (resume.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (resume.user_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTab = activeTab === 'All' ? true : (resume.status || 'Pending') === activeTab;
+    return matchesSearch && matchesTab;
+  });
 
-  // Access Control: Only standard users (approved, pending, or rejected) can utilize the resume manager
-  if (role !== 'user' && role !== 'pending_user' && role !== 'rejected_user') {
-    return <div className="page-container-wide"><p className="text-center p-32">Only standard users can manage resumes.</p></div>;
-  }
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentResumes = processedResumes.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(processedResumes.length / itemsPerPage);
 
   return (
     <div className="page-container-wide">
-
-      {/* --- ACTION CARDS --- */}
-      <div className="flex-row-wrap gap-16 mb-32">
-        <button 
-          className="card flex-row align-center gap-12" 
-          style={{ 
-            flex: 1, minWidth: '280px', cursor: 'pointer', border: '1px solid var(--border-color)', 
-            background: 'var(--card-bg)', color: 'var(--text-color)', padding: '24px', 
-            transition: 'all 0.2s ease', textAlign: 'left'
-          }}
-          onClick={() => setIsUploadModalOpen(true)}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.borderColor = 'var(--primary-color)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.borderColor = 'var(--border-color)';
-          }}
-        >
-          <div>
-            <h3 className="m-0 mb-4" style={{ fontSize: '1.2rem' }}>Upload PDF Resume</h3>
-            <p className="text-secondary m-0 text-sm">Upload your existing document</p>
-          </div>
-        </button>
-
-        {/* Disabled placeholder card for future platform features */}
-        <button 
-          className="card flex-row align-center gap-12" 
-          style={{ 
-            flex: 1, minWidth: '280px', cursor: 'not-allowed', border: '1px solid var(--border-color)', 
-            padding: '24px', position: 'relative', opacity: 0.6, background: 'var(--bg-color)',
-            color: 'var(--text-color)', textAlign: 'left'
-          }}
-          disabled
-        >
-          <div className="badge badge-neutral" style={{ position: 'absolute', top: '12px', right: '12px', fontWeight: 'bold', fontSize: '0.75rem' }}>
-            Coming Soon
-          </div>
-          <div>
-            <h3 className="m-0 mb-4" style={{ fontSize: '1.2rem' }}>Create HearAble Resume</h3>
-            <p className="text-secondary m-0 text-sm">Use our smart ATS-friendly builder</p>
-          </div>
-        </button>
+      <div className="flex-between align-center mb-24">
+        <h1 className="m-0">Manage Resumes</h1>
       </div>
 
-      <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '32px 0' }} />
+      <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
+        {['All', 'Pending', 'Approved', 'Rejected'].map(tab => (
+          <button
+            key={tab} onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '8px 20px', border: 'none', background: 'none',
+              borderBottom: activeTab === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
+              color: activeTab === tab ? 'var(--primary-color)' : 'var(--secondary-text)',
+              fontWeight: activeTab === tab ? '600' : '400', cursor: 'pointer', fontSize: '1rem',
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
 
-      {/* --- RESUME LIST --- */}
-      <h3 className="mb-16">Saved Resumes</h3>
-      {isLoading ? <p className="text-secondary">Loading...</p> : resumes.length > 0 ? (
+      <div className="mb-24">
+        <SearchBar value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search by candidate name or resume title..." />
+      </div>
+
+      {isLoading ? (
+        <p className="text-secondary text-center p-32">Loading resumes...</p>
+      ) : currentResumes.length > 0 ? (
         <div className="flex-col gap-16">
-          {resumes.map(resume => (
-            <div key={resume.id} className="card p-20 flex-between align-center">
-              <div>
-                <h3 className="m-0 mb-4" style={{ fontSize: '1.15rem' }}>{resume.title}</h3>
-                <p className="text-secondary text-sm m-0">Uploaded: {formatStandardDate(resume.created_at)}</p>
+          {currentResumes.map(resume => (
+            <div key={resume.id} className="card p-24 flex-between-start" style={{ gap: '24px', flexWrap: 'wrap' }}>
+              <div className="flex-row gap-16 align-start" style={{ flex: '1 1 300px' }}>
+                <Avatar src={resume.user_pic} fallbackName={resume.user_name} size="md" type="user" />
+                <div>
+                  <h3 className="m-0 mb-4" style={{ fontSize: '1.15rem' }}>{resume.user_name}</h3>
+                  <p className="text-secondary m-0 mb-8">File: <strong style={{ color: 'var(--text-color)' }}>{resume.title}</strong></p>
+                  <span className="text-sm text-secondary block mb-12">Uploaded: {new Date(resume.created_at).toLocaleDateString()}</span>
+                  {resume.file_url && (
+                    <a href={resume.file_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm inline-block" style={{ textDecoration: 'none' }}>
+                      📄 Open PDF
+                    </a>
+                  )}
+                </div>
               </div>
-              
-              <div className="flex-row gap-12">
-                {resume.file_url ? (
-                  <a href={resume.file_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none' }}>
-                    View PDF
-                  </a>
-                ) : (
-                  <span className="badge badge-neutral">Old Text Format</span>
-                )}
-                <button onClick={() => handleDelete(resume.id, resume.file_url)} className="btn-danger btn-sm">Delete</button>
+              <div className="flex-col align-end gap-12" style={{ flexShrink: 0 }}>
+                <StatusBadge status={resume.status || 'Pending'} />
+                <div className="flex-row gap-8 mt-8">
+                  {(resume.status || 'Pending') !== 'Approved' && (
+                    <button className="btn-sm" onClick={() => handleUpdateStatus(resume.id, 'Approved')} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>
+                      ✓ Approve
+                    </button>
+                  )}
+                  {(resume.status || 'Pending') !== 'Rejected' && (
+                    <button className="btn-sm" onClick={() => handleUpdateStatus(resume.id, 'Rejected')} style={{ background: 'var(--card-bg)', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>
+                      ✕ Reject
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="card text-center text-secondary p-32">
-          <h3 className="m-0 mb-8">No Resumes Found</h3>
-          <p className="m-0 text-secondary">Click the upload button above to add your first resume.</p>
+        <div className="card text-center text-secondary p-48">
+          <div className="text-3xl mb-16">📄</div>
+          <h3 className="mb-8">No resumes found</h3>
+          <p>No resumes match your current filter criteria.</p>
         </div>
       )}
 
-      {/* --- UPLOAD MODAL --- */}
-      {isUploadModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          
-          <div className="card p-0" style={{ width: '100%', maxWidth: '500px', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-            
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Upload PDF Resume</h3>
-              <button onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); setNewTitle(''); }} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>Close</button>
-            </div>
-            
-            <div style={{ padding: '24px' }}>
-              <form onSubmit={handleUploadResume} className="flex-col gap-16">
-                <div>
-                  <label className="text-sm block mb-8 font-bold">Resume Title</label>
-                  <input 
-                    type="text" 
-                    className="search-input w-full" 
-                    placeholder="e.g., Senior Developer 2024" 
-                    value={newTitle} 
-                    onChange={(e) => setNewTitle(e.target.value)} 
-                    required 
-                  />
-                </div>
-                
-                <div>
-                  <label className="text-sm block mb-8 font-bold">Select File (PDF only)</label>
-                  <input 
-                    type="file" 
-                    accept="application/pdf" 
-                    className="search-input w-full" 
-                    style={{ padding: '8px', cursor: 'pointer' }}
-                    onChange={(e) => setSelectedFile(e.target.files[0])} 
-                    required 
-                  />
-                </div>
-                
-                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                  <button type="button" className="btn-outline" onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); setNewTitle(''); }}>Cancel</button>
-                  <button type="submit" className="btn-black" disabled={isSubmitting}>
-                    {isSubmitting ? 'Uploading...' : 'Upload Resume'}
-                  </button>
-                </div>
-              </form>
-            </div>
-
+      {totalPages > 1 && (
+        <div className="flex-between align-center mt-32">
+          <p className="text-sm text-secondary" style={{ margin: 0 }}>Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, processedResumes.length)} of {processedResumes.length} resumes</p>
+          <div className="flex-row gap-8">
+            <button className="btn-outline btn-sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>&larr; Previous</button>
+            <button className="btn-outline btn-sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>Next &rarr;</button>
           </div>
         </div>
       )}

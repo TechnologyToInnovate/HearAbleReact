@@ -96,10 +96,23 @@ export default function Feedbacks() {
       {/* Page Header: Displays the title and conditionally renders the New Feedback button for non-admins */}
       <div className="flex-between align-center mb-24">
         <h1 className="m-0">{role === 'admin' ? 'All Platform Feedback' : 'My Feedback'}</h1>
+        
+        {/* 🚨 UPDATED: Lock the New Feedback button for pending/rejected users */}
         {role !== 'admin' && (
-          <button className="btn-black" onClick={() => setIsModalOpen(true)}>
-            + New Feedback
-          </button>
+          role === 'user' ? (
+            <button className="btn-black" onClick={() => setIsModalOpen(true)}>
+              + New Feedback
+            </button>
+          ) : (
+            <button 
+              className="btn-black" 
+              disabled 
+              title="Your account must be approved to submit feedback."
+              style={{ opacity: 0.6, cursor: 'not-allowed' }}
+            >
+              + New Feedback 🔒
+            </button>
+          )
         )}
       </div>
 

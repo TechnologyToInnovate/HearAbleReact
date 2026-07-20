@@ -165,7 +165,6 @@ export default function Jobs() {
           ...job,
           company: 'Company Hidden',
           location: 'Sign in to view location',
-          // 🚨 UPDATED: Removed `is_deaf_accessible: false` so the badge remains visible
           pay: 'Sign in to view pay',
           pay_rate: '',
           description: 'Sign In To View Job Description'
@@ -184,7 +183,6 @@ export default function Jobs() {
       ...selectedCompanyData,
       name: 'Sign In To View Company',
       description: 'Sign In To View Company Details and Full Profile',
-      // 🚨 UPDATED: Removed `is_deaf_accessible: false` here as well
       locations: { city: 'Sign in to view location', country: '' },
       logo_url: null 
     };
@@ -221,48 +219,42 @@ export default function Jobs() {
       
       {/* --- PAGE HEADER & CONTROLS --- */}
       <div>
+        
+        {/* Toggle Header for all users */}
+        <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
+          <div className="flex-row align-center gap-16 flex-wrap">
+            <h1 style={{ margin: 0 }}>{role === 'admin' ? 'Manage Jobs' : 'Job Postings'}</h1>
+            {role === 'admin' && (
+              <div className="flex-row" style={{ background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <button 
+                  onClick={() => navigate('/jobs')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', fontWeight: '500', cursor: 'pointer', background: 'var(--card-bg)', color: 'var(--text-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                >
+                  Job Postings
+                </button>
+                <button 
+                  onClick={() => navigate('/applicants')}
+                  style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', fontWeight: '500', cursor: 'pointer', background: 'transparent', color: 'var(--secondary-text)', boxShadow: 'none' }}
+                >
+                  Applicants
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {role === 'admin' && (
           <>
-            <div className="flex-between align-center mb-8" style={{ flexWrap: 'wrap', gap: '16px' }}>
-              <h1 className="m-0">Manage Jobs</h1>
-            </div>
-            
-            {/* Admin Navigation: Switch between Jobs and Applicants */}
+            {/* 🚨 UPDATED: Removed Archived from the Admin Status Filter */}
             <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
-              <button
-                onClick={() => navigate('/jobs')}
-                style={{
-                  padding: '8px 20px', border: 'none', background: 'none',
-                  borderBottom: '2px solid var(--primary-color)',
-                  color: 'var(--primary-color)',
-                  fontWeight: '600', cursor: 'pointer', fontSize: '1rem',
-                }}
-              >
-                Job Postings
-              </button>
-              <button
-                onClick={() => navigate('/applicants')}
-                style={{
-                  padding: '8px 20px', border: 'none', background: 'none',
-                  borderBottom: '2px solid transparent',
-                  color: 'var(--secondary-text)',
-                  fontWeight: '400', cursor: 'pointer', fontSize: '1rem',
-                }}
-              >
-                Applicants
-              </button>
-            </div>
-
-            {/* Admin Status Filter (Pending/Approved/Rejected) */}
-            <div className="flex-row gap-8 mb-16" style={{ background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
-              {['Pending', 'Approved', 'Rejected', 'All'].map(tab => (
+              {['All', 'Pending', 'Approved', 'Rejected'].map(tab => (
                 <button
                   key={tab} onClick={() => { setAdminStatusFilter(tab); setSelectedJobId(null); }}
                   style={{
-                    padding: '6px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600',
-                    background: adminStatusFilter === tab ? 'var(--card-bg)' : 'transparent',
-                    color: adminStatusFilter === tab ? 'var(--text-color)' : 'var(--secondary-text)',
-                    boxShadow: adminStatusFilter === tab ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                    padding: '8px 20px', border: 'none', background: 'none',
+                    borderBottom: adminStatusFilter === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
+                    color: adminStatusFilter === tab ? 'var(--primary-color)' : 'var(--secondary-text)',
+                    fontWeight: adminStatusFilter === tab ? '600' : '400', cursor: 'pointer', fontSize: '1rem',
                   }}
                 >
                   {tab}

@@ -38,7 +38,7 @@ export default function Companies({ role }) {
   }, [searchQuery, activeTab, sortBy]);
 
   useEffect(() => {
-    setSortBy(activeTab === 'Pending' ? 'date_asc' : 'name_asc');
+    setSortBy('name_asc');
   }, [activeTab]);
 
   async function handleAddCompany(e) {
@@ -166,16 +166,36 @@ export default function Companies({ role }) {
         </section>
       ) : (
         <>
-          {role === 'admin' && (
-            <div className="flex-between mb-24">
-              <h1 style={{ margin: 0 }}>Manage Companies</h1>
-              <button className="btn-black" onClick={() => setShowAddForm(true)}>Add Company</button>
+          {/* 🚨 UPDATED: Header block to include the Job Seekers/Employers toggle */}
+          <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
+            <div className="flex-row align-center gap-16 flex-wrap">
+              <h1 style={{ margin: 0 }}>{role === 'admin' ? 'Manage Users' : 'Companies'}</h1>
+              {role === 'admin' && (
+                <div className="flex-row" style={{ background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <button 
+                    onClick={() => navigate('/users')}
+                    style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', fontWeight: '500', cursor: 'pointer', background: 'transparent', color: 'var(--secondary-text)', boxShadow: 'none' }}
+                  >
+                    Job Seekers
+                  </button>
+                  <button 
+                    onClick={() => navigate('/companies')}
+                    style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', fontWeight: '500', cursor: 'pointer', background: 'var(--card-bg)', color: 'var(--text-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                  >
+                    Employers
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+            
+            {role === 'admin' && (
+              <button className="btn-black" onClick={() => setShowAddForm(true)}>Add Company</button>
+            )}
+          </div>
 
           {role === 'admin' && (
             <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
-              {['All', 'Pending', 'Active', 'Inactive', 'Pre-Approved', 'Archived'].map(tab => (
+              {['All', 'Active', 'Inactive', 'Pre-Approved', 'Archived'].map(tab => (
                 <button
                   key={tab} onClick={() => setActiveTab(tab)}
                   style={{
@@ -256,8 +276,6 @@ export default function Companies({ role }) {
                         )}
                       </div>
                     </div>
-
-                    {/* 🚨 UPDATED: Removed company description rendering from this view */}
 
                     <div className="flex-row align-center flex-end" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '8px', flexWrap: 'wrap', gap: '16px' }}>
                       {!company.isPreApprovedOnly && (

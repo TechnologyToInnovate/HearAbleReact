@@ -5,22 +5,17 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Batches() {
   const navigate = useNavigate();
-  // Retrieve the user's role to enforce admin-only access
   const { role } = useAuth(); 
   
-  // State for fetching and displaying the list of batches
   const [batches, setBatches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // State for the new batch form
   const [newBatch, setNewBatch] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Protect the route: redirect non-admins to the home page
   useEffect(() => {
     if (role !== 'admin') {
       navigate('/');
@@ -29,7 +24,6 @@ export default function Batches() {
     fetchBatches();
   }, [role, navigate]);
 
-  // Fetches the full list of student/talent batches, ordered by batch number descending
   async function fetchBatches() {
     setIsLoading(true);
     const { data, error } = await supabase
@@ -42,13 +36,11 @@ export default function Batches() {
     setIsLoading(false);
   }
 
-  // Input formatter: enforces numeric-only input and a maximum length of 3 digits
   const handleBatchInput = (e) => {
     const val = e.target.value.replace(/\D/g, ''); 
     if (val.length <= 3) setNewBatch(val);
   };
 
-  // Submits a new batch to the database
   async function handleAddBatch(e) {
     e.preventDefault();
     if (!newBatch.trim()) return;
@@ -59,14 +51,13 @@ export default function Batches() {
     setIsAdding(false);
     if (!error) {
       setNewBatch('');
-      setCurrentPage(1); // Reset to the first page so the new entry is immediately visible
+      setCurrentPage(1); 
       fetchBatches();
     } else {
       alert("Failed to add batch. It might already exist!");
     }
   }
 
-  // Deletes an existing batch and handles edge cases with pagination
   async function handleDeleteBatch(id, batchNumber) {
     if (!window.confirm(`Are you sure you want to delete Batch ${batchNumber}?`)) return;
     
@@ -74,7 +65,6 @@ export default function Batches() {
     if (!error) {
       setBatches(batches.filter(b => b.id !== id));
       
-      // If the user deletes the last item on the current page, step back one page
       if (currentBatches.length === 1 && currentPage > 1) {
         setCurrentPage(currentPage - 1);
       }
@@ -83,7 +73,6 @@ export default function Batches() {
     }
   }
 
-  // Calculate which items to display on the current pagination page
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentBatches = batches.slice(indexOfFirstItem, indexOfLastItem);
@@ -91,11 +80,20 @@ export default function Batches() {
 
   return (
     <div className="page-container" style={{ maxWidth: '800px' }}>
+      
+      {/* 🚨 NEW: Back button */}
+      <button 
+        className="btn-outline btn-sm mb-16" 
+        onClick={() => navigate('/system-data')}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+      >
+        &larr; Back to System Data
+      </button>
+
       <div className="flex-between mb-24">
         <h1 style={{ margin: 0 }}>Manage Batches</h1>
       </div>
 
-      {/* --- ADD BATCH FORM --- */}
       <div className="card p-24 mb-32">
         <h3 className="mb-16 m-0">Add New Batch</h3>
         <form onSubmit={handleAddBatch} className="flex-row gap-16 align-center">
@@ -113,7 +111,6 @@ export default function Batches() {
         </form>
       </div>
 
-      {/* --- BATCH LIST --- */}
       <div className="card p-0" style={{ overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <h3 className="m-0">Current Batches</h3>
@@ -141,7 +138,6 @@ export default function Batches() {
           <p className="text-secondary text-center p-24 m-0">No batches have been added yet.</p>
         )}
 
-        {/* --- PAGINATION CONTROLS --- */}
         {totalPages > 1 && (
           <div className="flex-between align-center" style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
             <p className="text-sm text-secondary" style={{ margin: 0 }}>

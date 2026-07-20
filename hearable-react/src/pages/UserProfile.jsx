@@ -90,6 +90,20 @@ export default function UserProfile() {
     }
   }
 
+  // 🚨 NEW: Function to handle unarchiving a user
+  async function handleUnarchiveUser() {
+    if (role !== 'admin') return;
+    if (!window.confirm(`Are you sure you want to unarchive ${formatFullName(user.first_name, user.last_name)}? This will reset their status to Pending.`)) return;
+
+    const { error } = await supabase.from('profiles').update({ status: 'Pending' }).eq('id', user.id);
+
+    if (!error) {
+      setUser({ ...user, status: 'Pending' });
+    } else {
+      alert("Failed to unarchive user.");
+    }
+  }
+
   async function handleAddSkill(skillObj) {
     if (!skillObj || !user || !currentUser) return;
     setIsUpdatingSkills(true);
@@ -177,12 +191,15 @@ export default function UserProfile() {
             {user.status !== 'Approved' && <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Approved')} style={{ borderColor: '#34d399', color: '#065f46', background: '#ecfdf5' }}>Approve</button>}
             {user.status !== 'Rejected' && <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Rejected')} style={{ borderColor: '#f87171', color: '#991b1b', background: '#fef2f2' }}>Reject</button>}
             {user.status !== 'Archived' && <button className="btn-outline btn-sm" onClick={handleArchiveUser} style={{ borderColor: '#fde68a', color: '#b45309', background: '#fffbeb' }}>Archive</button>}
+            {/* 🚨 NEW: Unarchive button only visible if user is already archived */}
+            {user.status === 'Archived' && <button className="btn-outline btn-sm" onClick={handleUnarchiveUser} style={{ borderColor: '#9ca3af', color: '#4b5563', background: '#f3f4f6' }}>Unarchive</button>}
           </div>
         </div>
       )}
 
       <div className="dashboard-layout">
         <div className="flex-col gap-32">
+          
           <div className="card p-24">
             <div className="flex-between align-center mb-16 gap-16 flex-wrap">
               <h3 className="m-0">Skills & Expertise</h3>
@@ -210,6 +227,7 @@ export default function UserProfile() {
               )}
             </div>
           </div>
+
         </div>
 
         <div style={{ position: 'sticky', top: '90px' }}>
@@ -222,7 +240,6 @@ export default function UserProfile() {
                 <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                   <span className="text-sm text-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                     Education
-                    {/* 🚨 NEW: Added privacy note indicator */}
                     <span style={{ fontSize: '0.75rem', fontStyle: 'italic', opacity: 0.7 }}>(Not visible to companies)</span>
                   </span>
                   <strong style={{ fontSize: '1rem', display: 'block' }}>
@@ -250,6 +267,7 @@ export default function UserProfile() {
 
         </div>
       </div>
+      
     </div>
   );
 }
