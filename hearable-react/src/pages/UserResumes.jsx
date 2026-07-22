@@ -195,9 +195,13 @@ export default function UserResumes() {
           {resumes.map(resume => (
             <div key={resume.id} className="card p-20 flex-between align-center">
               <div>
-                <h3 className="m-0 mb-4" style={{ fontSize: '1.15rem' }}>{resume.title}</h3>
-                <p className="text-secondary text-sm m-0 mb-8">Uploaded: {resume.created_at ? formatStandardDate(resume.created_at) : 'Unknown Date'}</p>
-                <StatusBadge status={resume.status || 'Pending'} />
+                <h3 className="m-0 mb-8" style={{ fontSize: '1.15rem' }}>{resume.title}</h3>
+                
+                {/* 🚨 UPDATED: Status badge is now directly above the date */}
+                <div className="flex-col gap-4 align-start">
+                  <StatusBadge status={resume.status || 'Pending'} />
+                  <p className="text-secondary text-sm m-0">Uploaded: {resume.created_at ? formatStandardDate(resume.created_at) : 'Unknown Date'}</p>
+                </div>
               </div>
               
               <div className="flex-row gap-12">
@@ -231,9 +235,7 @@ export default function UserResumes() {
       {/* --- UPLOAD MODAL --- */}
       {isUploadModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          
           <div className="card p-0" style={{ width: '100%', maxWidth: '500px', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-            
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Upload PDF Resume</h3>
               <button onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); setNewTitle(''); }} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
@@ -273,7 +275,6 @@ export default function UserResumes() {
                 </div>
               </form>
             </div>
-
           </div>
         </div>
       )}
@@ -281,9 +282,7 @@ export default function UserResumes() {
       {/* --- PREVIEW MODAL --- */}
       {previewUrl && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          
           <div className="card p-0" style={{ width: '100%', maxWidth: '800px', height: '85vh', display: 'flex', flexDirection: 'column', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-            
             <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Resume Preview</h3>
               <button onClick={() => setPreviewUrl(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
@@ -298,7 +297,6 @@ export default function UserResumes() {
                 style={{ border: 'none', display: 'block' }}
               />
             </div>
-            
           </div>
         </div>
       )}

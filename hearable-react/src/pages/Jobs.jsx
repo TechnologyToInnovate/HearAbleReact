@@ -15,136 +15,45 @@ export default function Jobs() {
   const location = useLocation();
   const { user: currentUser, role } = useAuth();
 
-  // Fetch the global list of jobs and companies using a custom hook
   const { jobs, companies, isLoading, setJobs } = useJobs();
 
-  // --- INTERACTION STATE ---
-  // Tracks which job is currently selected for the right-hand details pane
   const [selectedJobId, setSelectedJobId] = useState(null);
   
-  // Tracks user-specific job interactions
   const [savedJobs, setSavedJobs] = useState([]);
   const [appliedJobs, setAppliedJobs] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
-  // --- FILTERING STATE ---
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [userResumes, setUserResumes] = useState([]);
+  const [isLoadingResumes, setIsLoadingResumes] = useState(false);
+  const [selectedResumeId, setSelectedResumeId] = useState('');
+  const [newResumeTitle, setNewResumeTitle] = useState('');
+  const [newResumeUrl, setNewResumeUrl] = useState('');
+  const [isUploadingResume, setIsUploadingResume] = useState(false);
+  
+  const [applyModalTab, setApplyModalTab] = useState('select'); 
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModality, setFilterModality] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [filterDate, setFilterDate] = useState('All');
   
-  // Admins have an additional filter to view jobs by approval status
   const [adminStatusFilter, setAdminStatusFilter] = useState('Approved'); 
 
-  // Load user data on mount and handle incoming navigation state (e.g., linking directly to a job)
   useEffect(() => {
     if (currentUser) fetchUserData();
     if (location.state?.selectedJobId) setSelectedJobId(location.state.selectedJobId);
   }, [currentUser, location.state]);
 
-  // Auto-select the first job in the list on desktop views if none is selected
-  useEffect(() => {
-    if (!isLoading && (jobs || []).length > 0 && !selectedJobId && window.innerWidth > 768) {
-      const firstVisible = filteredJobs[0];
-      if (firstVisible) setSelectedJobId(firstVisible.id);
-    }
-  }, [isLoading, jobs, selectedJobId, adminStatusFilter]);
-
-  // Retrieves the IDs of jobs the current user has saved or applied to
-  async function fetchUserData() {
-    // Only standard users need this data; skip for guests, companies, and admins
-    if (['guest', 'company', 'admin'].includes(role)) return;
-    
-    const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', currentUser.id);
-    const { data: applied } = await supabase.from('applications').select('job_id').eq('applicant_id', currentUser.id);
-    
-    if (saved) setSavedJobs(saved.map(s => s.job_id));
-    if (applied) setAppliedJobs(applied.map(a => a.job_id));
-  }
-
-  // Handles submitting a job application
-  async function handleApply() {
-    if (!currentUser) return navigate('/login');
-    if (role !== 'user') return alert("Only approved standard users can apply for jobs.");
-    
-    setIsApplying(true);
-    const { error } = await supabase.from('applications').insert([{ applicant_id: currentUser.id, job_id: selectedJobId }]);
-
-    if (!error) {
-      setAppliedJobs([...appliedJobs, selectedJobId]);
-      alert("Application sent successfully!");
-    } else {
-      console.error("Application error:", error);
-      alert("Failed to send application. Please try again.");
-    }
-    setIsApplying(false);
-  }
-
-  // Toggles a job in the user's saved jobs list
-  async function handleSaveJob() {
-    if (!currentUser) return navigate('/login');
-    if (!['user', 'pending_user', 'rejected_user'].includes(role)) return;
-    
-    setIsSaving(true);
-    const isCurrentlySaved = savedJobs.includes(selectedJobId);
-
-    if (isCurrentlySaved) {
-      // Remove from saved jobs
-      const { error } = await supabase.from('saved_jobs').delete().match({ user_id: currentUser.id, job_id: selectedJobId });
-      if (!error) setSavedJobs(savedJobs.filter(id => id !== selectedJobId));
-    } else {
-      // Add to saved jobs
-      const { error } = await supabase.from('saved_jobs').insert([{ user_id: currentUser.id, job_id: selectedJobId }]);
-      if (!error) setSavedJobs([...savedJobs, selectedJobId]);
-    }
-    setIsSaving(false);
-  }
-
-  // Admin function to approve, reject, or pending a job posting
-  async function handleUpdateJobStatus(jobId, newStatus) {
-    if (role !== 'admin') return;
-    const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId);
-    
-    if (!error) {
-      // Optimistically update the local state
-      setJobs(jobs?.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
-      
-      // Clear the selection if the admin just rejected a job from the pending queue
-      if (newStatus === 'Rejected' && adminStatusFilter === 'Pending') setSelectedJobId(null);
-    } else {
-      alert("Failed to update job status.");
-    }
-  }
-
-  // Admin function to completely remove a job from the database
-  async function handleDeleteJob() {
-    if (role !== 'admin') return;
-    if (!window.confirm("Are you sure you want to delete this job posting?")) return;
-    
-    const { error } = await supabase.from('jobs').delete().eq('id', selectedJobId);
-    if (!error) { 
-      setJobs(jobs?.filter(job => job.id !== selectedJobId)); 
-      setSelectedJobId(null); 
-    } else {
-      alert("Failed to delete job.");
-    }
-  }
-
-  // Master filtering logic combining search query, UI dropdowns, and role-based access rules
   const filteredJobs = (jobs || [])
     .filter(job => {
-      // Non-admins only see approved jobs
       if (role !== 'admin' && job.status !== 'Approved') return false; 
-      
-      // Admins can filter by specific statuses (Pending, Approved, Rejected)
       if (role === 'admin' && adminStatusFilter !== 'All' && job.status !== adminStatusFilter) return false;
 
-      // Apply text search
       const matchesSearch = (job.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                             (job.company || '').toLowerCase().includes(searchQuery.toLowerCase());
                             
-      // Apply dropdown filters
       const matchesModality = filterModality === 'All' || job.work_model === filterModality;
       const matchesType = filterType === 'All' || job.type === filterType;
       let matchesDate = true;
@@ -173,11 +82,9 @@ export default function Jobs() {
       return job;
     });
 
-  // Extract the full data objects for the currently selected job and its parent company
   const selectedJobData = filteredJobs.find(j => j.id === selectedJobId);
   let selectedCompanyData = selectedJobData ? companies?.find(c => c.id === selectedJobData.company_id) : null;
 
-  // Provide a template object for guests, keeping their accessibility status intact
   if (role === 'guest' && selectedCompanyData) {
     selectedCompanyData = {
       ...selectedCompanyData,
@@ -188,12 +95,201 @@ export default function Jobs() {
     };
   }
 
-  // Helper function to render the left-hand scrollable list of job cards
+  useEffect(() => {
+    if (!isLoading && (jobs || []).length > 0 && !selectedJobId && window.innerWidth > 768) {
+      const firstVisible = filteredJobs[0];
+      if (firstVisible) setSelectedJobId(firstVisible.id);
+    }
+  }, [isLoading, jobs, selectedJobId, adminStatusFilter]);
+
+  async function fetchUserData() {
+    if (['guest', 'company', 'admin'].includes(role)) return;
+    
+    const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', currentUser.id);
+    const { data: applied } = await supabase.from('applications').select('job_id').eq('applicant_id', currentUser.id);
+    
+    if (saved) setSavedJobs(saved.map(s => s.job_id));
+    if (applied) setAppliedJobs(applied.map(a => a.job_id));
+  }
+
+  async function handleApplyClick() {
+    if (!currentUser) return navigate('/login');
+    if (role !== 'user') return alert("Only approved standard users can apply for jobs.");
+    
+    setShowApplyModal(true);
+    setIsLoadingResumes(true);
+    
+    const { data, error } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('user_id', currentUser.id);
+      
+    if (!error && data) {
+      setUserResumes(data);
+      const approved = data.filter(r => r.status === 'Approved');
+      if (approved.length > 0) {
+        setSelectedResumeId(approved[0].id);
+        setApplyModalTab('select'); 
+      } else {
+        setApplyModalTab('upload'); 
+      }
+    }
+    setIsLoadingResumes(false);
+  }
+
+  async function submitApplication() {
+    if (!selectedResumeId) return alert("Please select a resume.");
+    
+    setIsApplying(true);
+    const { error } = await supabase.from('applications').insert([{ 
+      applicant_id: currentUser.id, 
+      job_id: selectedJobId,
+      resume_id: selectedResumeId
+    }]);
+
+    if (!error) {
+      setAppliedJobs([...appliedJobs, selectedJobId]);
+      alert("Application sent successfully!");
+      setShowApplyModal(false);
+    } else {
+      console.error("Application error:", error);
+      alert("Failed to send application. Please try again.");
+    }
+    setIsApplying(false);
+  }
+
+  async function handleUploadResume(e) {
+    e.preventDefault();
+    setIsUploadingResume(true);
+    
+    const { error } = await supabase.from('resumes').insert([{
+      user_id: currentUser.id,
+      title: newResumeTitle,
+      file_url: newResumeUrl,
+      status: 'Pending'
+    }]);
+    
+    if (!error) {
+      alert("Resume submitted successfully! Once an admin approves it, you can apply for this job.");
+      setShowApplyModal(false);
+      setNewResumeTitle('');
+      setNewResumeUrl('');
+    } else {
+      alert("Failed to submit resume.");
+    }
+    setIsUploadingResume(false);
+  }
+
+  async function handleSaveJob() {
+    if (!currentUser) return navigate('/login');
+    if (!['user', 'pending_user', 'rejected_user'].includes(role)) return;
+    
+    setIsSaving(true);
+    const isCurrentlySaved = savedJobs.includes(selectedJobId);
+
+    if (isCurrentlySaved) {
+      const { error } = await supabase.from('saved_jobs').delete().match({ user_id: currentUser.id, job_id: selectedJobId });
+      if (!error) setSavedJobs(savedJobs.filter(id => id !== selectedJobId));
+    } else {
+      const { error } = await supabase.from('saved_jobs').insert([{ user_id: currentUser.id, job_id: selectedJobId }]);
+      if (!error) setSavedJobs([...savedJobs, selectedJobId]);
+    }
+    setIsSaving(false);
+  }
+
+  async function handleUpdateJobStatus(jobId, newStatus) {
+    if (role !== 'admin') return;
+    const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId);
+    
+    if (!error) {
+      setJobs(jobs?.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
+      if (newStatus === 'Rejected' && adminStatusFilter === 'Pending') setSelectedJobId(null);
+    } else {
+      alert("Failed to update job status.");
+    }
+  }
+
+  // 🚨 UPDATED: Job Deletion handles applicant notifications before removing the post
+  async function handleDeleteJob() {
+    if (role !== 'admin') return;
+    if (!window.confirm("Are you sure you want to delete this job posting? This cannot be undone.")) return;
+
+    try {
+      // 1. Fetch all applications tied to this specific job
+      const { data: applicants, error: fetchError } = await supabase
+        .from('applications')
+        .select('applicant_id')
+        .eq('job_id', selectedJobId);
+
+      if (fetchError) throw fetchError;
+
+      // 2. If there are applicants, create and send them a closure notification
+      if (applicants && applicants.length > 0) {
+        // Remove duplicate applicant IDs just in case
+        const uniqueApplicantIds = [...new Set(applicants.map(app => app.applicant_id))];
+        const jobTitle = selectedJobData?.title || 'a recent job';
+        
+        const notificationsToInsert = uniqueApplicantIds.map(applicantId => ({
+          user_id: applicantId,
+          title: 'Job Post Closed',
+          message: `The job post for "${jobTitle}" has been closed by the employer. Thank you for your interest!`,
+          link: `/user-jobs`
+        }));
+
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert(notificationsToInsert);
+
+        if (notifError) {
+          console.error("Failed to send notifications:", notifError);
+        }
+      }
+
+      // 3. Delete the job posting
+      const { error } = await supabase.from('jobs').delete().eq('id', selectedJobId);
+      
+      if (!error) { 
+        setJobs(jobs?.filter(job => job.id !== selectedJobId)); 
+        setSelectedJobId(null); 
+        alert("Job deleted successfully, and applicants have been notified!");
+      } else {
+        alert("Failed to delete job.");
+      }
+    } catch (error) {
+      console.error("Error deleting job:", error);
+      alert("An error occurred while trying to delete the job.");
+    }
+  }
+
+  async function handleRepostJob(jobId) {
+    if (role !== 'company') return;
+    
+    // Default new closing date to 1 week from today
+    const newClosingDate = new Date();
+    newClosingDate.setDate(newClosingDate.getDate() + 7);
+    const formattedDate = newClosingDate.toISOString().split('T')[0];
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({ 
+        closing_date: formattedDate,
+        status: 'Pending' 
+      })
+      .eq('id', jobId);
+
+    if (!error) {
+      alert("Job reposted for 1 week! It is now pending admin approval.");
+      setJobs(jobs?.map(j => j.id === jobId ? { ...j, closing_date: formattedDate, status: 'Pending' } : j));
+      setSelectedJobId(null);
+    } else {
+      alert("Failed to repost job.");
+    }
+  }
+
   const renderJobList = (jobList) => (
     <div className="flex-col gap-12">
       {jobList.map(job => (
         <div key={job.id} style={{ position: 'relative' }}>
-          {/* Admin badge showing how many applicants a job has */}
           {role === 'admin' && job.applicantCount > 0 && (
             <div className="badge badge-primary" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
               {job.applicantCount} {job.applicantCount === 1 ? 'Applicant' : 'Applicants'}
@@ -204,7 +300,6 @@ export default function Jobs() {
             isSelected={job.id === selectedJobId} 
             onClick={() => {
               setSelectedJobId(job.id);
-              // On mobile, automatically scroll to the top to see the opened details pane
               if (window.innerWidth <= 768) window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             hideMatchScore={true}
@@ -217,10 +312,7 @@ export default function Jobs() {
   return (
     <div className="page-container-wide" style={{ paddingBottom: '24px' }}>
       
-      {/* --- PAGE HEADER & CONTROLS --- */}
       <div>
-        
-        {/* Toggle Header for all users */}
         <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div className="flex-row align-center gap-16 flex-wrap">
             <h1 style={{ margin: 0 }}>{role === 'admin' ? 'Manage Jobs' : 'Job Postings'}</h1>
@@ -244,27 +336,23 @@ export default function Jobs() {
         </div>
 
         {role === 'admin' && (
-          <>
-            {/* 🚨 UPDATED: Removed Archived from the Admin Status Filter */}
-            <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
-              {['All', 'Pending', 'Approved', 'Rejected'].map(tab => (
-                <button
-                  key={tab} onClick={() => { setAdminStatusFilter(tab); setSelectedJobId(null); }}
-                  style={{
-                    padding: '8px 20px', border: 'none', background: 'none',
-                    borderBottom: adminStatusFilter === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
-                    color: adminStatusFilter === tab ? 'var(--primary-color)' : 'var(--secondary-text)',
-                    fontWeight: adminStatusFilter === tab ? '600' : '400', cursor: 'pointer', fontSize: '1rem',
-                  }}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </>
+          <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
+            {['All', 'Pending', 'Approved', 'Rejected'].map(tab => (
+              <button
+                key={tab} onClick={() => { setAdminStatusFilter(tab); setSelectedJobId(null); }}
+                style={{
+                  padding: '8px 20px', border: 'none', background: 'none',
+                  borderBottom: adminStatusFilter === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
+                  color: adminStatusFilter === tab ? 'var(--primary-color)' : 'var(--secondary-text)',
+                  fontWeight: adminStatusFilter === tab ? '600' : '400', cursor: 'pointer', fontSize: '1rem',
+                }}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
         )}
         
-        {/* Search Bar */}
         <div className="mb-16">
           <SearchBar 
             value={searchQuery} 
@@ -273,7 +361,6 @@ export default function Jobs() {
           />
         </div>
         
-        {/* Dropdown Filters */}
         <div className="mb-24">
           <JobFilters 
             filterModality={filterModality} setFilterModality={setFilterModality}
@@ -283,10 +370,8 @@ export default function Jobs() {
         </div>
       </div>
 
-      {/* --- SPLIT PANE LAYOUT --- */}
       <div className={`jobs-split-layout ${selectedJobId ? 'active-split' : ''}`}>
         
-        {/* Left Column: Scrollable Job List */}
         <div className="jobs-list-column">
           {isLoading ? (
             <p className="text-center text-secondary p-20">Loading opportunities...</p>
@@ -302,7 +387,6 @@ export default function Jobs() {
           )}
         </div>
 
-        {/* Right Column: Job Details View */}
         <div className="job-details-column">
           {selectedJobId && selectedJobData ? (
             <JobDetailsPane
@@ -314,10 +398,11 @@ export default function Jobs() {
               hasApplied={appliedJobs.includes(selectedJobId)}
               isSaved={savedJobs.includes(selectedJobId)}
               isSaving={isSaving}
-              handleApply={handleApply}
+              handleApply={handleApplyClick} 
               handleSaveJob={handleSaveJob}
               handleDeleteJob={handleDeleteJob} 
               handleUpdateJobStatus={handleUpdateJobStatus}
+              handleRepostJob={handleRepostJob} 
               navigate={navigate}
               handleClose={() => setSelectedJobId(null)} 
             />
@@ -329,6 +414,128 @@ export default function Jobs() {
           )}
         </div>
       </div>
+
+      {showApplyModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="card p-0" style={{ width: '100%', maxWidth: '500px', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+            
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Apply for Role</h3>
+              <button onClick={() => setShowApplyModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-color)', lineHeight: 1 }}>&times;</button>
+            </div>
+            
+            <div style={{ padding: '24px' }}>
+              {isLoadingResumes ? (
+                <p className="text-center text-secondary">Checking your profile...</p>
+              ) : (
+                (() => {
+                  const approvedResumes = userResumes.filter(r => r.status === 'Approved');
+                  const pendingResumes = userResumes.filter(r => r.status === 'Pending');
+
+                  return (
+                    <>
+                      {approvedResumes.length > 0 && (
+                        <div className="flex-row gap-16 mb-24" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <button
+                            style={{ 
+                              background: 'none', border: 'none', padding: '0 0 12px 0', fontSize: '1rem', cursor: 'pointer',
+                              fontWeight: applyModalTab === 'select' ? '600' : '400', 
+                              color: applyModalTab === 'select' ? 'var(--primary-color)' : 'var(--secondary-text)',
+                              borderBottom: applyModalTab === 'select' ? '2px solid var(--primary-color)' : '2px solid transparent'
+                            }}
+                            onClick={() => setApplyModalTab('select')}
+                          >
+                            Use Approved File
+                          </button>
+                          <button
+                            style={{ 
+                              background: 'none', border: 'none', padding: '0 0 12px 0', fontSize: '1rem', cursor: 'pointer',
+                              fontWeight: applyModalTab === 'upload' ? '600' : '400', 
+                              color: applyModalTab === 'upload' ? 'var(--primary-color)' : 'var(--secondary-text)',
+                              borderBottom: applyModalTab === 'upload' ? '2px solid var(--primary-color)' : '2px solid transparent'
+                            }}
+                            onClick={() => setApplyModalTab('upload')}
+                          >
+                            Submit New Resume
+                          </button>
+                        </div>
+                      )}
+
+                      {applyModalTab === 'select' ? (
+                        <div className="flex-col gap-16">
+                          <p className="m-0 text-secondary">Select an approved resume to include with your application:</p>
+                          <select 
+                            className="search-input w-full" 
+                            value={selectedResumeId} 
+                            onChange={(e) => setSelectedResumeId(e.target.value)}
+                          >
+                            {approvedResumes.map(r => (
+                              <option key={r.id} value={r.id}>{r.title}</option>
+                            ))}
+                          </select>
+                          <button 
+                            className="btn-black w-full" 
+                            style={{ padding: '12px', fontSize: '1rem', marginTop: '8px' }}
+                            onClick={submitApplication}
+                            disabled={isApplying}
+                          >
+                            {isApplying ? 'Submitting...' : 'Submit Application'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex-col gap-16">
+                          {approvedResumes.length === 0 && (
+                            <div className="card p-16" style={{ background: '#fffbeb', border: '1px solid #fde68a', marginBottom: '8px', boxShadow: 'none' }}>
+                              <p className="m-0" style={{ color: '#b45309', fontWeight: '500', fontSize: '0.95rem' }}>
+                                {pendingResumes.length > 0 
+                                  ? "You currently have a resume pending approval. Once an admin approves it, you can apply for this job!" 
+                                  : "You don't have an approved resume on file. Please submit one for admin approval before applying."}
+                              </p>
+                            </div>
+                          )}
+
+                          <form onSubmit={handleUploadResume} className="flex-col gap-16">
+                            <div>
+                              <label className="block mb-8 font-medium">Resume Title</label>
+                              <input 
+                                type="text" 
+                                className="search-input w-full" 
+                                required 
+                                placeholder="e.g., Lead Developer Resume 2026"
+                                value={newResumeTitle}
+                                onChange={(e) => setNewResumeTitle(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="block mb-8 font-medium">Link to Resume (Google Drive, Portfolio, etc.)</label>
+                              <input 
+                                type="url" 
+                                className="search-input w-full" 
+                                required 
+                                placeholder="https://..."
+                                value={newResumeUrl}
+                                onChange={(e) => setNewResumeUrl(e.target.value)}
+                              />
+                            </div>
+                            <button 
+                              type="submit"
+                              className="btn-black w-full" 
+                              style={{ padding: '12px', fontSize: '1rem', marginTop: '8px' }}
+                              disabled={isUploadingResume}
+                            >
+                              {isUploadingResume ? 'Submitting...' : 'Submit for Approval'}
+                            </button>
+                          </form>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

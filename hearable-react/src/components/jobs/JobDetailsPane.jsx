@@ -11,6 +11,7 @@ export default function JobDetailsPane({
   isApplying, hasApplied, isSaved, isSaving,
   handleApply, handleSaveJob, handleDeleteJob,
   setIsEditingJob, navigate, handleUpdateJobStatus,
+  handleRepostJob, // 🚨 NEW: Receive the repost function
   handleClose 
 }) {
   const [isDescExpanded, setIsDescExpanded] = useState(false);
@@ -20,7 +21,7 @@ export default function JobDetailsPane({
   const isOwner = currentUser && selectedJob.company_id === currentUser.id;
   const isAdmin = role === 'admin';
   const editCount = selectedJob.edit_count || 0;
-  const showCompanyActions = role === 'company' && isOwner && setIsEditingJob;
+  const showCompanyActions = role === 'company' && isOwner;
 
   const DESC_LIMIT = 200;
   const companyDesc = selectedCompany?.description;
@@ -28,6 +29,10 @@ export default function JobDetailsPane({
   const displayDesc = (shouldTruncateDesc && !isDescExpanded) 
     ? companyDesc.substring(0, DESC_LIMIT) + '...' 
     : companyDesc;
+
+  const isDeadlinePassed = selectedJob.closing_date 
+    ? new Date(selectedJob.closing_date) < new Date(new Date().setHours(0,0,0,0)) 
+    : false;
 
   return (
     <div className="card p-0 flex-col" style={{ position: 'relative', height: '100%', overflowY: 'auto' }}>
@@ -57,7 +62,18 @@ export default function JobDetailsPane({
                 </>
               )}
 
-              {showCompanyActions && (
+              {/* 🚨 NEW: Show Repost Button if the deadline has passed */}
+              {showCompanyActions && isDeadlinePassed && (
+                <button 
+                  onClick={() => handleRepostJob(selectedJob.id)} 
+                  className="btn-outline btn-sm"
+                  style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0', cursor: 'pointer' }}
+                >
+                  Repost Job
+                </button>
+              )}
+
+              {showCompanyActions && setIsEditingJob && (
                 <button 
                   onClick={() => setIsEditingJob(true)} 
                   className="btn-outline btn-sm"
@@ -85,8 +101,7 @@ export default function JobDetailsPane({
           </div>
         </div>
         
-        <div className="text-secondary mb-24 flex-row gap-8 align-center" style={{ fontSize: '1rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
-          
+        <div className="text-secondary mb-16 flex-row gap-8 align-center" style={{ fontSize: '1rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
           <div 
             style={{ 
               whiteSpace: 'nowrap', 
@@ -110,8 +125,31 @@ export default function JobDetailsPane({
               <DeafAccessibleBadge size="sm" showText={true} />
             </div>
           )}
-          
         </div>
+
+        {(isAdmin || showCompanyActions) && (selectedJob.closing_date || selectedJob.max_employees) && (
+          <div className="flex-row gap-12 mb-24 flex-wrap">
+            {selectedJob.closing_date && (
+              <span style={{ 
+                background: isDeadlinePassed ? '#fef2f2' : 'var(--bg-color)', 
+                color: isDeadlinePassed ? '#dc2626' : 'var(--text-color)', 
+                border: `1px solid ${isDeadlinePassed ? '#fecaca' : 'var(--border-color)'}`,
+                padding: '6px 12px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600' 
+              }}>
+                ⏳ Deadline: {new Date(selectedJob.closing_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+              </span>
+            )}
+            
+            {selectedJob.max_employees && (
+              <span style={{ 
+                background: 'var(--bg-color)', border: '1px solid var(--border-color)', 
+                padding: '6px 12px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600' 
+              }}>
+                👥 Openings: {selectedJob.max_employees}
+              </span>
+            )}
+          </div>
+        )}
         
         {(isAdmin || showCompanyActions) && selectedJob.applicantCount !== undefined ? (
           <div className="flex-col gap-12">
@@ -121,8 +159,16 @@ export default function JobDetailsPane({
           </div>
         ) : (role !== 'company' && role !== 'admin') ? (
           <div className="flex-row gap-12 mt-8 mobile-action-group">
-            <button className={`btn-apply ${hasApplied ? 'success' : ''}`} style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleApply} disabled={isApplying || hasApplied || ['pending_user', 'rejected_user'].includes(role)}>
-              {isApplying ? 'Sending Application...' : hasApplied ? 'Application Sent' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
+            <button 
+              className={`btn-apply ${hasApplied ? 'success' : ''}`} 
+              style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} 
+              onClick={handleApply} 
+              disabled={isApplying || hasApplied || isDeadlinePassed || ['pending_user', 'rejected_user'].includes(role)}
+            >
+              {isApplying ? 'Sending Application...' : 
+               hasApplied ? 'Application Sent' : 
+               isDeadlinePassed ? 'Applications Closed' :
+               (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
             </button>
             <button className="btn-outline" style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleSaveJob} disabled={isSaving}>
               {isSaving ? 'Processing...' : isSaved ? 'Saved' : 'Save for Later'}
@@ -241,7 +287,6 @@ export default function JobDetailsPane({
               </div>
             )}
 
-            {/* 🚨 UPDATED: Checks role and routes appropriately to Login or Company Profile */}
             <button 
               className="btn-outline w-full btn-sm" 
               style={{ padding: '8px 12px' }} 

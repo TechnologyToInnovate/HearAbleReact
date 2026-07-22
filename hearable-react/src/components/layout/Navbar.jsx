@@ -14,19 +14,33 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); 
   const [hasUnread, setHasUnread] = useState(false); 
   
+  // States for Admin dropdowns
+  const [isManageUsersOpen, setIsManageUsersOpen] = useState(false);
+  const [isManageJobsOpen, setIsManageJobsOpen] = useState(false);
+  
   const [profileName, setProfileName] = useState('');
   const [profilePic, setProfilePic] = useState(null);
   
+  // 🚨 NEW: Added refs for the new dropdowns
   const dropdownRef = useRef(null);
+  const manageJobsRef = useRef(null);
+  const manageUsersRef = useRef(null);
 
   const isAuthPage = location.pathname === '/login';
   const isOnboarding = location.pathname === '/onboarding';
   const isMinimalNav = isAuthPage || isOnboarding;
 
   useEffect(() => {
+    // 🚨 UPDATED: Now checks all dropdowns and closes them if you click outside their specific areas
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      if (manageJobsRef.current && !manageJobsRef.current.contains(event.target)) {
+        setIsManageJobsOpen(false);
+      }
+      if (manageUsersRef.current && !manageUsersRef.current.contains(event.target)) {
+        setIsManageUsersOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -35,6 +49,20 @@ export default function Navbar() {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  // Remember the last visited Manage Users page
+  useEffect(() => {
+    if (location.pathname === '/users' || location.pathname === '/companies') {
+      localStorage.setItem('lastManageUsersPage', location.pathname);
+    }
+  }, [location.pathname]);
+
+  // Remember the last visited Manage Jobs page
+  useEffect(() => {
+    if (location.pathname === '/jobs' || location.pathname === '/applicants') {
+      localStorage.setItem('lastManageJobsPage', location.pathname);
+    }
   }, [location.pathname]);
 
   useEffect(() => {
@@ -81,12 +109,16 @@ export default function Navbar() {
   const handleMenuClick = (path) => { 
     setIsDropdownOpen(false); 
     setIsMobileMenuOpen(false);
+    setIsManageUsersOpen(false);
+    setIsManageJobsOpen(false);
     navigate(path); 
   };
   
   const handleSignOut = async () => { 
     setIsDropdownOpen(false); 
     setIsMobileMenuOpen(false);
+    setIsManageUsersOpen(false);
+    setIsManageJobsOpen(false);
     await signOut(); 
     navigate('/'); 
   };
@@ -99,11 +131,13 @@ export default function Navbar() {
     <ul className="nav-links">
       <li><Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Home</Link></li>
       
-      <li>
-        <Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>
-          {role === 'admin' ? 'Manage Jobs' : 'Job Postings'}
-        </Link>
-      </li>
+      {role !== 'admin' && (
+        <li>
+          <Link to="/jobs" className={`nav-link ${location.pathname === '/jobs' ? 'active' : ''}`}>
+            Job Postings
+          </Link>
+        </li>
+      )}
 
       {['user', 'pending_user', 'rejected_user', 'guest'].includes(role) && (
         <li><Link to="/companies" className={`nav-link ${location.pathname.includes('/compan') ? 'active' : ''}`}>Companies</Link></li>
@@ -126,8 +160,118 @@ export default function Navbar() {
       
       {role === 'admin' && (
         <>
-          <li><Link to="/users" className={`nav-link ${['/users', '/degrees', '/skills', '/batches', '/companies'].includes(location.pathname) ? 'active' : ''}`}>Manage Users</Link></li>
-          {/* 🚨 UPDATED: Replaced Manage Companies with Manage Resumes */}
+          {/* 🚨 UPDATED: Added ref={manageJobsRef} to this list item */}
+          <li style={{ position: 'relative' }} ref={manageJobsRef}>
+            <div 
+              className={`nav-link ${['/jobs', '/applicants'].includes(location.pathname) ? 'active' : ''}`}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+              onClick={() => {
+                const lastPage = localStorage.getItem('lastManageJobsPage') || '/jobs';
+                handleMenuClick(lastPage);
+              }}
+            >
+              Manage Jobs 
+              <span 
+                style={{ fontSize: '0.8em', padding: '4px' }}
+                onClick={(e) => {
+                  e.stopPropagation(); 
+                  setIsManageJobsOpen(!isManageJobsOpen);
+                  setIsManageUsersOpen(false);
+                }}
+              >
+                ▼
+              </span>
+            </div>
+
+            {isManageJobsOpen && (
+              <div 
+                style={{ 
+                  position: 'absolute', top: '100%', left: 0, 
+                  background: 'var(--card-bg)', border: '1px solid var(--border-color)', 
+                  borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
+                  display: 'flex', flexDirection: 'column', minWidth: '160px', 
+                  zIndex: 1000, overflow: 'hidden', marginTop: '4px'
+                }}
+              >
+                <Link 
+                  to="/jobs" 
+                  style={{ padding: '12px 16px', textDecoration: 'none', color: 'var(--text-color)', borderBottom: '1px solid var(--border-color)' }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-color)'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                  onClick={() => { setIsManageJobsOpen(false); setIsMobileMenuOpen(false); }}
+                >
+                  Job Postings
+                </Link>
+                
+                <Link 
+                  to="/applicants" 
+                  style={{ padding: '12px 16px', textDecoration: 'none', color: 'var(--text-color)' }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-color)'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                  onClick={() => { setIsManageJobsOpen(false); setIsMobileMenuOpen(false); }}
+                >
+                  Applicants
+                </Link>
+              </div>
+            )}
+          </li>
+
+          {/* 🚨 UPDATED: Added ref={manageUsersRef} to this list item */}
+          <li style={{ position: 'relative' }} ref={manageUsersRef}>
+            <div 
+              className={`nav-link ${['/users', '/companies'].includes(location.pathname) ? 'active' : ''}`}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+              onClick={() => {
+                const lastPage = localStorage.getItem('lastManageUsersPage') || '/users';
+                handleMenuClick(lastPage);
+              }}
+            >
+              Manage Users 
+              <span 
+                style={{ fontSize: '0.8em', padding: '4px' }}
+                onClick={(e) => {
+                  e.stopPropagation(); 
+                  setIsManageUsersOpen(!isManageUsersOpen);
+                  setIsManageJobsOpen(false);
+                }}
+              >
+                ▼
+              </span>
+            </div>
+
+            {isManageUsersOpen && (
+              <div 
+                style={{ 
+                  position: 'absolute', top: '100%', left: 0, 
+                  background: 'var(--card-bg)', border: '1px solid var(--border-color)', 
+                  borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
+                  display: 'flex', flexDirection: 'column', minWidth: '160px', 
+                  zIndex: 1000, overflow: 'hidden', marginTop: '4px'
+                }}
+              >
+                <Link 
+                  to="/users" 
+                  style={{ padding: '12px 16px', textDecoration: 'none', color: 'var(--text-color)', borderBottom: '1px solid var(--border-color)' }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-color)'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                  onClick={() => { setIsManageUsersOpen(false); setIsMobileMenuOpen(false); }}
+                >
+                  Job Seekers
+                </Link>
+                
+                <Link 
+                  to="/companies" 
+                  style={{ padding: '12px 16px', textDecoration: 'none', color: 'var(--text-color)' }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-color)'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                  onClick={() => { setIsManageUsersOpen(false); setIsMobileMenuOpen(false); }}
+                >
+                  Employers
+                </Link>
+              </div>
+            )}
+          </li>
+          
           <li><Link to="/resumes" className={`nav-link ${location.pathname === '/resumes' ? 'active' : ''}`}>Manage Resumes</Link></li>
           <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Manage Feedbacks</Link></li>
         </>

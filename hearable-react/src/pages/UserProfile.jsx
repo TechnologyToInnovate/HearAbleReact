@@ -90,7 +90,6 @@ export default function UserProfile() {
     }
   }
 
-  // 🚨 NEW: Function to handle unarchiving a user
   async function handleUnarchiveUser() {
     if (role !== 'admin') return;
     if (!window.confirm(`Are you sure you want to unarchive ${formatFullName(user.first_name, user.last_name)}? This will reset their status to Pending.`)) return;
@@ -155,6 +154,17 @@ export default function UserProfile() {
   return (
     <div className="page-container-wide">
       
+      {/* 🚨 NEW: The Back Button */}
+      <div className="mb-16">
+        <button 
+          className="btn-outline btn-sm" 
+          onClick={() => navigate(-1)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+        >
+          &larr; Back
+        </button>
+      </div>
+
       <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} userId={user.id} onSuccess={fetchUser} />
       <AddSkillModal isOpen={showAddSkillPopup} onClose={() => setShowAddSkillPopup(false)} onAddSkill={handleAddSkill} existingSkills={user.skills} isUpdating={isUpdatingSkills} />
 
@@ -191,7 +201,6 @@ export default function UserProfile() {
             {user.status !== 'Approved' && <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Approved')} style={{ borderColor: '#34d399', color: '#065f46', background: '#ecfdf5' }}>Approve</button>}
             {user.status !== 'Rejected' && <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Rejected')} style={{ borderColor: '#f87171', color: '#991b1b', background: '#fef2f2' }}>Reject</button>}
             {user.status !== 'Archived' && <button className="btn-outline btn-sm" onClick={handleArchiveUser} style={{ borderColor: '#fde68a', color: '#b45309', background: '#fffbeb' }}>Archive</button>}
-            {/* 🚨 NEW: Unarchive button only visible if user is already archived */}
             {user.status === 'Archived' && <button className="btn-outline btn-sm" onClick={handleUnarchiveUser} style={{ borderColor: '#9ca3af', color: '#4b5563', background: '#f3f4f6' }}>Unarchive</button>}
           </div>
         </div>

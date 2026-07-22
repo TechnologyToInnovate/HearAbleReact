@@ -166,7 +166,6 @@ export default function Companies({ role }) {
         </section>
       ) : (
         <>
-          {/* 🚨 UPDATED: Header block to include the Job Seekers/Employers toggle */}
           <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
             <div className="flex-row align-center gap-16 flex-wrap">
               <h1 style={{ margin: 0 }}>{role === 'admin' ? 'Manage Users' : 'Companies'}</h1>
@@ -277,10 +276,11 @@ export default function Companies({ role }) {
                       </div>
                     </div>
 
-                    <div className="flex-row align-center flex-end" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '8px', flexWrap: 'wrap', gap: '16px' }}>
+                    {/* 🚨 UPDATED: Button text changed to "View Profile" and explicitly aligned right with justifyContent */}
+                    <div className="flex-row align-center" style={{ justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '8px', flexWrap: 'wrap', gap: '16px' }}>
                       {!company.isPreApprovedOnly && (
                         <button className="btn-black btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}>
-                          Review Full Profile
+                          View Profile
                         </button>
                       )}
                     </div>

@@ -18,6 +18,9 @@ export default function Resumes() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
+  // 🚨 UPDATED: Instead of just a URL, we store the ID of the resume being previewed
+  const [previewResumeId, setPreviewResumeId] = useState(null);
+
   // Strict Admin Guard
   useEffect(() => {
     if (role !== 'admin') {
@@ -67,6 +70,9 @@ export default function Resumes() {
   const currentResumes = processedResumes.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(processedResumes.length / itemsPerPage);
 
+  // Helper variable to find the active resume object for the modal
+  const previewResume = resumes.find(r => r.id === previewResumeId);
+
   return (
     <div className="page-container-wide">
       <div className="flex-between align-center mb-24">
@@ -103,27 +109,30 @@ export default function Resumes() {
                 <Avatar src={resume.user_pic} fallbackName={resume.user_name} size="md" type="user" />
                 <div>
                   <h3 className="m-0 mb-4" style={{ fontSize: '1.15rem' }}>{resume.user_name}</h3>
-                  <p className="text-secondary m-0 mb-8">File: <strong style={{ color: 'var(--text-color)' }}>{resume.title}</strong></p>
-                  <span className="text-sm text-secondary block mb-12">Uploaded: {new Date(resume.created_at).toLocaleDateString()}</span>
-                  {resume.file_url && (
-                    <a href={resume.file_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm inline-block" style={{ textDecoration: 'none' }}>
-                      📄 Open PDF
-                    </a>
-                  )}
+                  <p className="text-secondary m-0">File: <strong style={{ color: 'var(--text-color)' }}>{resume.title}</strong></p>
                 </div>
               </div>
+              
               <div className="flex-col align-end gap-12" style={{ flexShrink: 0 }}>
-                <StatusBadge status={resume.status || 'Pending'} />
-                <div className="flex-row gap-8 mt-8">
-                  {(resume.status || 'Pending') !== 'Approved' && (
-                    <button className="btn-sm" onClick={() => handleUpdateStatus(resume.id, 'Approved')} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>
-                      ✓ Approve
-                    </button>
-                  )}
-                  {(resume.status || 'Pending') !== 'Rejected' && (
-                    <button className="btn-sm" onClick={() => handleUpdateStatus(resume.id, 'Rejected')} style={{ background: 'var(--card-bg)', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>
-                      ✕ Reject
-                    </button>
+                <div className="flex-col align-end gap-4">
+                  <StatusBadge status={resume.status || 'Pending'} />
+                  <span className="text-sm text-secondary">Uploaded: {new Date(resume.created_at).toLocaleDateString()}</span>
+                </div>
+                
+                {/* 🚨 UPDATED: Accept/Reject buttons removed from here; only Preview and Open remain */}
+                <div className="flex-row gap-8 mt-8" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {resume.file_url && (
+                    <>
+                      <button 
+                        onClick={() => setPreviewResumeId(resume.id)} 
+                        className="btn-outline btn-sm"
+                      >
+                        Preview
+                      </button>
+                      <a href={resume.file_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm inline-block" style={{ textDecoration: 'none' }}>
+                        Open PDF
+                      </a>
+                    </>
                   )}
                 </div>
               </div>
@@ -147,6 +156,63 @@ export default function Resumes() {
           </div>
         </div>
       )}
+
+      {/* --- PREVIEW MODAL --- */}
+      {previewResume && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          
+          <div className="card p-0" style={{ width: '100%', maxWidth: '800px', height: '85vh', display: 'flex', flexDirection: 'column', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+            
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div className="flex-row align-center gap-12">
+                <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Resume Preview</h3>
+                <StatusBadge status={previewResume.status || 'Pending'} />
+              </div>
+              
+              {/* 🚨 UPDATED: Accept and Reject buttons are now in the modal header! */}
+              <div className="flex-row align-center gap-16">
+                <div className="flex-row gap-8">
+                  {(previewResume.status || 'Pending') !== 'Approved' && (
+                    <button 
+                      className="btn-sm" 
+                      onClick={() => handleUpdateStatus(previewResume.id, 'Approved')} 
+                      style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}
+                    >
+                      ✓ Approve
+                    </button>
+                  )}
+                  {(previewResume.status || 'Pending') !== 'Rejected' && (
+                    <button 
+                      className="btn-sm" 
+                      onClick={() => handleUpdateStatus(previewResume.id, 'Rejected')} 
+                      style={{ background: 'var(--card-bg)', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}
+                    >
+                      ✕ Reject
+                    </button>
+                  )}
+                </div>
+                
+                {/* Visual divider */}
+                <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-color)' }}></div>
+                
+                <button onClick={() => setPreviewResumeId(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
+              </div>
+            </div>
+            
+            <div style={{ flex: 1, backgroundColor: '#525659', width: '100%', height: '100%' }}>
+              <iframe 
+                src={`${previewResume.file_url}#view=FitH`} 
+                title="Resume Preview" 
+                width="100%" 
+                height="100%" 
+                style={{ border: 'none', display: 'block' }}
+              />
+            </div>
+            
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
