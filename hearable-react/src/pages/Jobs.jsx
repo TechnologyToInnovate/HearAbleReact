@@ -41,7 +41,6 @@ export default function Jobs() {
   
   const [adminStatusFilter, setAdminStatusFilter] = useState('Approved'); 
 
-  // 🚨 NEW: Handle auto-selecting the job from state
   useEffect(() => {
     if (currentUser) fetchUserData();
     if (location.state?.selectedJobId) {
@@ -49,10 +48,8 @@ export default function Jobs() {
     }
   }, [currentUser, location.state?.selectedJobId]);
 
-  // 🚨 NEW: Handle auto-opening the Apply Modal if returning from login
   useEffect(() => {
     if (location.state?.openApply && role === 'user' && selectedJobId === location.state?.selectedJobId) {
-      // Clear the state so it doesn't loop if they refresh
       const newState = { ...location.state };
       delete newState.openApply;
       navigate(location.pathname, { replace: true, state: newState });
@@ -132,7 +129,6 @@ export default function Jobs() {
   }
 
   async function handleApplyClick() {
-    // 🚨 UPDATED: Send redirect state to Login so it remembers where to go back
     if (!currentUser) return navigate('/login', { state: { returnTo: '/jobs', returnState: { selectedJobId: selectedJobId, openApply: true } } });
     if (role !== 'user') return alert("Only approved standard users can apply for jobs.");
     
@@ -178,6 +174,26 @@ export default function Jobs() {
     setIsApplying(false);
   }
 
+  // 🚨 NEW: Added Withdrawal Logic
+  async function handleWithdrawApplication() {
+    if (!window.confirm("Are you sure you want to withdraw your application? This will remove you from the employer's applicant pool.")) return;
+    
+    setIsApplying(true);
+    const { error } = await supabase
+      .from('applications')
+      .delete()
+      .match({ applicant_id: currentUser.id, job_id: selectedJobId });
+
+    if (!error) {
+      setAppliedJobs(appliedJobs.filter(id => id !== selectedJobId));
+      alert("Application withdrawn successfully.");
+    } else {
+      console.error("Withdrawal error:", error);
+      alert("Failed to withdraw application. Please try again.");
+    }
+    setIsApplying(false);
+  }
+
   async function handleUploadResume(e) {
     e.preventDefault();
     setIsUploadingResume(true);
@@ -201,7 +217,6 @@ export default function Jobs() {
   }
 
   async function handleSaveJob() {
-    // 🚨 UPDATED: Send redirect state
     if (!currentUser) return navigate('/login', { state: { returnTo: '/jobs', returnState: { selectedJobId: selectedJobId } } });
     if (!['user', 'pending_user', 'rejected_user'].includes(role)) return;
     
@@ -300,7 +315,7 @@ export default function Jobs() {
       {jobList.map(job => (
         <div key={job.id} style={{ position: 'relative' }}>
           {role === 'admin' && job.applicantCount > 0 && (
-            <div className="badge badge-primary" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
+            <div className="badge badge-primary" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }} title={`This job has ${job.applicantCount} active applications`}>
               {job.applicantCount} {job.applicantCount === 1 ? 'Applicant' : 'Applicants'}
             </div>
           )}
@@ -328,12 +343,14 @@ export default function Jobs() {
             {role === 'admin' && (
               <div className="flex-row" style={{ background: 'var(--bg-color)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                 <button 
+                  title="View and manage all job postings"
                   onClick={() => navigate('/jobs')}
                   style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', fontWeight: '500', cursor: 'pointer', background: 'var(--card-bg)', color: 'var(--text-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
                 >
                   Job Postings
                 </button>
                 <button 
+                  title="Review users who have applied to jobs"
                   onClick={() => navigate('/applicants')}
                   style={{ padding: '6px 16px', borderRadius: '6px', border: 'none', fontWeight: '500', cursor: 'pointer', background: 'transparent', color: 'var(--secondary-text)', boxShadow: 'none' }}
                 >
@@ -348,7 +365,9 @@ export default function Jobs() {
           <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--border-color)' }}>
             {['All', 'Pending', 'Approved', 'Rejected'].map(tab => (
               <button
-                key={tab} onClick={() => { setAdminStatusFilter(tab); setSelectedJobId(null); }}
+                key={tab} 
+                title={`Filter jobs by ${tab} status`}
+                onClick={() => { setAdminStatusFilter(tab); setSelectedJobId(null); }}
                 style={{
                   padding: '8px 20px', border: 'none', background: 'none',
                   borderBottom: adminStatusFilter === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
@@ -411,7 +430,8 @@ export default function Jobs() {
               handleSaveJob={handleSaveJob}
               handleDeleteJob={handleDeleteJob} 
               handleUpdateJobStatus={handleUpdateJobStatus}
-              handleRepostJob={handleRepostJob} 
+              handleRepostJob={handleRepostJob}
+              handleWithdrawApplication={handleWithdrawApplication} 
               navigate={navigate}
               handleClose={() => setSelectedJobId(null)} 
             />
@@ -430,7 +450,7 @@ export default function Jobs() {
             
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Apply for Role</h3>
-              <button onClick={() => setShowApplyModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-color)', lineHeight: 1 }}>&times;</button>
+              <button title="Cancel Application" onClick={() => setShowApplyModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-color)', lineHeight: 1 }}>&times;</button>
             </div>
             
             <div style={{ padding: '24px' }}>
@@ -446,6 +466,7 @@ export default function Jobs() {
                       {approvedResumes.length > 0 && (
                         <div className="flex-row gap-16 mb-24" style={{ borderBottom: '1px solid var(--border-color)' }}>
                           <button
+                            title="Select from your previously approved resumes"
                             style={{ 
                               background: 'none', border: 'none', padding: '0 0 12px 0', fontSize: '1rem', cursor: 'pointer',
                               fontWeight: applyModalTab === 'select' ? '600' : '400', 
@@ -457,6 +478,7 @@ export default function Jobs() {
                             Use Approved File
                           </button>
                           <button
+                            title="Upload a new resume for approval"
                             style={{ 
                               background: 'none', border: 'none', padding: '0 0 12px 0', fontSize: '1rem', cursor: 'pointer',
                               fontWeight: applyModalTab === 'upload' ? '600' : '400', 

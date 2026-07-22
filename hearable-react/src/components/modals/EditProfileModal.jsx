@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-import AddSkillModal from './AddSkillModal';
 import Avatar from '../common/Avatar';
 import LocationSelect from '../common/LocationSelect';
 
@@ -13,12 +12,11 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
     city: '',
     country: '',
     contact_number: '',
-    skills: []
+    portfolio_url: ''
   });
   
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [showAddSkillPopup, setShowAddSkillPopup] = useState(false);
 
   useEffect(() => {
     if (isOpen && userId) {
@@ -30,7 +28,7 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
     setIsLoading(true);
     const { data, error } = await supabase
       .from('profiles')
-      .select(`*, locations ( city, country ), profile_skills ( skills ( name ) )`)
+      .select(`*, locations ( city, country )`)
       .eq('id', userId)
       .maybeSingle();
 
@@ -43,7 +41,7 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
         city: data.locations?.city || '',
         country: data.locations?.country || '',
         contact_number: data.contact_number || '',
-        skills: data.profile_skills ? data.profile_skills.map(ps => ps.skills.name) : []
+        portfolio_url: data.portfolio_url || ''
       });
     }
     setIsLoading(false);
@@ -55,21 +53,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
 
   const handleCountryChange = (val) => setFormData({ ...formData, country: val });
   const handleCityChange = (val) => setFormData({ ...formData, city: val });
-
-  const handleAddSkillToForm = (skillObj) => {
-    setFormData(prev => ({
-      ...prev,
-      skills: [...(prev.skills || []), skillObj.name]
-    }));
-    setShowAddSkillPopup(false);
-  };
-
-  const handleRemoveSkillFromForm = (skillToRemove) => {
-    setFormData(prev => ({
-      ...prev,
-      skills: (prev.skills || []).filter(skill => skill !== skillToRemove)
-    }));
-  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -101,7 +84,8 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
         last_name: formData.last_name,
         profile_pic: formData.profile_pic,
         headline: formData.headline,
-        contact_number: formData.contact_number
+        contact_number: formData.contact_number,
+        portfolio_url: formData.portfolio_url
       };
 
       if (locationId) {
@@ -114,28 +98,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
         .eq('id', userId);
 
       if (profileError) throw profileError;
-
-      if (formData.skills.length > 0) {
-        const { data: skillsData } = await supabase
-          .from('skills')
-          .select('id, name')
-          .in('name', formData.skills);
-
-        await supabase
-          .from('profile_skills')
-          .delete()
-          .eq('profile_id', userId);
-
-        if (skillsData && skillsData.length > 0) {
-          const skillInserts = skillsData.map(skill => ({
-            profile_id: userId,
-            skill_id: skill.id
-          }));
-          await supabase.from('profile_skills').insert(skillInserts);
-        }
-      } else {
-        await supabase.from('profile_skills').delete().eq('profile_id', userId);
-      }
 
       onSuccess(); 
       onClose(); 
@@ -152,16 +114,6 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       
-      {/* 🚨 THE UPDATED SKILL MODAL */}
-      <AddSkillModal 
-        isOpen={showAddSkillPopup}
-        onClose={() => setShowAddSkillPopup(false)}
-        onAddSkill={handleAddSkillToForm}
-        existingSkills={formData.skills || []} 
-        isUpdating={false}
-        userId={userId} 
-      />
-
       <div className="card p-32" style={{ width: '100%', maxWidth: '600px', margin: '16px', maxHeight: '90vh', overflowY: 'auto' }}>
         <h2 className="m-0 mb-24 text-2xl">Edit Profile</h2>
 
@@ -224,52 +176,9 @@ export default function EditProfileModal({ isOpen, onClose, userId, onSuccess })
               <input type="tel" name="contact_number" value={formData.contact_number} onChange={handleChange} className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
             </div>
 
-            <div className="mb-8 mt-8">
-              <div className="flex-between align-center mb-8 gap-16">
-                <label className="m-0 font-medium">Skills</label>
-                <button 
-                  type="button" 
-                  className="btn-outline btn-sm" 
-                  onClick={() => setShowAddSkillPopup(true)}
-                  style={{ padding: '4px 12px' }}
-                >
-                  + Add Skill
-                </button>
-              </div>
-              
-              <div className="flex-row-wrap gap-12 p-16" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', minHeight: '60px' }}>
-                {formData.skills && formData.skills.length > 0 ? (
-                  formData.skills.map((skill, index) => (
-                    <span 
-                      key={index} 
-                      className="badge badge-neutral flex-row align-center gap-8"
-                      style={{ padding: '6px 12px', fontSize: '0.9rem', display: 'inline-flex' }}
-                    >
-                      {skill}
-                      <button 
-                        type="button"
-                        onClick={() => handleRemoveSkillFromForm(skill)}
-                        style={{ 
-                          background: 'none', 
-                          border: 'none', 
-                          color: 'var(--secondary-text)', 
-                          cursor: 'pointer', 
-                          padding: '0 0 0 4px',
-                          fontSize: '1.1rem',
-                          fontWeight: 'bold',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
-                        title="Remove skill"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))
-                ) : (
-                  <p className="text-secondary m-0 text-sm">No skills added yet.</p>
-                )}
-              </div>
+            <div className="flex-col gap-8">
+              <label className="font-medium">Portfolio URL</label>
+              <input type="url" name="portfolio_url" value={formData.portfolio_url} onChange={handleChange} placeholder="e.g. https://github.com/yourusername" className="input-field" style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
             </div>
 
             <div className="flex-row gap-12 mt-16" style={{ justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>

@@ -11,7 +11,7 @@ export default function JobDetailsPane({
   isApplying, hasApplied, isSaved, isSaving,
   handleApply, handleSaveJob, handleDeleteJob,
   setIsEditingJob, navigate, handleUpdateJobStatus,
-  handleRepostJob, 
+  handleRepostJob, handleWithdrawApplication,
   handleClose 
 }) {
   const [isDescExpanded, setIsDescExpanded] = useState(false);
@@ -45,6 +45,7 @@ export default function JobDetailsPane({
         <button 
           className="btn-outline mobile-back-btn" 
           onClick={handleClose}
+          title="Return to job list"
         >
           ← Back to Jobs
         </button>
@@ -52,20 +53,21 @@ export default function JobDetailsPane({
         {(isAdmin || showCompanyActions) && (
           <div className="flex-row mb-20 flex-wrap mobile-action-group" style={{ justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             
-            <div style={{ flexShrink: 0, marginRight: '16px' }}>
+            <div style={{ flexShrink: 0, marginRight: '16px' }} title={`Current job status is ${selectedJob.status}`}>
               <StatusBadge status={selectedJob.status === 'Approved' ? 'Published' : selectedJob.status} />
             </div>
 
             <div className="flex-row gap-12 align-center flex-wrap" style={{ justifyContent: 'flex-end', flex: 1 }}>
               {isAdmin && selectedJob.status === 'Pending' && handleUpdateJobStatus && (
                 <>
-                  <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Approved')} style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Approve Post</button>
-                  <button onClick={() => handleUpdateJobStatus(selectedJob.id, 'Rejected')} style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Reject</button>
+                  <button title="Approve and publish this job to the public" onClick={() => handleUpdateJobStatus(selectedJob.id, 'Approved')} style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Approve Post</button>
+                  <button title="Reject this job posting" onClick={() => handleUpdateJobStatus(selectedJob.id, 'Rejected')} style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', fontSize: '0.85rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Reject</button>
                 </>
               )}
 
               {showCompanyActions && isDeadlinePassed && (
                 <button 
+                  title="Extend the deadline for this job by 7 days"
                   onClick={() => handleRepostJob(selectedJob.id)} 
                   className="btn-outline btn-sm"
                   style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0', cursor: 'pointer' }}
@@ -76,6 +78,7 @@ export default function JobDetailsPane({
 
               {showCompanyActions && setIsEditingJob && (
                 <button 
+                  title={editCount >= 3 ? "You have reached the maximum allowed edits (3)" : `You have ${3 - editCount} edits remaining for this posting`}
                   onClick={() => setIsEditingJob(true)} 
                   className="btn-outline btn-sm"
                   disabled={editCount >= 3}
@@ -84,7 +87,7 @@ export default function JobDetailsPane({
                   {editCount >= 3 ? 'Edit Limit Reached' : `Edit (${editCount}/3)`}
                 </button>
               )}
-              <button onClick={handleDeleteJob} className="btn-danger btn-sm">Delete</button>
+              <button title="Permanently delete this job posting" onClick={handleDeleteJob} className="btn-danger btn-sm">Delete</button>
             </div>
           </div>
         )}
@@ -116,7 +119,7 @@ export default function JobDetailsPane({
           </div>
           
           {selectedJob.location && (
-            <div style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <div style={{ whiteSpace: 'nowrap', flexShrink: 0 }} title="Job Location">
               • {selectedJob.location}
             </div>
           )}
@@ -131,7 +134,7 @@ export default function JobDetailsPane({
         {(isAdmin || showCompanyActions) && (selectedJob.closing_date || selectedJob.max_employees) && (
           <div className="flex-row gap-12 mb-24 flex-wrap">
             {selectedJob.closing_date && (
-              <span style={{ 
+              <span title={`Applications close on ${new Date(selectedJob.closing_date).toLocaleDateString()}`} style={{ 
                 background: isDeadlinePassed ? '#fef2f2' : 'var(--bg-color)', 
                 color: isDeadlinePassed ? '#dc2626' : 'var(--text-color)', 
                 border: `1px solid ${isDeadlinePassed ? '#fecaca' : 'var(--border-color)'}`,
@@ -142,7 +145,7 @@ export default function JobDetailsPane({
             )}
             
             {selectedJob.max_employees && (
-              <span style={{ 
+              <span title={`This company is looking to hire ${selectedJob.max_employees} employees for this role`} style={{ 
                 background: 'var(--bg-color)', border: '1px solid var(--border-color)', 
                 padding: '6px 12px', borderRadius: '6px', fontSize: '0.85rem', fontWeight: '600' 
               }}>
@@ -160,18 +163,36 @@ export default function JobDetailsPane({
           </div>
         ) : (role !== 'company' && role !== 'admin') ? (
           <div className="flex-row gap-12 mt-8 mobile-action-group">
+            {/* 🚨 NEW: Switched the button based on hasApplied to allow withdrawals */}
+            {hasApplied ? (
+              <button 
+                className="btn-danger" 
+                style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem', opacity: isApplying ? 0.7 : 1 }} 
+                onClick={handleWithdrawApplication} 
+                disabled={isApplying}
+                title="Click to cancel and withdraw your submitted application"
+              >
+                {isApplying ? 'Processing...' : 'Withdraw Application'}
+              </button>
+            ) : (
+              <button 
+                className={`btn-apply`} 
+                style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} 
+                onClick={handleApply} 
+                disabled={isApplying || isDeadlinePassed || ['pending_user', 'rejected_user'].includes(role)}
+                title={isDeadlinePassed ? "The deadline for this job has passed" : ['pending_user', 'rejected_user'].includes(role) ? "You must be an approved user to apply" : "Submit your application"}
+              >
+                {isApplying ? 'Processing...' : isDeadlinePassed ? 'Applications Closed' : (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
+              </button>
+            )}
+
             <button 
-              className={`btn-apply ${hasApplied ? 'success' : ''}`} 
+              className="btn-outline" 
               style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} 
-              onClick={handleApply} 
-              disabled={isApplying || hasApplied || isDeadlinePassed || ['pending_user', 'rejected_user'].includes(role)}
+              onClick={handleSaveJob} 
+              disabled={isSaving}
+              title={isSaved ? "Remove this job from your saved list" : "Bookmark this job to view later"}
             >
-              {isApplying ? 'Sending Application...' : 
-               hasApplied ? 'Application Sent' : 
-               isDeadlinePassed ? 'Applications Closed' :
-               (['pending_user', 'rejected_user'].includes(role)) ? 'Approval Required to Apply' : 'Apply Now'}
-            </button>
-            <button className="btn-outline" style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} onClick={handleSaveJob} disabled={isSaving}>
               {isSaving ? 'Processing...' : isSaved ? 'Saved' : 'Save for Later'}
             </button>
           </div>
@@ -200,8 +221,8 @@ export default function JobDetailsPane({
           <div>
             <div className="font-bold mb-12 text-primary" style={{ fontSize: '1.05rem' }}>Job Type</div>
             <div className="flex-row-wrap gap-12">
-              <span className="badge badge-neutral" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>{selectedJob.type}</span>
-              <span className="badge badge-neutral" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>{selectedJob.work_model || 'On-site'}</span>
+              <span className="badge badge-neutral" title="Employment Type" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>{selectedJob.type}</span>
+              <span className="badge badge-neutral" title="Work Setup" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>{selectedJob.work_model || 'On-site'}</span>
             </div>
           </div>
         </div>
@@ -276,6 +297,7 @@ export default function JobDetailsPane({
                 {shouldTruncateDesc && (
                   <button 
                     onClick={() => setIsDescExpanded(!isDescExpanded)}
+                    title={isDescExpanded ? "Collapse company description" : "Expand company description"}
                     style={{ 
                       background: 'none', 
                       border: 'none', 
@@ -292,9 +314,9 @@ export default function JobDetailsPane({
               </div>
             )}
 
-            {/* 🚨 UPDATED: Send redirect state if guest */}
             <button 
               className="btn-outline w-full btn-sm" 
+              title="Navigate to company profile page"
               style={{ padding: '8px 12px' }} 
               onClick={() => {
                 if (role === 'guest') {

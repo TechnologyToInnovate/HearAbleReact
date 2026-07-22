@@ -15,11 +15,13 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Step 1 State
   const [firstName, setFirstName] = useState(''); 
   const [lastName, setLastName] = useState('');
   const [degree, setDegree] = useState(''); 
   const [batch, setBatch] = useState('');   
   
+  // Step 2 State
   const [contactNumber, setContactNumber] = useState('');
   const [country, setCountry] = useState(''); 
   const [city, setCity] = useState('');
@@ -28,8 +30,15 @@ export default function Onboarding() {
   const [degreeOptions, setDegreeOptions] = useState([]);
   const [batchOptions, setBatchOptions] = useState([]);
 
+  // Step 3 State
   const [selectedSkills, setSelectedSkills] = useState([]); 
   const [showSkillModal, setShowSkillModal] = useState(false);
+
+  // 🚨 NEW: Step 4 State - Profile Additions
+  const [portfolioUrl, setPortfolioUrl] = useState('');
+  const [workExperience, setWorkExperience] = useState('');
+  const [certificates, setCertificates] = useState('');
+  const [awards, setAwards] = useState('');
 
   useEffect(() => {
     if (role !== 'needs_onboarding') navigate('/');
@@ -80,13 +89,18 @@ export default function Onboarding() {
       }
     }
 
+    // 🚨 NEW: Payload includes new profile additions
     const payload = {
       first_name: firstName.trim(), 
       last_name: lastName.trim(), 
       contact_number: contactNumber.trim() || null,
       location_id: locationId, 
       batch_id: batch || null, 
-      degree_id: degree || null 
+      degree_id: degree || null,
+      portfolio_url: portfolioUrl.trim() || null,
+      work_experience: workExperience.trim() || null,
+      certificates: certificates.trim() || null,
+      awards: awards.trim() || null
     };
 
     let { data: updatedProfile, error: profileError } = await supabase
@@ -116,11 +130,9 @@ export default function Onboarding() {
 
     setIsSubmitting(false);
     
-    // Grab the intent from state if available to route them back to where they started
     const returnTo = location.state?.returnTo || '/';
     const returnState = location.state?.returnState || null;
     
-    // Redirect using navigate to preserve the state
     navigate(returnTo, { state: returnState });
   }
 
@@ -140,7 +152,8 @@ export default function Onboarding() {
         
         <div className="flex-between p-24" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <h2 className="m-0">Set Up Your Profile</h2>
-          <span className="text-secondary font-bold text-sm">Step {step} of 3</span>
+          {/* 🚨 NEW: Extended to Step 4 */}
+          <span className="text-secondary font-bold text-sm">Step {step} of 4</span>
         </div>
 
         <div className="p-32">
@@ -150,24 +163,24 @@ export default function Onboarding() {
               <h3 className="m-0">Basic Information</h3>
               <div className="form-grid-2">
                 <div className="flex-col gap-8">
-                  <label className="font-bold text-sm">First Name *</label>
+                  <label className="font-bold text-sm" title="Your legal first name">First Name *</label>
                   <input type="text" className="search-input w-full" value={firstName} onChange={e => setFirstName(e.target.value)} required />
                 </div>
                 <div className="flex-col gap-8">
-                  <label className="font-bold text-sm">Last Name *</label>
+                  <label className="font-bold text-sm" title="Your legal last name">Last Name *</label>
                   <input type="text" className="search-input w-full" value={lastName} onChange={e => setLastName(e.target.value)} required />
                 </div>
               </div>
               <div className="form-grid-2">
                 <div className="flex-col gap-8">
-                  <label className="font-bold text-sm">Degree *</label>
+                  <label className="font-bold text-sm" title="Highest degree attained or currently pursuing">Degree *</label>
                   <select className="search-input w-full" value={degree} onChange={e => setDegree(e.target.value)} required>
                     <option value="" disabled>Select a Degree</option>
                     {degreeOptions.map(d => <option key={d.id} value={d.id}>{d.abbreviation ? `${d.abbreviation} - ${d.name}` : d.name}</option>)}
                   </select>
                 </div>
                 <div className="flex-col gap-8">
-                  <label className="font-bold text-sm">Batch *</label>
+                  <label className="font-bold text-sm" title="The specific batch or graduation group you belong to">Batch *</label>
                   <select className="search-input w-full" value={batch} onChange={e => setBatch(e.target.value)} required>
                     <option value="" disabled>Select a Batch</option>
                     {batchOptions.map(b => <option key={b.id} value={b.id}>Batch {b.batch_number}</option>)}
@@ -181,12 +194,12 @@ export default function Onboarding() {
             <div className="flex-col gap-24">
               <h3 className="m-0">Contact & Location</h3>
               <div className="flex-col gap-8">
-                <label className="font-bold text-sm">Contact Number</label>
+                <label className="font-bold text-sm" title="A number where employers can reach you">Contact Number</label>
                 <input type="tel" className="search-input w-full" value={contactNumber} onChange={e => setContactNumber(e.target.value)} placeholder="e.g. +1 234 567 8900" />
               </div>
               
               <div className="flex-col gap-8">
-                <label className="font-bold text-sm">Location</label>
+                <label className="font-bold text-sm" title="Select your country and city of residence">Location</label>
                 <LocationSelect 
                   country={country} 
                   setCountry={setCountry} 
@@ -196,7 +209,7 @@ export default function Onboarding() {
               </div>
 
               <div className="flex-col gap-8">
-                <label className="font-bold text-sm">Postal Code</label>
+                <label className="font-bold text-sm" title="Your local zip or postal code">Postal Code</label>
                 <input type="text" className="search-input w-full" value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="e.g. 10001" />
               </div>
             </div>
@@ -206,12 +219,39 @@ export default function Onboarding() {
             <div className="flex-col gap-24">
               <div className="flex-between align-center">
                 <h3 className="m-0">Skills</h3>
-                <button type="button" className="btn-outline btn-sm" onClick={() => setShowSkillModal(true)}>+ Add Skill</button>
+                <button type="button" className="btn-outline btn-sm" title="Browse and add new professional skills" onClick={() => setShowSkillModal(true)}>+ Add Skill</button>
               </div>
 
               <div className="flex-row-wrap gap-8 mt-8">
                 {selectedSkills.map(skill => <SkillBadge key={skill.id} skill={skill} onRemove={() => removeSkill(skill.id)} />)}
                 {selectedSkills.length === 0 && <span className="text-secondary text-sm italic">No skills added yet. Click "+ Add Skill" to select from the list.</span>}
+              </div>
+            </div>
+          )}
+
+          {/* 🚨 NEW: Step 4 - Experience & Achievements */}
+          {step === 4 && (
+            <div className="flex-col gap-24">
+              <h3 className="m-0">Experience & Achievements</h3>
+              
+              <div className="flex-col gap-8">
+                <label className="font-bold text-sm" title="Link to your personal website, GitHub, Behance, etc.">Portfolio URL</label>
+                <input type="url" className="search-input w-full" value={portfolioUrl} onChange={e => setPortfolioUrl(e.target.value)} placeholder="https://yourportfolio.com" />
+              </div>
+              
+              <div className="flex-col gap-8">
+                <label className="font-bold text-sm" title="Describe your past job titles, responsibilities, and dates of employment">Work Experience</label>
+                <textarea className="search-input w-full" value={workExperience} onChange={e => setWorkExperience(e.target.value)} placeholder="Briefly describe your relevant work experience..." rows={3} />
+              </div>
+              
+              <div className="flex-col gap-8">
+                <label className="font-bold text-sm" title="List official certifications or credentials you have earned">Certificates</label>
+                <textarea className="search-input w-full" value={certificates} onChange={e => setCertificates(e.target.value)} placeholder="List any relevant certifications..." rows={2} />
+              </div>
+              
+              <div className="flex-col gap-8">
+                <label className="font-bold text-sm" title="List notable professional or academic awards">Awards</label>
+                <textarea className="search-input w-full" value={awards} onChange={e => setAwards(e.target.value)} placeholder="List any awards or recognitions..." rows={2} />
               </div>
             </div>
           )}
@@ -224,11 +264,11 @@ export default function Onboarding() {
           
           <div className="flex-row gap-24 align-center">
             {step > 1 ? (
-              <button type="button" onClick={() => step < 3 ? setStep(step + 1) : handleSubmit()} style={{ background: 'none', border: 'none', color: 'var(--secondary-text)', cursor: 'pointer', fontSize: '0.95rem', fontWeight: '500', padding: 0 }}>Skip for now</button>
+              <button type="button" onClick={() => step < 4 ? setStep(step + 1) : handleSubmit()} title="You can always fill this out later" style={{ background: 'none', border: 'none', color: 'var(--secondary-text)', cursor: 'pointer', fontSize: '0.95rem', fontWeight: '500', padding: 0 }}>Skip for now</button>
             ) : <div></div>}
             
-            <button type="button" className="btn-black" onClick={() => step < 3 ? setStep(step + 1) : handleSubmit()} disabled={isSubmitting || (step === 1 && !isStep1Valid)} style={{ padding: '12px 24px', fontSize: '1rem' }}>
-              {step < 3 ? 'Continue' : isSubmitting ? 'Saving...' : 'Finish Setup'}
+            <button type="button" className="btn-black" onClick={() => step < 4 ? setStep(step + 1) : handleSubmit()} disabled={isSubmitting || (step === 1 && !isStep1Valid)} style={{ padding: '12px 24px', fontSize: '1rem' }}>
+              {step < 4 ? 'Continue' : isSubmitting ? 'Saving...' : 'Finish Setup'}
             </button>
           </div>
         </div>
