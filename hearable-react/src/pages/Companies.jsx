@@ -241,6 +241,14 @@ export default function Companies({ role }) {
                 const country = company.locations?.country || company.country;
                 const locationText = formatLocation(city, country);
 
+                const hasDeafBadge = company.has_interpreters || company.has_trained_staff || company.has_visual_alarms || company.has_captioning;
+
+                // 🚨 NEW LOGIC: Description Truncation
+                const maxChars = 150;
+                const desc = company.description || '';
+                const isLongDesc = desc.length > maxChars;
+                const displayDesc = isLongDesc ? desc.substring(0, maxChars).trim() + '...' : desc;
+
                 return (
                   <div
                     key={company.id}
@@ -265,7 +273,7 @@ export default function Companies({ role }) {
 
                       <div className="flex-col align-end gap-8" style={{ flexShrink: 0 }}>
                         <div className="flex-row gap-8 align-center">
-                          {company.is_deaf_accessible && role !== 'guest' && <DeafAccessibleBadge size="sm" showText={true} />}
+                          {hasDeafBadge && role !== 'guest' && <DeafAccessibleBadge size="sm" showText={true} features={company} isAccessible={hasDeafBadge} />}
                           {role === 'admin' && <StatusBadge status={currentStatus} />}
                         </div>
                         {role === 'admin' && (
@@ -276,7 +284,26 @@ export default function Companies({ role }) {
                       </div>
                     </div>
 
-                    {/* 🚨 UPDATED: Button text changed to "View Profile" and explicitly aligned right with justifyContent */}
+                    {/* 🚨 NEW LOGIC: Render Truncated Description */}
+                    {desc && (
+                      <div style={{ marginTop: '4px' }}>
+                        <p className="text-secondary text-sm" style={{ margin: 0, lineHeight: '1.6' }}>
+                          {displayDesc}
+                          {isLongDesc && (
+                            <span 
+                              style={{ color: 'var(--primary-color)', fontWeight: '600', marginLeft: '6px', cursor: 'pointer' }}
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevents double firing the card click event
+                                if (!company.isPreApprovedOnly) navigate(`/company/${company.id}`);
+                              }}
+                            >
+                              more
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex-row align-center" style={{ justifyContent: 'flex-end', borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '8px', flexWrap: 'wrap', gap: '16px' }}>
                       {!company.isPreApprovedOnly && (
                         <button className="btn-black btn-sm" onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}`); }}>

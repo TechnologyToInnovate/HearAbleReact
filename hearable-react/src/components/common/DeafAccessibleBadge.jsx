@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
-export default function DeafAccessibleBadge({ size = 'sm', showText = true, features = {} }) {
+export default function DeafAccessibleBadge({ size = 'sm', showText = true, features = {}, isAccessible }) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+  const badgeRef = useRef(null);
 
   const styles = {
     sm: { fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px' },
@@ -9,7 +12,6 @@ export default function DeafAccessibleBadge({ size = 'sm', showText = true, feat
     lg: { fontSize: '1rem', padding: '4px 12px', borderRadius: '20px' }
   };
 
-  // Define the list of possible features
   const featureList = [
     { key: 'has_interpreters', label: 'Sign Language Interpreters Available' },
     { key: 'has_trained_staff', label: 'Sign Language Trained Staff / Partner Colleges' },
@@ -17,49 +19,68 @@ export default function DeafAccessibleBadge({ size = 'sm', showText = true, feat
     { key: 'has_captioning', label: 'Captioned Meetings & Training' }
   ];
 
-  // Filter down to only the features this specific company has enabled
-  const activeFeatures = featureList.filter(f => features[f.key]);
+  const activeFeatures = featureList.filter(f => features && (features[f.key] === true || features[f.key] === 'true'));
+  const isExplicitlyAccessible = isAccessible === true || isAccessible === 'true';
 
-  // If they have no features enabled, don't show the badge at all
-  if (activeFeatures.length === 0) return null;
+  const shouldShow = isExplicitlyAccessible || activeFeatures.length > 0;
+
+  if (!shouldShow) return null;
+
+  const handleMouseEnter = () => {
+    if (activeFeatures.length === 0) return; 
+    
+    if (badgeRef.current) {
+      const rect = badgeRef.current.getBoundingClientRect();
+      setTooltipPos({
+        top: rect.bottom + window.scrollY + 8, 
+        left: rect.left + window.scrollX + (rect.width / 2) 
+      });
+    }
+    setShowTooltip(true);
+  };
 
   return (
-    <div 
-      style={{ position: 'relative', display: 'inline-flex', cursor: 'help' }}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-      onClick={() => setShowTooltip(!showTooltip)} // For mobile support
-    >
-      <span style={{ 
-        background: '#e0e7ff', 
-        color: '#3730a3', 
-        border: size === 'lg' ? '1px solid #c7d2fe' : 'none',
-        fontWeight: 'bold',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '6px',
-        whiteSpace: 'nowrap',
-        flexShrink: 0,
-        ...styles[size] 
-      }}>
-        ✓ {showText ? (size === 'lg' ? 'Certified Deaf Accessible' : 'Deaf Accessible') : ''}
-      </span>
+    <>
+      <div 
+        ref={badgeRef}
+        style={{ display: 'inline-flex', cursor: activeFeatures.length > 0 ? 'help' : 'default' }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setShowTooltip(false)}
+        onClick={() => {
+          if (activeFeatures.length > 0) {
+            if (!showTooltip) handleMouseEnter(); else setShowTooltip(false);
+          }
+        }}
+      >
+        <span style={{ 
+          background: '#e0e7ff', 
+          color: '#3730a3', 
+          border: size === 'lg' ? '1px solid #c7d2fe' : 'none',
+          fontWeight: 'bold',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+          ...styles[size] 
+        }}>
+          ✓ {showText ? (size === 'lg' ? 'Certified Deaf Accessible' : 'Deaf Accessible') : ''}
+        </span>
+      </div>
 
-      {/* Tooltip Hover Display */}
-      {showTooltip && (
+      {showTooltip && activeFeatures.length > 0 && createPortal(
         <div style={{
           position: 'absolute',
-          top: '100%',
-          left: '50%',
+          top: tooltipPos.top,
+          left: tooltipPos.left,
           transform: 'translateX(-50%)',
-          marginTop: '8px',
           backgroundColor: '#1f2937',
           color: '#f9fafb',
           padding: '12px',
           borderRadius: '8px',
-          zIndex: 9999,
+          zIndex: 999999,
           width: 'max-content',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
         }}>
           <strong style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', color: '#a5b4fc' }}>
             Accessibility Features:
@@ -71,18 +92,10 @@ export default function DeafAccessibleBadge({ size = 'sm', showText = true, feat
               </li>
             ))}
           </ul>
-          {/* Tooltip arrow */}
-          <div style={{ 
-            position: 'absolute', 
-            bottom: '100%', 
-            left: '50%', 
-            transform: 'translateX(-50%)',
-            borderWidth: '6px', 
-            borderStyle: 'solid', 
-            borderColor: 'transparent transparent #1f2937 transparent' 
-          }}></div>
-        </div>
+          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', borderWidth: '6px', borderStyle: 'solid', borderColor: 'transparent transparent #1f2937 transparent' }}></div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }

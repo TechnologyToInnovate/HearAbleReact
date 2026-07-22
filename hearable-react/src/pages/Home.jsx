@@ -9,7 +9,7 @@ import AdminOverview from '../components/dashboard/AdminOverview';
 import RecentApplicantsCard from '../components/dashboard/RecentApplicantsCard';
 import RecentJobsCard from '../components/jobs/RecentJobsCard'; 
 import CompanyOnboardingModal from '../components/modals/CompanyOnboardingModal'; 
-import MatchedJobsWidget from '../components/jobs/MatchedJobsWidget';
+import { MatchedJobsWidget } from '../components/jobs/MatchedJobsWidget'; 
 
 import Avatar from '../components/common/Avatar';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -53,8 +53,6 @@ export default function Home() {
     
     const activeId = user?.id;
 
-    // --- ADMIN DASHBOARD ---
-    // Admins need system-wide aggregates for their overview panel
     if (role === 'admin') {
       const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
       const { count: pendingUsersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
@@ -73,25 +71,20 @@ export default function Home() {
       return;
     }
 
-    // --- COMPANY DASHBOARD ---
-    // Companies need to see their own job stats and recent applicants
     if (role === 'company' && activeId) {
       const { data: compData } = await supabase.from('companies').select('*').eq('id', activeId).maybeSingle();
       
       if (compData) {
         setCompanyProfile(compData);
 
-        // Prompt the company to confirm their profile if their description is missing
         if (!compData.description) {
           setShowCompanyOnboarding(true);
         }
 
-        // Aggregate statistics for the company's active jobs and total received applications
         const { count: jobCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('company_id', compData.id);
         const { count: appCount } = await supabase.from('applications').select('job_id, jobs!inner(company_id)', { count: 'exact', head: true }).eq('jobs.company_id', compData.id);
         setStats({ stat1: jobCount || 0, stat2: appCount || 0, stat3: 0, stat4: 0 });
 
-        // Fetch the 4 most recent applications sent to this company's job postings
         const { data: appsData } = await supabase
           .from('applications')
           .select(`
@@ -120,15 +113,13 @@ export default function Home() {
       return;
     }
 
-    // --- STANDARD USER & GUEST DASHBOARD ---
-    
-    // Fetch the 4 most recent active jobs for the public feed, including nested location/company data
+    // 🚨 FIX: We added the 4 checkboxes to the companies select query!
     const { data: jobsData } = await supabase
       .from('jobs')
       .select(`
         *,
         locations ( city ),
-        companies ( name, is_deaf_accessible, locations ( city ) )
+        companies ( name, is_deaf_accessible, has_interpreters, has_trained_staff, has_visual_alarms, has_captioning, locations ( city ) )
       `)
       .eq('status', 'Approved')
       .order('created_at', { ascending: false })
@@ -139,7 +130,6 @@ export default function Home() {
 
       const formattedJobs = jobsData.map(job => ({
         ...job, 
-        // Mask the location and company data if the user is a guest
         location: isGuest ? 'Sign in to view location' : (job.locations?.city || job.companies?.locations?.city || 'Location not specified'),
         company: isGuest ? 'Company Hidden' : (job.companies?.name || 'Unknown Company'),
         is_deaf_accessible: job.is_deaf_accessible || job.companies?.is_deaf_accessible
@@ -147,20 +137,17 @@ export default function Home() {
       setRecentJobs(formattedJobs);
     }
 
-    // Guests see platform-wide stats (total jobs, total companies)
     if (role === 'guest') {
       const { count: jobCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'Approved');
       const { count: companyCount } = await supabase.from('companies').select('*', { count: 'exact', head: true });
       setStats({ stat1: jobCount || 0, stat2: companyCount || 0, stat3: 0, stat4: 0 });
     } 
-    // Logged-in users see their personal stats (applications sent, total available jobs)
     else if (['user', 'pending_user', 'rejected_user'].includes(role) && activeId) {
       const { data: userData } = await supabase.from('profiles').select('*').eq('id', activeId).maybeSingle();
       
       if (userData) {
         setUserProfile(userData);
 
-        // Redirect incomplete user profiles to the onboarding flow
         if (!userData.first_name || !userData.degree_id) {
           navigate('/onboarding');
           return; 
@@ -175,13 +162,11 @@ export default function Home() {
     setIsLoading(false);
   }
 
-  // Refreshes dashboard data after a company completes their initial profile setup
   function handleCompanyOnboardingComplete() {
     setShowCompanyOnboarding(false);
     fetchDashboardData();
   }
 
-  // Navigates directly to a specific job's detail view
   const handleGoToJob = (jobId) => {
     navigate('/jobs', { state: { selectedJobId: jobId } });
   };
@@ -190,17 +175,14 @@ export default function Home() {
      return <div className="page-container-wide mt-32"><LoadingSpinner message="Loading dashboard..." /></div>;
   }
 
-return (
+  return (
     <div className="page-container-wide">
-
-      {/* Onboarding modal presented to newly registered companies */}
       <CompanyOnboardingModal 
         isOpen={showCompanyOnboarding}
         companyData={companyProfile}
         onSuccess={handleCompanyOnboardingComplete}
       />
 
-      {/* Hero Banner for Unauthenticated Guests */}
       {role === 'guest' && (
         <div className="flex-col gap-24 mb-32">
           <div className="card text-center p-32" style={{ backgroundColor: 'var(--primary-color)', color: 'var(--bg-color)', border: 'none' }}>
@@ -238,11 +220,8 @@ return (
         </div>
       )}
 
-      {/* Main Dashboard Layout structure */}
       <div className={role === 'admin' ? "flex-col" : "dashboard-layout"}>
-        
         <div className="w-full">
-          {/* Admin Dashboard View */}
           {role === 'admin' && (
             <AdminOverview 
               adminStats={adminStats}
@@ -253,17 +232,13 @@ return (
             />
           )}
 
-          {/* Standard User & Company Dashboard Views */}
           {role !== 'admin' && (
             <div className="flex-col gap-24">
-              
-              {/* Display personalized job matches for approved or pending users */}
               {(role === 'user' || role === 'pending_user') && !isJobsLoading && allJobs?.length > 0 && (
                 <MatchedJobsWidget jobs={allJobs} onSelectJob={handleGoToJob} />
               )}
 
               <div className="card">
-                {/* Companies see recent applicants; users/guests see recent job postings */}
                 {role === 'company' ? (
                   <RecentApplicantsCard 
                     recentApplicants={recentApplicants} 
@@ -282,11 +257,8 @@ return (
           )}
         </div>
 
-        {/* Sidebar Component (Hidden for Admins) */}
         {role !== 'admin' && (
           <div className="dashboard-sidebar">
-            
-            {/* Sidebar Profile Summary Cards */}
             {role === 'guest' ? (
               <div className="card text-center p-24">
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
@@ -327,14 +299,12 @@ return (
               </div>
             )}
 
-            {/* Sidebar Quick Stats */}
             <div className="flex-col gap-16">
               <StatCard value={stats.stat1} label={role === 'company' ? 'Active Job Postings' : role === 'guest' ? 'Total Open Jobs' : 'Applications Sent'} isLoading={isLoading} />
               <StatCard value={stats.stat2} label={role === 'company' ? 'Total Applicants' : role === 'guest' ? 'Companies Hiring' : 'Open Jobs'} isLoading={isLoading} />
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

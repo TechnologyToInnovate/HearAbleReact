@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
 
-export default function MatchedJobsWidget({ jobs, onSelectJob }) {
+export function MatchedJobsWidget({ jobs, onSelectJob }) {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const matchedJobs = jobs
+  const matchedJobs = (jobs || [])
     .filter(job => job.matchScore && job.matchScore > 0)
     .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, 6); 
@@ -30,17 +30,26 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
     <div className="card mb-24 p-24">
       <div className="flex-between align-center mb-16" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
         <h3 className="m-0">Top Matches For You</h3>
+        {/* 🚨 RESTORED: View All Link */}
+        <button 
+          onClick={() => navigate('/jobs')} 
+          style={{ background: 'transparent', border: 'none', color: 'var(--primary-color)', fontSize: '0.9rem', fontWeight: 'bold', cursor: 'pointer', padding: 0 }}
+        >
+          View All &rarr;
+        </button>
       </div>
       
       <div className="flex-col gap-0">
         {matchedJobs.map((job, index) => {
-          const hasDeafBadge = job.has_interpreters || job.has_trained_staff || job.has_visual_alarms || job.has_captioning;
+          const accessData = job.companies || {};
+          const hasDeafBadge = accessData.has_interpreters || accessData.has_trained_staff || accessData.has_visual_alarms || accessData.has_captioning;
           
           return (
             <div 
               key={job.id} 
               className="flex-between align-center mobile-stack" 
-              style={{ padding: '20px 0', borderBottom: index !== matchedJobs.length - 1 ? '1px solid var(--border-color)' : 'none', cursor: 'pointer' }}
+              // 🚨 COMPACT SPACING: Reduced padding from 20px to 16px
+              style={{ padding: '16px 0', borderBottom: index !== matchedJobs.length - 1 ? '1px solid var(--border-color)' : 'none', cursor: 'pointer' }}
               onClick={() => onSelectJob(job.id)}
             >
               <div style={{ width: '100%', minWidth: 0, paddingRight: '16px' }}>
@@ -53,12 +62,7 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
                 
                 <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8" style={{ width: '100%', minWidth: 0 }}>
                   <span 
-                    style={{ 
-                      whiteSpace: 'nowrap', 
-                      overflow: 'hidden', 
-                      textOverflow: 'ellipsis',
-                      maxWidth: '50%'
-                    }}
+                    style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '50%' }}
                     title={job.company || 'Unknown Company'}
                   >
                     {job.company || 'Unknown Company'}
@@ -72,7 +76,7 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
 
                   {hasDeafBadge && (
                     <div style={{ flexShrink: 0 }}>
-                      <DeafAccessibleBadge size="sm" showText={true} features={job} />
+                      <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
                     </div>
                   )}
                 </div>

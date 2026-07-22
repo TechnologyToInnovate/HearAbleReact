@@ -34,7 +34,9 @@ export default function JobDetailsPane({
     ? new Date(selectedJob.closing_date) < new Date(new Date().setHours(0,0,0,0)) 
     : false;
 
-  const hasDeafBadge = selectedCompany?.has_interpreters || selectedCompany?.has_trained_staff || selectedCompany?.has_visual_alarms || selectedCompany?.has_captioning || selectedJob?.has_interpreters;
+  const accessData = selectedCompany || {};
+  // 🚨 NEW LOGIC: Match the CompanyProfile workaround
+  const hasDeafBadge = accessData.has_interpreters || accessData.has_trained_staff || accessData.has_visual_alarms || accessData.has_captioning;
 
   return (
     <div className="card p-0 flex-col" style={{ position: 'relative', height: '100%', overflowY: 'auto' }}>
@@ -124,9 +126,10 @@ export default function JobDetailsPane({
             </div>
           )}
           
+          {/* 🚨 Only render if they actually have the badge */}
           {hasDeafBadge && (
             <div style={{ flexShrink: 0 }}>
-              <DeafAccessibleBadge size="sm" showText={true} features={selectedCompany || selectedJob} />
+              <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
             </div>
           )}
         </div>
@@ -163,7 +166,6 @@ export default function JobDetailsPane({
           </div>
         ) : (role !== 'company' && role !== 'admin') ? (
           <div className="flex-row gap-12 mt-8 mobile-action-group">
-            {/* 🚨 NEW: Switched the button based on hasApplied to allow withdrawals */}
             {hasApplied ? (
               <button 
                 className="btn-danger" 
@@ -257,13 +259,14 @@ export default function JobDetailsPane({
         {selectedCompany && !showCompanyActions && (
           <div className="sub-card mt-24 mb-16" style={{ padding: '24px', position: 'relative' }}>
             
+            {/* 🚨 Only render if they actually have the badge */}
             {hasDeafBadge && (
               <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
-                <DeafAccessibleBadge size="sm" showText={true} features={selectedCompany} />
+                <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
               </div>
             )}
 
-            <h3 className="m-0 mb-20" style={{ fontSize: '1.2rem', paddingRight: hasDeafBadge ? '140px' : '0' }}>
+            <h3 className="m-0 mb-20" style={{ fontSize: '1.2rem', paddingRight: '140px' }}>
               About Company
             </h3>
 

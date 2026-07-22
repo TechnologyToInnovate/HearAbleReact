@@ -42,13 +42,20 @@ export default function CompanyProfile() {
           .from('jobs')
           .select('*')
           .eq('company_id', id)
+          // 🚨 FIX: Only fetch jobs that are actually approved and active
+          .eq('status', 'Approved') 
           .order('created_at', { ascending: false });
 
         if (jobsData) {
           const mappedJobs = jobsData.map(job => ({
             ...job,
             company: companyData.name,
-            date: formatStandardDate(job.created_at)
+            date: formatStandardDate(job.created_at),
+            is_deaf_accessible: companyData.is_deaf_accessible,
+            has_interpreters: companyData.has_interpreters,
+            has_trained_staff: companyData.has_trained_staff,
+            has_visual_alarms: companyData.has_visual_alarms,
+            has_captioning: companyData.has_captioning
           }));
           setCompanyJobs(mappedJobs);
         }
@@ -71,15 +78,29 @@ export default function CompanyProfile() {
     }
   }
 
-  // 🚨 NEW: Function to handle individual accessibility checkboxes
   async function handleFeatureToggle(featureKey, newValue) {
     if (role !== 'admin') return;
     
-    const { error } = await supabase.from('companies').update({ [featureKey]: newValue }).eq('id', company.id);
+    const updatedCompany = { ...company, [featureKey]: newValue };
+    
+    const isNowAccessible = !!(
+      updatedCompany.has_interpreters || 
+      updatedCompany.has_trained_staff || 
+      updatedCompany.has_visual_alarms || 
+      updatedCompany.has_captioning
+    );
+
+    const updatePayload = { 
+      [featureKey]: newValue,
+      is_deaf_accessible: isNowAccessible 
+    };
+
+    const { error } = await supabase.from('companies').update(updatePayload).eq('id', company.id);
     
     if (!error) {
-      setCompany({ ...company, [featureKey]: newValue });
+      setCompany({ ...updatedCompany, is_deaf_accessible: isNowAccessible });
     } else {
+      console.error(error);
       alert("Failed to update accessibility status.");
     }
   }
@@ -97,7 +118,6 @@ export default function CompanyProfile() {
   const hasContact = role !== 'guest' && (contact.name || contact.email || contact.contact_number);
   const currentStatus = company.status === 'Approved' ? 'Active' : (company.status || 'Active');
 
-  // Check if they have ANY features to show the badge next to their name
   const hasDeafBadge = company.has_interpreters || company.has_trained_staff || company.has_visual_alarms || company.has_captioning;
 
   return (
@@ -119,8 +139,7 @@ export default function CompanyProfile() {
         title={
           <>
             {company.name}
-            {/* 🚨 Pass the company object to the badge so it can read the booleans */}
-            {hasDeafBadge && <DeafAccessibleBadge size="lg" showText={true} features={company} />}
+            {hasDeafBadge && <DeafAccessibleBadge size="lg" showText={true} features={company} isAccessible={company.is_deaf_accessible} />}
           </>
         }
         subtitle={
@@ -156,7 +175,6 @@ export default function CompanyProfile() {
             </div>
           </div>
           
-          {/* 🚨 NEW: Detailed Accessibility Checklist for Admins */}
           <div style={{ paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
             <strong className="text-sm text-secondary" style={{ display: 'block', marginBottom: '12px' }}>Deaf Accessibility Certifications (Checking any box awards the badge)</strong>
             <div className="flex-row gap-24 flex-wrap">
@@ -184,7 +202,6 @@ export default function CompanyProfile() {
         </div>
       )}
 
-      {/* Rest of the component remains the same... */}
       <div className="dashboard-layout">
         <div className="flex-col gap-32">
           <div className="card p-24">

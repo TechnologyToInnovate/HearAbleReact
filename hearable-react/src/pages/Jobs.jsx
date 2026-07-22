@@ -174,7 +174,6 @@ export default function Jobs() {
     setIsApplying(false);
   }
 
-  // 🚨 NEW: Added Withdrawal Logic
   async function handleWithdrawApplication() {
     if (!window.confirm("Are you sure you want to withdraw your application? This will remove you from the employer's applicant pool.")) return;
     
@@ -312,24 +311,30 @@ export default function Jobs() {
 
   const renderJobList = (jobList) => (
     <div className="flex-col gap-12">
-      {jobList.map(job => (
-        <div key={job.id} style={{ position: 'relative' }}>
-          {role === 'admin' && job.applicantCount > 0 && (
-            <div className="badge badge-primary" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }} title={`This job has ${job.applicantCount} active applications`}>
-              {job.applicantCount} {job.applicantCount === 1 ? 'Applicant' : 'Applicants'}
-            </div>
-          )}
-          <JobCard 
-            job={job} 
-            isSelected={job.id === selectedJobId} 
-            onClick={() => {
-              setSelectedJobId(job.id);
-              if (window.innerWidth <= 768) window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            hideMatchScore={true}
-          />
-        </div>
-      ))}
+      {jobList.map(job => {
+        // 🚨 BULLETPROOF FIX: Find the clean company data to pass down
+        const relatedCompany = companies?.find(c => c.id === job.company_id);
+
+        return (
+          <div key={job.id} style={{ position: 'relative' }}>
+            {role === 'admin' && job.applicantCount > 0 && (
+              <div className="badge badge-primary" style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }} title={`This job has ${job.applicantCount} active applications`}>
+                {job.applicantCount} {job.applicantCount === 1 ? 'Applicant' : 'Applicants'}
+              </div>
+            )}
+            <JobCard 
+              job={job} 
+              companyData={relatedCompany}
+              isSelected={job.id === selectedJobId} 
+              onClick={() => {
+                setSelectedJobId(job.id);
+                if (window.innerWidth <= 768) window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              hideMatchScore={true}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 
