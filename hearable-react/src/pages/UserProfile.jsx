@@ -6,8 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import EditProfileModal from '../components/modals/EditProfileModal';
 import AddSkillModal from '../components/modals/AddSkillModal';
 import SkillBadge from '../components/common/SkillBadge';
-import Avatar from '../components/common/Avatar';
 import StatusBadge from '../components/common/StatusBadge'; 
+import BackButton from '../components/common/BackButton'; // 🚨 NEW
+import ProfileBanner from '../components/profile/ProfileBanner'; // 🚨 NEW
 import { formatFullName, formatLocation } from '../utils/formatUtils';
 
 import JobPreferencesWidget from '../components/profile/JobPreferencesWidget';
@@ -154,42 +155,25 @@ export default function UserProfile() {
   return (
     <div className="page-container-wide">
       
-      {/* 🚨 NEW: The Back Button */}
-      <div className="mb-16">
-        <button 
-          className="btn-outline btn-sm" 
-          onClick={() => navigate(-1)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-        >
-          &larr; Back
-        </button>
-      </div>
+      {/* 🚨 REFACTORED: Back Button */}
+      <BackButton />
 
       <EditProfileModal isOpen={showEditModal} onClose={() => setShowEditModal(false)} userId={user.id} onSuccess={fetchUser} />
       <AddSkillModal isOpen={showAddSkillPopup} onClose={() => setShowAddSkillPopup(false)} onAddSkill={handleAddSkill} existingSkills={user.skills} isUpdating={isUpdatingSkills} />
 
-      <div className="card p-0 mb-24" style={{ overflow: 'hidden' }}>
-        <div style={{ height: '120px', backgroundColor: 'var(--primary-color)', opacity: 0.9 }}></div>
-        
-        <div style={{ padding: '0 32px 32px 32px', position: 'relative' }}>
-          <div className="flex-between-start" style={{ marginTop: '-40px' }}>
-            <div className="flex-row gap-24 align-center">
-              <Avatar src={user.profile_pic} fallbackName={user.first_name} size="lg" type="user" />
-              <div style={{ marginTop: '40px' }}>
-                <h1 style={{ margin: '0 0 8px 0', fontSize: '2rem' }}>{fullName}</h1>
-                <p className="text-lg text-primary m-0" style={{ fontWeight: '600' }}>
-                  {user.headline || 'Talent Profile'}
-                </p>
-              </div>
-            </div>
-            {isOwnProfile && (
-              <div style={{ marginTop: '56px' }}>
-                <button className="btn-outline" onClick={() => setShowEditModal(true)}>Edit Profile</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* 🚨 REFACTORED: Profile Banner */}
+      <ProfileBanner 
+        avatarSrc={user.profile_pic}
+        fallbackName={user.first_name}
+        avatarType="user"
+        title={fullName}
+        subtitle={<span className="text-primary" style={{ fontWeight: '600' }}>{user.headline || 'Talent Profile'}</span>}
+        actionButton={
+          isOwnProfile ? (
+            <button className="btn-outline" onClick={() => setShowEditModal(true)}>Edit Profile</button>
+          ) : null
+        }
+      />
 
       {isAdmin && (
         <div className="card p-16 mb-32 flex-between align-center" style={{ border: '1px solid var(--primary-color)', background: 'var(--card-bg)' }}>

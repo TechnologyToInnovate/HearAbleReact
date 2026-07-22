@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import SkillBadge from '../components/common/SkillBadge'; 
@@ -9,6 +9,7 @@ import LocationSelect from '../components/common/LocationSelect';
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, role } = useAuth(); 
   
   const [step, setStep] = useState(1);
@@ -114,7 +115,13 @@ export default function Onboarding() {
     }
 
     setIsSubmitting(false);
-    window.location.href = '/'; 
+    
+    // Grab the intent from state if available to route them back to where they started
+    const returnTo = location.state?.returnTo || '/';
+    const returnState = location.state?.returnState || null;
+    
+    // Redirect using navigate to preserve the state
+    navigate(returnTo, { state: returnState });
   }
 
   const isStep1Valid = firstName.trim() && lastName.trim() && degree && batch;

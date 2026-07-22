@@ -10,6 +10,9 @@ import { sortData } from '../utils/sortUtils';
 import SearchBar from '../components/common/SearchBar';
 import Avatar from '../components/common/Avatar';
 import StatusBadge from '../components/common/StatusBadge';
+import Modal from '../components/common/Modal';
+import EmptyState from '../components/common/EmptyState';
+import FilterSelect from '../components/common/FilterSelect'; // 🚨 NEW
 
 export default function Users({ role }) {
   const navigate = useNavigate();
@@ -146,19 +149,28 @@ export default function Users({ role }) {
         />
       </div>
 
+      {/* 🚨 REFACTORED FILTERS */}
       <div className="flex-row-wrap gap-16 mb-32">
-        <select className="search-input" style={{ width: 'auto', minWidth: '180px', padding: '10px 16px' }} value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          <option value="name_asc">Sort by: Name (A-Z)</option>
-          <option value="name_desc">Sort by: Name (Z-A)</option>
-          <option value="date_asc">Sort by: Oldest First</option>
-          <option value="date_desc">Sort by: Newest First</option>
-        </select>
-        <select className="search-input" style={{ width: 'auto', minWidth: '180px', padding: '10px 16px' }} value={filterDegree} onChange={e => setFilterDegree(e.target.value)}>
-          {uniqueDegrees.map(degree => <option key={degree} value={degree}>{degree === 'All' ? 'All Degrees' : degree}</option>)}
-        </select>
-        <select className="search-input" style={{ width: 'auto', minWidth: '180px', padding: '10px 16px' }} value={filterBatch} onChange={e => setFilterBatch(e.target.value)}>
-          {uniqueBatches.map(batch => <option key={batch} value={batch}>{batch === 'All' ? 'All Batches' : `Batch ${batch}`}</option>)}
-        </select>
+        <FilterSelect 
+          value={sortBy} 
+          onChange={e => setSortBy(e.target.value)}
+          options={[
+            { value: 'name_asc', label: 'Sort by: Name (A-Z)' },
+            { value: 'name_desc', label: 'Sort by: Name (Z-A)' },
+            { value: 'date_asc', label: 'Sort by: Oldest First' },
+            { value: 'date_desc', label: 'Sort by: Newest First' }
+          ]}
+        />
+        <FilterSelect 
+          value={filterDegree} 
+          onChange={e => setFilterDegree(e.target.value)}
+          options={uniqueDegrees.map(degree => ({ value: degree, label: degree === 'All' ? 'All Degrees' : degree }))}
+        />
+        <FilterSelect 
+          value={filterBatch} 
+          onChange={e => setFilterBatch(e.target.value)}
+          options={uniqueBatches.map(batch => ({ value: batch, label: batch === 'All' ? 'All Batches' : `Batch ${batch}` }))}
+        />
       </div>
 
       {isLoading ? (
@@ -166,14 +178,12 @@ export default function Users({ role }) {
       ) : currentUsers.length > 0 ? (
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          
           {currentUsers.map(user => (
             <div
               key={user.id}
               className="card p-24"
               style={{ display: 'flex', flexDirection: 'column', gap: '16px', opacity: user.status === 'Archived' ? 0.6 : 1 }}
             >
-              
               <div className="flex-between-start" style={{ flexWrap: 'wrap', gap: '16px' }}>
                 <div 
                   className="flex-row gap-16 align-start" 
@@ -220,10 +230,12 @@ export default function Users({ role }) {
           ))}
         </div>
       ) : (
-        <div className="card text-center text-secondary p-32 mt-32">
-          <h3 className="mb-8">No users found</h3>
-          <p>Try adjusting your search or filters.</p>
-        </div>
+        <EmptyState 
+          icon="🔍"
+          title="No users found"
+          message="Try adjusting your search query or filters to find what you're looking for."
+          className="mt-32"
+        />
       )}
 
       {totalPages > 1 && (
@@ -238,75 +250,62 @@ export default function Users({ role }) {
         </div>
       )}
 
-      {resumeModal.isOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
-          <div className="card p-0" style={{ width: '100%', maxWidth: '600px', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-            
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Resumes for {resumeModal.userName}</h3>
-              <button 
-                onClick={() => setResumeModal({ isOpen: false, isLoading: false, userName: '', resumes: [] })} 
-                style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}
-              >
-                Close
-              </button>
-            </div>
-            
-            <div style={{ padding: '24px', maxHeight: '60vh', overflowY: 'auto' }}>
-              {resumeModal.isLoading ? (
-                <p className="text-secondary text-center">Loading resumes...</p>
-              ) : resumeModal.resumes.length > 0 ? (
-                <div className="flex-col gap-12">
-                  {resumeModal.resumes.map(resume => (
-                    <div key={resume.id} className="flex-between align-center p-16" style={{ border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                      <div>
-                        <strong className="block mb-8" style={{ fontSize: '1rem' }}>{resume.title}</strong>
-                        <div className="flex-row gap-12 align-center">
-                          <StatusBadge status={resume.status || 'Pending'} />
-                          <span className="text-sm text-secondary">
-                            Uploaded: {new Date(resume.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex-col gap-8 align-end">
-                        {resume.file_url && (
-                          <a href={resume.file_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', width: '100%', textAlign: 'center' }}>
-                            View PDF
-                          </a>
-                        )}
-                        <div className="flex-row gap-8">
-                          {role === 'admin' && resume.status !== 'Approved' && (
-                            <button 
-                              className="btn-sm" 
-                              style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer' }} 
-                              onClick={() => handleUpdateResumeStatus(resume.id, 'Approved')}
-                            >
-                              Approve
-                            </button>
-                          )}
-                          {role === 'admin' && resume.status !== 'Rejected' && (
-                            <button 
-                              className="btn-sm" 
-                              style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer' }} 
-                              onClick={() => handleUpdateResumeStatus(resume.id, 'Rejected')}
-                            >
-                              Reject
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+      <Modal 
+        isOpen={resumeModal.isOpen} 
+        onClose={() => setResumeModal({ isOpen: false, isLoading: false, userName: '', resumes: [] })}
+        title={`Resumes for ${resumeModal.userName}`}
+        maxWidth="600px"
+      >
+        {resumeModal.isLoading ? (
+          <p className="text-secondary text-center">Loading resumes...</p>
+        ) : resumeModal.resumes.length > 0 ? (
+          <div className="flex-col gap-12">
+            {resumeModal.resumes.map(resume => (
+              <div key={resume.id} className="flex-between align-center p-16" style={{ border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <div>
+                  <strong className="block mb-8" style={{ fontSize: '1rem' }}>{resume.title}</strong>
+                  <div className="flex-row gap-12 align-center">
+                    <StatusBadge status={resume.status || 'Pending'} />
+                    <span className="text-sm text-secondary">
+                      Uploaded: {new Date(resume.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-secondary text-center m-0">No resumes uploaded.</p>
-              )}
-            </div>
-
+                
+                <div className="flex-col gap-8 align-end">
+                  {resume.file_url && (
+                    <a href={resume.file_url} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ textDecoration: 'none', width: '100%', textAlign: 'center' }}>
+                      View PDF
+                    </a>
+                  )}
+                  <div className="flex-row gap-8">
+                    {role === 'admin' && resume.status !== 'Approved' && (
+                      <button 
+                        className="btn-sm" 
+                        style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer' }} 
+                        onClick={() => handleUpdateResumeStatus(resume.id, 'Approved')}
+                      >
+                        Approve
+                      </button>
+                    )}
+                    {role === 'admin' && resume.status !== 'Rejected' && (
+                      <button 
+                        className="btn-sm" 
+                        style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer' }} 
+                        onClick={() => handleUpdateResumeStatus(resume.id, 'Rejected')}
+                      >
+                        Reject
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-secondary text-center m-0">No resumes uploaded.</p>
+        )}
+      </Modal>
 
     </div>
   );

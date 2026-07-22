@@ -41,10 +41,25 @@ export default function Jobs() {
   
   const [adminStatusFilter, setAdminStatusFilter] = useState('Approved'); 
 
+  // 🚨 NEW: Handle auto-selecting the job from state
   useEffect(() => {
     if (currentUser) fetchUserData();
-    if (location.state?.selectedJobId) setSelectedJobId(location.state.selectedJobId);
-  }, [currentUser, location.state]);
+    if (location.state?.selectedJobId) {
+      setSelectedJobId(location.state.selectedJobId);
+    }
+  }, [currentUser, location.state?.selectedJobId]);
+
+  // 🚨 NEW: Handle auto-opening the Apply Modal if returning from login
+  useEffect(() => {
+    if (location.state?.openApply && role === 'user' && selectedJobId === location.state?.selectedJobId) {
+      // Clear the state so it doesn't loop if they refresh
+      const newState = { ...location.state };
+      delete newState.openApply;
+      navigate(location.pathname, { replace: true, state: newState });
+      
+      handleApplyClick();
+    }
+  }, [location.state?.openApply, role, selectedJobId]);
 
   const filteredJobs = (jobs || [])
     .filter(job => {
@@ -70,13 +85,14 @@ export default function Jobs() {
     })
     .map(job => {
       if (role === 'guest') {
+        const relatedCompany = companies?.find(c => c.id === job.company_id);
         return {
           ...job,
-          company: 'Company Hidden',
+          company: relatedCompany?.industry ? `Industry: ${relatedCompany.industry}` : 'Confidential Company',
           location: 'Sign in to view location',
-          pay: 'Sign in to view pay',
+          pay_blurred: true, 
           pay_rate: '',
-          description: 'Sign In To View Job Description'
+          description: 'Sign In To View Full Job Description and Apply'
         };
       }
       return job;
@@ -91,7 +107,10 @@ export default function Jobs() {
       name: 'Sign In To View Company',
       description: 'Sign In To View Company Details and Full Profile',
       locations: { city: 'Sign in to view location', country: '' },
-      logo_url: null 
+      logo_url: null,
+      representative: null,
+      website: null,
+      contact_email: null
     };
   }
 
@@ -113,7 +132,8 @@ export default function Jobs() {
   }
 
   async function handleApplyClick() {
-    if (!currentUser) return navigate('/login');
+    // 🚨 UPDATED: Send redirect state to Login so it remembers where to go back
+    if (!currentUser) return navigate('/login', { state: { returnTo: '/jobs', returnState: { selectedJobId: selectedJobId, openApply: true } } });
     if (role !== 'user') return alert("Only approved standard users can apply for jobs.");
     
     setShowApplyModal(true);
@@ -181,7 +201,8 @@ export default function Jobs() {
   }
 
   async function handleSaveJob() {
-    if (!currentUser) return navigate('/login');
+    // 🚨 UPDATED: Send redirect state
+    if (!currentUser) return navigate('/login', { state: { returnTo: '/jobs', returnState: { selectedJobId: selectedJobId } } });
     if (!['user', 'pending_user', 'rejected_user'].includes(role)) return;
     
     setIsSaving(true);
@@ -209,13 +230,11 @@ export default function Jobs() {
     }
   }
 
-  // 🚨 UPDATED: Job Deletion handles applicant notifications before removing the post
   async function handleDeleteJob() {
     if (role !== 'admin') return;
     if (!window.confirm("Are you sure you want to delete this job posting? This cannot be undone.")) return;
 
     try {
-      // 1. Fetch all applications tied to this specific job
       const { data: applicants, error: fetchError } = await supabase
         .from('applications')
         .select('applicant_id')
@@ -223,9 +242,7 @@ export default function Jobs() {
 
       if (fetchError) throw fetchError;
 
-      // 2. If there are applicants, create and send them a closure notification
       if (applicants && applicants.length > 0) {
-        // Remove duplicate applicant IDs just in case
         const uniqueApplicantIds = [...new Set(applicants.map(app => app.applicant_id))];
         const jobTitle = selectedJobData?.title || 'a recent job';
         
@@ -236,16 +253,9 @@ export default function Jobs() {
           link: `/user-jobs`
         }));
 
-        const { error: notifError } = await supabase
-          .from('notifications')
-          .insert(notificationsToInsert);
-
-        if (notifError) {
-          console.error("Failed to send notifications:", notifError);
-        }
+        await supabase.from('notifications').insert(notificationsToInsert);
       }
 
-      // 3. Delete the job posting
       const { error } = await supabase.from('jobs').delete().eq('id', selectedJobId);
       
       if (!error) { 
@@ -264,7 +274,6 @@ export default function Jobs() {
   async function handleRepostJob(jobId) {
     if (role !== 'company') return;
     
-    // Default new closing date to 1 week from today
     const newClosingDate = new Date();
     newClosingDate.setDate(newClosingDate.getDate() + 7);
     const formattedDate = newClosingDate.toISOString().split('T')[0];
@@ -311,7 +320,7 @@ export default function Jobs() {
 
   return (
     <div className="page-container-wide" style={{ paddingBottom: '24px' }}>
-      
+
       <div>
         <div className="flex-between mb-24" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div className="flex-row align-center gap-16 flex-wrap">

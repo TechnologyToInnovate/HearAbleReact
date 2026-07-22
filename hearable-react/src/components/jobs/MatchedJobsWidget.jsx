@@ -8,7 +8,6 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
   const { user } = useAuth();
 
   const matchedJobs = jobs
-    // 🚨 REVERTED: Strictly filters out 0% matches to keep the feed highly relevant
     .filter(job => job.matchScore && job.matchScore > 0)
     .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, 6); 
@@ -34,64 +33,68 @@ export default function MatchedJobsWidget({ jobs, onSelectJob }) {
       </div>
       
       <div className="flex-col gap-0">
-        {matchedJobs.map((job, index) => (
-          <div 
-            key={job.id} 
-            className="flex-between align-center mobile-stack" 
-            style={{ padding: '20px 0', borderBottom: index !== matchedJobs.length - 1 ? '1px solid var(--border-color)' : 'none', cursor: 'pointer' }}
-            onClick={() => onSelectJob(job.id)}
-          >
-            <div style={{ width: '100%', minWidth: 0, paddingRight: '16px' }}>
-              <h4 className="text-lg m-0 mb-4 text-primary flex-row align-center gap-8 flex-wrap">
-                {job.title}
-                <span style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                  {job.matchScore}% Match
-                </span>
-              </h4>
-              
-              <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8" style={{ width: '100%', minWidth: 0 }}>
-                <span 
-                  style={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '50%'
-                  }}
-                  title={job.company || 'Unknown Company'}
-                >
-                  {job.company || 'Unknown Company'}
-                </span>
+        {matchedJobs.map((job, index) => {
+          const hasDeafBadge = job.has_interpreters || job.has_trained_staff || job.has_visual_alarms || job.has_captioning;
+          
+          return (
+            <div 
+              key={job.id} 
+              className="flex-between align-center mobile-stack" 
+              style={{ padding: '20px 0', borderBottom: index !== matchedJobs.length - 1 ? '1px solid var(--border-color)' : 'none', cursor: 'pointer' }}
+              onClick={() => onSelectJob(job.id)}
+            >
+              <div style={{ width: '100%', minWidth: 0, paddingRight: '16px' }}>
+                <h4 className="text-lg m-0 mb-4 text-primary flex-row align-center gap-8 flex-wrap">
+                  {job.title}
+                  <span style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                    {job.matchScore}% Match
+                  </span>
+                </h4>
                 
-                {job.location && (
-                  <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-                    • {job.location}
+                <div className="text-sm text-secondary m-0 mb-12 flex-row align-center gap-8" style={{ width: '100%', minWidth: 0 }}>
+                  <span 
+                    style={{ 
+                      whiteSpace: 'nowrap', 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis',
+                      maxWidth: '50%'
+                    }}
+                    title={job.company || 'Unknown Company'}
+                  >
+                    {job.company || 'Unknown Company'}
                   </span>
-                )}
+                  
+                  {job.location && (
+                    <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      • {job.location}
+                    </span>
+                  )}
 
-                {job.is_deaf_accessible && (
-                  <div style={{ flexShrink: 0 }}>
-                    <DeafAccessibleBadge size="sm" showText={true} />
-                  </div>
-                )}
+                  {hasDeafBadge && (
+                    <div style={{ flexShrink: 0 }}>
+                      <DeafAccessibleBadge size="sm" showText={true} features={job} />
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex-row gap-8 flex-wrap">
+                  {job.type && (
+                    <span style={{ padding: '4px 12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-color)' }}>
+                      {job.type}
+                    </span>
+                  )}
+                  {job.work_model && (
+                    <span style={{ padding: '4px 12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-color)' }}>
+                      {job.work_model}
+                    </span>
+                  )}
+                </div>
               </div>
               
-              <div className="flex-row gap-8 flex-wrap">
-                {job.type && (
-                  <span style={{ padding: '4px 12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-color)' }}>
-                    {job.type}
-                  </span>
-                )}
-                {job.work_model && (
-                  <span style={{ padding: '4px 12px', background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-color)' }}>
-                    {job.work_model}
-                  </span>
-                )}
-              </div>
+              <button className="btn-outline btn-sm mobile-w-full" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>View Role</button>
             </div>
-            
-            <button className="btn-outline btn-sm mobile-w-full" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>View Role</button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

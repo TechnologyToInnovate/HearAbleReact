@@ -17,6 +17,8 @@ export default function Login({ setRole }) {
   useEffect(() => {
     setErrorMsg('');
     setSuccessMsg('');
+    setEmail('');
+    setPassword('');
   }, [isLogin]);
 
   async function handleAuth(e) {
@@ -27,19 +29,24 @@ export default function Login({ setRole }) {
 
     try {
       if (isLogin) {
-        // --- SIGN IN FLOW ---
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         await routeUserAfterLogin(data.user);
       } else {
-        // --- SIGN UP FLOW ---
+
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+        if (!passwordRegex.test(password)) {
+          setErrorMsg('Password must be at least 8 characters long and contain a mix of letters, numbers, and special characters.');
+          setLoading(false);
+          return;
+        }
+
         const { data: adminData } = await supabase.from('admins').select('email').eq('email', email.toLowerCase()).maybeSingle();
         const { data: preApprovedData } = await supabase.from('pre_approved_companies').select('*').eq('email', email.toLowerCase()).maybeSingle();
 
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
 
-        // 1. Always process the background company setup immediately if they are pre-approved
         if (data.user && preApprovedData) {
           await supabase.from('companies').insert([{
             id: data.user.id, 
@@ -53,14 +60,16 @@ export default function Login({ setRole }) {
           }]);
         }
 
-        // 2. Handle routing based on whether a session was instantly created (Email confirmation OFF) or not (Email confirmation ON)
         if (data.user && !data.session) {
           setSuccessMsg('Registration successful! Please check your email inbox for a verification link to activate your account.');
           setLoading(false);
-          return; // Stop here! Do not navigate them yet.
+          return; 
         }
 
-        // If email confirmation is turned OFF, execute this standard routing right away
+        // 🚨 NEW: Capture intended redirect URLs
+        const returnTo = location.state?.returnTo || '/';
+        const returnState = location.state?.returnState || null;
+
         if (adminData || email.toLowerCase() === 'admin@hearable.com') {
           setRole('admin'); 
           navigate('/');
@@ -69,11 +78,11 @@ export default function Login({ setRole }) {
           navigate('/');
         } else {
           setRole('needs_onboarding'); 
-          navigate('/onboarding');
+          // 🚨 NEW: Pass the intent forward to onboarding
+          navigate('/onboarding', { state: { returnTo, returnState } });
         }
       }
     } catch (err) { 
-      // Catch the specific unverified error and make it friendly
       if (err.message.includes('Email not confirmed')) {
         setErrorMsg('Please verify your email address first. Check your inbox for the activation link.');
       } else {
@@ -97,18 +106,19 @@ export default function Login({ setRole }) {
     
     setLoading(false);
     
-    // We intentionally ignore the error to prevent account enumeration, 
-    // UNLESS it's a rate-limit error (too many requests)
     if (error && error.status === 429) {
       setErrorMsg('Too many requests. Please wait a minute and try again.');
     } else {
-      // Generic success message shown whether the email exists or not
       setSuccessMsg('If an account with that email exists, a password reset link has been sent!');
     }
   }
 
   async function routeUserAfterLogin(user) {
     try {
+      // 🚨 NEW: Grab the intent from state if available
+      const returnTo = location.state?.returnTo || '/';
+      const returnState = location.state?.returnState || null;
+
       const { data: adminData } = await supabase.from('admins').select('email').eq('email', user.email).maybeSingle();
       if (adminData || user.email === 'admin@hearable.com') { 
         setRole('admin'); 
@@ -127,16 +137,16 @@ export default function Login({ setRole }) {
       
       if (!profileData || !profileData.first_name || !profileData.degree_id) {
         setRole('needs_onboarding'); 
-        navigate('/onboarding');
+        navigate('/onboarding', { state: { returnTo, returnState } });
       } else if (profileData.status === 'Pending') {
         setRole('pending_user'); 
-        navigate('/');
+        navigate(returnTo, { state: returnState });
       } else if (profileData.status === 'Rejected') {
         setRole('rejected_user'); 
         navigate('/');
       } else {
         setRole('user'); 
-        navigate('/');
+        navigate(returnTo, { state: returnState });
       }
     } catch (error) { 
       console.error("Routing error:", error); 
@@ -188,8 +198,15 @@ export default function Login({ setRole }) {
                   </button>
                 )}
               </div>
-              <input type="password" className="search-input w-full" value={password} onChange={(e) => setPassword(e.target.value)} required minLength="6" />
-              {!isLogin && <p className="text-secondary mt-8" style={{ fontSize: '0.75rem' }}>Must be at least 6 characters.</p>}
+              <input 
+                type="password" 
+                className="search-input w-full" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                minLength={isLogin ? "6" : "8"} 
+              />
+              {!isLogin && <p className="text-secondary mt-8" style={{ fontSize: '0.75rem' }}>Must be at least 8 characters and include letters, numbers, and special characters.</p>}
             </div>
 
             <button type="submit" className="btn-black w-full mt-16" disabled={loading} style={{ padding: '12px' }}>

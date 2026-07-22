@@ -11,7 +11,7 @@ export default function JobDetailsPane({
   isApplying, hasApplied, isSaved, isSaving,
   handleApply, handleSaveJob, handleDeleteJob,
   setIsEditingJob, navigate, handleUpdateJobStatus,
-  handleRepostJob, // 🚨 NEW: Receive the repost function
+  handleRepostJob, 
   handleClose 
 }) {
   const [isDescExpanded, setIsDescExpanded] = useState(false);
@@ -33,6 +33,8 @@ export default function JobDetailsPane({
   const isDeadlinePassed = selectedJob.closing_date 
     ? new Date(selectedJob.closing_date) < new Date(new Date().setHours(0,0,0,0)) 
     : false;
+
+  const hasDeafBadge = selectedCompany?.has_interpreters || selectedCompany?.has_trained_staff || selectedCompany?.has_visual_alarms || selectedCompany?.has_captioning || selectedJob?.has_interpreters;
 
   return (
     <div className="card p-0 flex-col" style={{ position: 'relative', height: '100%', overflowY: 'auto' }}>
@@ -62,7 +64,6 @@ export default function JobDetailsPane({
                 </>
               )}
 
-              {/* 🚨 NEW: Show Repost Button if the deadline has passed */}
               {showCompanyActions && isDeadlinePassed && (
                 <button 
                   onClick={() => handleRepostJob(selectedJob.id)} 
@@ -120,9 +121,9 @@ export default function JobDetailsPane({
             </div>
           )}
           
-          {selectedJob.is_deaf_accessible && (
+          {hasDeafBadge && (
             <div style={{ flexShrink: 0 }}>
-              <DeafAccessibleBadge size="sm" showText={true} />
+              <DeafAccessibleBadge size="sm" showText={true} features={selectedCompany || selectedJob} />
             </div>
           )}
         </div>
@@ -186,8 +187,12 @@ export default function JobDetailsPane({
             <div className="mb-20">
               <div className="font-bold mb-12 text-primary" style={{ fontSize: '1.05rem' }}>Pay</div>
               <div className="flex-row-wrap gap-12">
-                <span className="badge badge-neutral" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>
-                  {selectedJob.pay} <span className="text-secondary font-medium" style={{ marginLeft: '6px' }}>{selectedJob.pay_rate}</span>
+                <span className="badge badge-neutral" style={{ 
+                  padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px',
+                  filter: selectedJob.pay_blurred ? 'blur(5px)' : 'none', 
+                  userSelect: selectedJob.pay_blurred ? 'none' : 'auto' 
+                }}>
+                  {selectedJob.pay_blurred ? '$$$,$$$ - $$$,$$$' : `${selectedJob.pay} ${selectedJob.pay_rate}`}
                 </span>
               </div>
             </div>
@@ -231,13 +236,13 @@ export default function JobDetailsPane({
         {selectedCompany && !showCompanyActions && (
           <div className="sub-card mt-24 mb-16" style={{ padding: '24px', position: 'relative' }}>
             
-            {selectedCompany.is_deaf_accessible && (
+            {hasDeafBadge && (
               <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
-                <DeafAccessibleBadge size="sm" showText={true} />
+                <DeafAccessibleBadge size="sm" showText={true} features={selectedCompany} />
               </div>
             )}
 
-            <h3 className="m-0 mb-20" style={{ fontSize: '1.2rem', paddingRight: selectedCompany.is_deaf_accessible ? '140px' : '0' }}>
+            <h3 className="m-0 mb-20" style={{ fontSize: '1.2rem', paddingRight: hasDeafBadge ? '140px' : '0' }}>
               About Company
             </h3>
 
@@ -287,10 +292,17 @@ export default function JobDetailsPane({
               </div>
             )}
 
+            {/* 🚨 UPDATED: Send redirect state if guest */}
             <button 
               className="btn-outline w-full btn-sm" 
               style={{ padding: '8px 12px' }} 
-              onClick={() => navigate(role === 'guest' ? '/login' : `/company/${selectedCompany.id}`)}
+              onClick={() => {
+                if (role === 'guest') {
+                  navigate('/login', { state: { returnTo: `/company/${selectedCompany.id}` } });
+                } else {
+                  navigate(`/company/${selectedCompany.id}`);
+                }
+              }}
             >
               {role === 'guest' ? 'Sign In To View Company Profile' : 'View Full Company Profile'}
             </button>
