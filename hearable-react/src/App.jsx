@@ -5,6 +5,7 @@ import './index.css';
 // GLOBAL CONTEXT & COMPONENTS
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from "./components/layout/Navbar";
+import SiteFeedbackWidget from './components/common/SiteFeedbackWidget'; // 🚨 NEW: Imported the widget
 
 import { useAutoLogout } from './hooks/useAutoLogout';
 
@@ -23,7 +24,7 @@ import Onboarding from './pages/Onboarding';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import Resumes from './pages/Resumes';
-import UserResumes from './pages/UserResumes'; // 🚨 NEW: Imported UserResumes
+import UserResumes from './pages/UserResumes'; 
 import Feedbacks from './pages/Feedbacks';
 import ResetPassword from './pages/ResetPassword'; 
 
@@ -114,7 +115,6 @@ function AppRoutes() {
           <Route path="/skills" element={role === 'admin' ? <Skills /> : <Navigate to="/" />} />
           <Route path="/system-data" element={role === 'admin' ? <SystemData role={role} /> : <Navigate to="/" />} />
 
-          {/* 🚨 UPDATED: Dynamic route based on user role */}
           <Route path="/resumes" element={role === 'admin' ? <Resumes /> : <UserResumes />} />
 
           <Route path="/feedback" element={<Feedbacks />} />
@@ -130,6 +130,10 @@ function AppRoutes() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
+
+      {/* 🚨 NEW: Added the floating widget so it sits outside the main content flow but inside the app container */}
+      <SiteFeedbackWidget />
+      
     </div>
   );
 }

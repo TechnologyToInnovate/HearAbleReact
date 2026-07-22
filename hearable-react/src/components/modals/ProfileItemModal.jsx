@@ -145,11 +145,23 @@ export default function ProfileItemModal({
 
       // Handle Skill Linking
       if (selectedSkills.length > 0) {
+        // 1. Link to the specific item (experience/certificate/award)
         const skillInserts = selectedSkills.map(skill => ({
           [config.foreignKey]: itemId,
           skill_id: skill.id
         }));
         await supabase.from(config.junctionTable).insert(skillInserts);
+
+        // 2. 🚨 NEW: Automatically sync these skills to the user's main profile skills
+        const profileSkillsToSync = selectedSkills.map(skill => ({
+          profile_id: userId,
+          skill_id: skill.id
+        }));
+        
+        // upsert with ignoreDuplicates ensures we don't throw an error if the user already has this skill
+        await supabase
+          .from('profile_skills')
+          .upsert(profileSkillsToSync, { onConflict: 'profile_id, skill_id', ignoreDuplicates: true });
       }
 
       onSuccess();

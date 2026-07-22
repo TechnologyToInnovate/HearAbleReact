@@ -21,7 +21,6 @@ export default function Navbar() {
   const [profileName, setProfileName] = useState('');
   const [profilePic, setProfilePic] = useState(null);
   
-  // 🚨 NEW: Added refs for the new dropdowns
   const dropdownRef = useRef(null);
   const manageJobsRef = useRef(null);
   const manageUsersRef = useRef(null);
@@ -31,7 +30,6 @@ export default function Navbar() {
   const isMinimalNav = isAuthPage || isOnboarding;
 
   useEffect(() => {
-    // 🚨 UPDATED: Now checks all dropdowns and closes them if you click outside their specific areas
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
@@ -147,7 +145,7 @@ export default function Navbar() {
         <>
           <li><Link to="/user-jobs" className={`nav-link ${location.pathname === '/user-jobs' ? 'active' : ''}`}>Applications</Link></li>
           <li><Link to="/resumes" className={`nav-link ${location.pathname === '/resumes' ? 'active' : ''}`}>Resumes</Link></li>
-          <li><Link to="/feedback" className={`nav-link ${location.pathname === '/feedback' ? 'active' : ''}`}>Feedback</Link></li>
+          {/* 🚨 User Feedback nav link removed here */}
         </>
       )}
 
@@ -160,7 +158,6 @@ export default function Navbar() {
       
       {role === 'admin' && (
         <>
-          {/* 🚨 UPDATED: Added ref={manageJobsRef} to this list item */}
           <li style={{ position: 'relative' }} ref={manageJobsRef}>
             <div 
               className={`nav-link ${['/jobs', '/applicants'].includes(location.pathname) ? 'active' : ''}`}
@@ -216,7 +213,6 @@ export default function Navbar() {
             )}
           </li>
 
-          {/* 🚨 UPDATED: Added ref={manageUsersRef} to this list item */}
           <li style={{ position: 'relative' }} ref={manageUsersRef}>
             <div 
               className={`nav-link ${['/users', '/companies'].includes(location.pathname) ? 'active' : ''}`}

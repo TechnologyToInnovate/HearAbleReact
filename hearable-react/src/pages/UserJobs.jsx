@@ -17,6 +17,12 @@ export default function UserJobs() {
   
   const [activeTab, setActiveTab] = useState('Applied');
 
+  // States for the feedback modal
+  const [feedbackApp, setFeedbackApp] = useState(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
   useEffect(() => {
     if (!['user', 'pending_user', 'rejected_user'].includes(role)) {
       navigate('/');
@@ -73,6 +79,32 @@ export default function UserJobs() {
     setIsLoading(false);
   }
 
+  // Handle feedback submission using exact database schema
+  async function handleSubmitFeedback(e) {
+    e.preventDefault();
+    setIsSubmittingFeedback(true);
+    try {
+      const { error } = await supabase.from('feedbacks').insert([{
+        user_id: user.id,
+        title: `Hired: ${feedbackApp.job?.title} at ${feedbackApp.job?.company}`,
+        purpose: `Company Rating: ${rating}/5`,
+        message: comment
+      }]);
+      
+      if (error) throw error;
+      
+      alert('Thank you! Your feedback has been submitted successfully.');
+      setFeedbackApp(null);
+      setRating(5);
+      setComment('');
+    } catch (error) {
+      console.error("Failed to submit feedback:", error);
+      alert('Failed to submit feedback. Please try again.');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  }
+
   let displayList = [];
   if (activeTab === 'Saved') {
     displayList = savedJobs;
@@ -80,11 +112,13 @@ export default function UserJobs() {
     displayList = applications;
   } else if (activeTab === 'Interviews') { 
     displayList = applications.filter(app => app.status === 'Interviewing' || app.status === 'Approved');
+  } else if (activeTab === 'Hired') {
+    displayList = applications.filter(app => app.status === 'Hired');
   } else if (activeTab === 'Archived') {
     displayList = applications.filter(app => app.status === 'Rejected' || app.status === 'Archived');
   }
 
-  const tabs = ['Saved', 'Applied', 'Interviews', 'Archived'];
+  const tabs = ['Saved', 'Applied', 'Interviews', 'Hired', 'Archived'];
 
   return (
     <div className="page-container-wide">
@@ -101,6 +135,7 @@ export default function UserJobs() {
           if (tab === 'Saved') count = savedJobs.length;
           if (tab === 'Applied') count = applications.length;
           if (tab === 'Interviews') count = applications.filter(a => a.status === 'Interviewing' || a.status === 'Approved').length;
+          if (tab === 'Hired') count = applications.filter(a => a.status === 'Hired').length;
           if (tab === 'Archived') count = applications.filter(a => a.status === 'Rejected' || a.status === 'Archived').length;
 
           return (
@@ -143,7 +178,7 @@ export default function UserJobs() {
       ) : displayList.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
           {displayList.map(item => (
-            <div key={item.id} style={{ position: 'relative' }}>
+            <div key={item.id} className="flex-col" style={{ position: 'relative', gap: '12px' }}>
               
               {activeTab !== 'Saved' && (
                 <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
@@ -156,17 +191,69 @@ export default function UserJobs() {
                 isSelected={false} 
                 onClick={() => navigate('/jobs', { state: { selectedJobId: item.job.id } })} 
               />
+              
+              {activeTab === 'Hired' && (
+                <button 
+                  className="btn-outline w-full" 
+                  style={{ background: 'var(--card-bg)', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', padding: '10px' }}
+                  onClick={() => setFeedbackApp(item)}
+                >
+                  ⭐️ Leave Feedback
+                </button>
+              )}
             </div>
           ))}
         </div>
       ) : (
         <div className="card text-center text-secondary p-32 mt-32">
-          {/* 🚨 UPDATED: Removed the emoji icons entirely and rely solely on the text headers below */}
           <h3 className="mb-8">No {activeTab.toLowerCase()} jobs</h3>
           <p>You don't have any jobs in this category yet.</p>
         </div>
       )}
 
+      {/* Feedback Submission Modal */}
+      {feedbackApp && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div className="card p-24" style={{ width: '100%', maxWidth: '400px', background: 'var(--card-bg)' }}>
+            <h3 className="m-0 mb-16">Leave Feedback</h3>
+            <p className="text-sm text-secondary mb-16" style={{ lineHeight: '1.5' }}>
+              How was your experience getting hired for <strong>{feedbackApp.job?.title}</strong> at <strong>{feedbackApp.job?.company}</strong>?
+            </p>
+            
+            <form onSubmit={handleSubmitFeedback} className="flex-col gap-16">
+              <div>
+                <label className="block mb-8 font-bold text-sm">Rating (1-5)</label>
+                <input 
+                  type="number" min="1" max="5" 
+                  value={rating} 
+                  onChange={(e) => setRating(e.target.value)} 
+                  className="search-input w-full" 
+                  required 
+                />
+              </div>
+              <div>
+                <label className="block mb-8 font-bold text-sm">Comments</label>
+                <textarea 
+                  value={comment} 
+                  onChange={(e) => setComment(e.target.value)} 
+                  className="search-input w-full" 
+                  rows="4" 
+                  required 
+                  placeholder="Share your experience working with this company..." 
+                />
+              </div>
+              <div className="flex-row gap-8 mt-8">
+                <button type="submit" className="btn-black flex-1" disabled={isSubmittingFeedback}>
+                  {isSubmittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+                </button>
+                <button type="button" className="btn-outline flex-1" onClick={() => setFeedbackApp(null)}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
