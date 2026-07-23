@@ -20,6 +20,7 @@ export default function JobDetailsPane({
 
   const isOwner = currentUser && selectedJob.company_id === currentUser.id;
   const isAdmin = role === 'admin';
+  const isGuest = role === 'guest';
   const editCount = selectedJob.edit_count || 0;
   const showCompanyActions = role === 'company' && isOwner;
 
@@ -35,7 +36,6 @@ export default function JobDetailsPane({
     : false;
 
   const accessData = selectedCompany || {};
-  // 🚨 NEW LOGIC: Match the CompanyProfile workaround
   const hasDeafBadge = accessData.has_interpreters || accessData.has_trained_staff || accessData.has_visual_alarms || accessData.has_captioning;
 
   return (
@@ -108,29 +108,37 @@ export default function JobDetailsPane({
         </div>
         
         <div className="text-secondary mb-16 flex-row gap-8 align-center" style={{ fontSize: '1rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
-          <div 
-            style={{ 
-              whiteSpace: 'nowrap', 
-              overflow: 'hidden', 
-              textOverflow: 'ellipsis', 
-              maxWidth: '45%'
-            }}
-            title={selectedJob.company}
-          >
-            {selectedJob.company}
-          </div>
-          
-          {selectedJob.location && (
-            <div style={{ whiteSpace: 'nowrap', flexShrink: 0 }} title="Job Location">
-              • {selectedJob.location}
-            </div>
-          )}
-          
-          {/* 🚨 Only render if they actually have the badge */}
-          {hasDeafBadge && (
-            <div style={{ flexShrink: 0 }}>
-              <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
-            </div>
+          {/* 🚨 GUEST CHECK: Hide company header details */}
+          {isGuest ? (
+            <span style={{ fontStyle: 'italic', color: 'var(--secondary-text)' }}>
+              Sign in to view company details and location
+            </span>
+          ) : (
+            <>
+              <div 
+                style={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis', 
+                  maxWidth: '45%'
+                }}
+                title={selectedJob.company}
+              >
+                {selectedJob.company}
+              </div>
+              
+              {selectedJob.location && (
+                <div style={{ whiteSpace: 'nowrap', flexShrink: 0 }} title="Job Location">
+                  • {selectedJob.location}
+                </div>
+              )}
+              
+              {hasDeafBadge && (
+                <div style={{ flexShrink: 0 }}>
+                  <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -229,7 +237,8 @@ export default function JobDetailsPane({
           </div>
         </div>
 
-        {selectedJob.location && (
+        {/* 🚨 GUEST CHECK: Hide exact location */}
+        {!isGuest && selectedJob.location && (
           <div className="mb-32">
             <h3 className="mb-12 m-0" style={{ fontSize: '1.2rem' }}>Location</h3>
             <div className="sub-card" style={{ padding: '16px 20px' }}>
@@ -259,78 +268,83 @@ export default function JobDetailsPane({
         {selectedCompany && !showCompanyActions && (
           <div className="sub-card mt-24 mb-16" style={{ padding: '24px', position: 'relative' }}>
             
-            {/* 🚨 Only render if they actually have the badge */}
-            {hasDeafBadge && (
-              <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
-                <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
-              </div>
-            )}
-
             <h3 className="m-0 mb-20" style={{ fontSize: '1.2rem', paddingRight: '140px' }}>
               About Company
             </h3>
 
-            <div className="flex-row gap-16 align-start mb-24">
-              <Avatar src={selectedCompany.logo_url} fallbackName={selectedCompany.name} size="md" type="company" customStyle={{ width: '48px', height: '48px', flexShrink: 0 }} />
-              
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h4 
-                  className="m-0 mb-8" 
-                  style={{ 
-                    fontSize: '1.15rem', 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis' 
-                  }}
-                  title={selectedCompany.name}
-                >
-                  {selectedCompany.name}
-                </h4>
-                <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>
-                  {formatLocation(selectedCompany.locations?.city, selectedCompany.locations?.country, "Location not specified")}
-                </p>
+            {/* 🚨 GUEST CHECK: Hide the entire About section contents */}
+            {isGuest ? (
+              <div className="text-center p-24" style={{ background: 'var(--bg-color)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                <p className="text-secondary m-0 mb-16">Create a free account to view company details, accessible features, and apply to this job!</p>
+                <button className="btn-black" onClick={() => navigate('/login', { state: { returnTo: `/jobs` } })}>
+                  Sign In
+                </button>
               </div>
-            </div>
-
-            {companyDesc && (
-              <div className="mb-24">
-                <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
-                  {displayDesc}
-                </p>
-                {shouldTruncateDesc && (
-                  <button 
-                    onClick={() => setIsDescExpanded(!isDescExpanded)}
-                    title={isDescExpanded ? "Collapse company description" : "Expand company description"}
-                    style={{ 
-                      background: 'none', 
-                      border: 'none', 
-                      color: 'var(--primary-color)', 
-                      fontWeight: '700', 
-                      padding: '8px 0 0 0', 
-                      cursor: 'pointer',
-                      fontSize: '0.9rem'
-                    }}
-                  >
-                    {isDescExpanded ? 'Show Less' : 'Read More...'}
-                  </button>
+            ) : (
+              <>
+                {hasDeafBadge && (
+                  <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
+                    <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
+                  </div>
                 )}
-              </div>
-            )}
 
-            <button 
-              className="btn-outline w-full btn-sm" 
-              title="Navigate to company profile page"
-              style={{ padding: '8px 12px' }} 
-              onClick={() => {
-                if (role === 'guest') {
-                  navigate('/login', { state: { returnTo: `/company/${selectedCompany.id}` } });
-                } else {
-                  navigate(`/company/${selectedCompany.id}`);
-                }
-              }}
-            >
-              {role === 'guest' ? 'Sign In To View Company Profile' : 'View Full Company Profile'}
-            </button>
+                <div className="flex-row gap-16 align-start mb-24">
+                  <Avatar src={selectedCompany.logo_url} fallbackName={selectedCompany.name} size="md" type="company" customStyle={{ width: '48px', height: '48px', flexShrink: 0 }} />
+                  
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 
+                      className="m-0 mb-8" 
+                      style={{ 
+                        fontSize: '1.15rem', 
+                        whiteSpace: 'nowrap', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis' 
+                      }}
+                      title={selectedCompany.name}
+                    >
+                      {selectedCompany.name}
+                    </h4>
+                    <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>
+                      {formatLocation(selectedCompany.locations?.city, selectedCompany.locations?.country, "Location not specified")}
+                    </p>
+                  </div>
+                </div>
+
+                {companyDesc && (
+                  <div className="mb-24">
+                    <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+                      {displayDesc}
+                    </p>
+                    {shouldTruncateDesc && (
+                      <button 
+                        onClick={() => setIsDescExpanded(!isDescExpanded)}
+                        title={isDescExpanded ? "Collapse company description" : "Expand company description"}
+                        style={{ 
+                          background: 'none', 
+                          border: 'none', 
+                          color: 'var(--primary-color)', 
+                          fontWeight: '700', 
+                          padding: '8px 0 0 0', 
+                          cursor: 'pointer',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        {isDescExpanded ? 'Show Less' : 'Read More...'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <button 
+                  className="btn-outline w-full btn-sm" 
+                  title="Navigate to company profile page"
+                  style={{ padding: '8px 12px' }} 
+                  onClick={() => navigate(`/company/${selectedCompany.id}`)}
+                >
+                  View Full Company Profile
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

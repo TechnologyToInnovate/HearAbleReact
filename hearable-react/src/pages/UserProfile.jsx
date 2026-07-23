@@ -222,6 +222,39 @@ export default function UserProfile() {
         actionButton={isOwnProfile ? <button className="btn-outline" onClick={() => setShowEditModal(true)}>Edit Profile</button> : null}
       />
 
+      {/* 🚨 NEW: Admin Controls Panel */}
+      {isAdmin && (
+        <div className="card p-24 mb-32 flex-col gap-16" style={{ border: '1px solid var(--primary-color)', background: 'var(--card-bg)' }}>
+          <div className="flex-between align-center flex-wrap gap-16">
+            <div className="flex-row gap-12 align-center">
+              <strong style={{ color: 'var(--primary-color)' }}>Admin Controls:</strong>
+              <StatusBadge status={user.status} />
+            </div>
+            <div className="flex-row gap-8 flex-wrap">
+              {user.status !== 'Approved' && (
+                <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Approved')} style={{ borderColor: '#86efac', color: '#166534', background: '#ecfdf5' }}>
+                  Approve User
+                </button>
+              )}
+              {user.status !== 'Rejected' && (
+                <button className="btn-outline btn-sm" onClick={() => handleUpdateStatus('Rejected')} style={{ borderColor: '#fca5a5', color: '#991b1b', background: '#fef2f2' }}>
+                  Reject User
+                </button>
+              )}
+              {user.status !== 'Archived' ? (
+                <button className="btn-outline btn-sm" onClick={handleArchiveUser} style={{ borderColor: '#d1d5db', color: '#374151', background: '#f9fafb' }}>
+                  Archive
+                </button>
+              ) : (
+                <button className="btn-outline btn-sm" onClick={handleUnarchiveUser} style={{ borderColor: '#d1d5db', color: '#374151', background: '#f9fafb' }}>
+                  Unarchive
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="dashboard-layout">
         <div className="flex-col gap-32">
           

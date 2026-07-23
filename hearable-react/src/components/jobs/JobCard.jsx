@@ -1,11 +1,12 @@
 import React from 'react';
 import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
 
-export default function JobCard({ job, companyData, isSelected, onClick, hideMatchScore = false }) {
+export default function JobCard({ job, companyData, isSelected, onClick, hideMatchScore = false, role }) {
   const accessData = companyData || {};
   
-  // 🚨 NEW LOGIC: Match the CompanyProfile workaround. Only show if a specific feature is checked.
+  // Match the CompanyProfile workaround. Only show if a specific feature is checked.
   const hasDeafBadge = accessData.has_interpreters || accessData.has_trained_staff || accessData.has_visual_alarms || accessData.has_captioning;
+  const isGuest = role === 'guest';
 
   return (
     <div 
@@ -32,24 +33,33 @@ export default function JobCard({ job, companyData, isSelected, onClick, hideMat
       </div>
       
       <div className="text-secondary mb-12 flex-row gap-8 align-center" style={{ fontSize: '0.95rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
-        <span 
-          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%' }}
-          title={job.company}
-        >
-          {job.company}
-        </span>
-        
-        {job.location && (
-          <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-            • {job.location}
+        {/* 🚨 GUEST CHECK: Hide company details if guest */}
+        {isGuest ? (
+          <span style={{ fontStyle: 'italic', color: 'var(--secondary-text)' }}>
+            Sign in to view company details
           </span>
-        )}
-        
-        {/* 🚨 Only render the wrapper if they actually have the badge */}
-        {hasDeafBadge && (
-          <div style={{ flexShrink: 0 }}>
-            <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
-          </div>
+        ) : (
+          <>
+            <span 
+              style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%' }}
+              title={job.company}
+            >
+              {job.company}
+            </span>
+            
+            {job.location && (
+              <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                • {job.location}
+              </span>
+            )}
+            
+            {/* Only render the wrapper if they actually have the badge */}
+            {hasDeafBadge && (
+              <div style={{ flexShrink: 0 }}>
+                <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
+              </div>
+            )}
+          </>
         )}
       </div>
       

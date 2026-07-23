@@ -66,7 +66,6 @@ export default function Login({ setRole }) {
           return; 
         }
 
-        // 🚨 NEW: Capture intended redirect URLs
         const returnTo = location.state?.returnTo || '/';
         const returnState = location.state?.returnState || null;
 
@@ -78,7 +77,6 @@ export default function Login({ setRole }) {
           navigate('/');
         } else {
           setRole('needs_onboarding'); 
-          // 🚨 NEW: Pass the intent forward to onboarding
           navigate('/onboarding', { state: { returnTo, returnState } });
         }
       }
@@ -115,7 +113,6 @@ export default function Login({ setRole }) {
 
   async function routeUserAfterLogin(user) {
     try {
-      // 🚨 NEW: Grab the intent from state if available
       const returnTo = location.state?.returnTo || '/';
       const returnState = location.state?.returnState || null;
 
@@ -186,7 +183,14 @@ export default function Login({ setRole }) {
           <form onSubmit={handleAuth} className="flex-col gap-16">
             <div>
               <label className="block mb-8 text-sm font-bold">Email Address</label>
-              <input type="email" className="search-input w-full" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input 
+                type="email" 
+                className="search-input w-full" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                autoComplete={isLogin ? "username" : "off"} 
+              />
             </div>
             
             <div>
@@ -205,6 +209,7 @@ export default function Login({ setRole }) {
                 onChange={(e) => setPassword(e.target.value)} 
                 required 
                 minLength={isLogin ? "6" : "8"} 
+                autoComplete={isLogin ? "current-password" : "new-password"} 
               />
               {!isLogin && <p className="text-secondary mt-8" style={{ fontSize: '0.75rem' }}>Must be at least 8 characters and include letters, numbers, and special characters.</p>}
             </div>

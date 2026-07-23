@@ -27,7 +27,8 @@ export default function Applicants() {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState(() => location.state?.filterJobId ? 'all' : (localStorage.getItem('applicantsViewMode') || 'grouped')); 
   const [filterJobId, setFilterJobId] = useState(location.state?.filterJobId || 'all');
-  const [statusFilter, setStatusFilter] = useState('all'); // 🚨 NEW: Status filter state
+  
+  const [statusFilter, setStatusFilter] = useState('All'); 
   const [showSkillsModal, setShowSkillsModal] = useState(false);
   
   // Modal States
@@ -46,6 +47,18 @@ export default function Applicants() {
     }
     fetchApplicants();
   }, [role, navigate]);
+
+  useEffect(() => {
+    if (applications.length > 0 && location.state?.inspectAppId) {
+      const targetApp = applications.find(a => a.id === location.state.inspectAppId);
+      if (targetApp && !inspectModalApp) {
+        setInspectModalApp(targetApp);
+        const newState = { ...location.state };
+        delete newState.inspectAppId;
+        navigate(location.pathname, { replace: true, state: newState });
+      }
+    }
+  }, [applications, location.state, inspectModalApp, navigate]);
 
   // ------------------------------------------------------------------
   // Data Fetching
@@ -170,17 +183,14 @@ export default function Applicants() {
   // Computed Data for Rendering
   // ------------------------------------------------------------------
   
-  // 🚨 NEW: Added status filtering logic to the displayApps array
   const displayApps = applications.filter(app => {
     const matchesJob = filterJobId === 'all' || app.job_id === filterJobId;
     const matchesSearch = app.applicant_name.toLowerCase().includes(searchQuery.toLowerCase()) || app.job_title.toLowerCase().includes(searchQuery.toLowerCase());
     
     let matchesStatus = true;
-    if (statusFilter === 'needs_decision') {
-      matchesStatus = app.status === 'Interviewing';
-    } else if (statusFilter === 'pending') {
+    if (statusFilter === 'Under Review') {
       matchesStatus = app.status === 'Pending' || app.status === 'Under Review' || !app.status;
-    } else if (statusFilter !== 'all') {
+    } else if (statusFilter !== 'All') {
       matchesStatus = app.status === statusFilter;
     }
 
@@ -217,19 +227,18 @@ export default function Applicants() {
           <div className="flex-row gap-16 flex-wrap">
             <SearchBar value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={viewMode === 'grouped' ? "Search job postings..." : "Search candidates or job titles..."} style={{ flex: 1, minWidth: '250px' }} />
             
-            {/* 🚨 NEW: Status filter dropdown (Only visible in 'All Applicants' view) */}
             {viewMode === 'all' && (
               <FilterSelect 
                 value={statusFilter} 
                 onChange={(e) => setStatusFilter(e.target.value)}
                 options={[
-                  { value: 'all', label: 'All Statuses' },
-                  { value: 'needs_decision', label: '⚠️ Needs Decision (Interviewing)' },
-                  { value: 'pending', label: 'Pending / Under Review' },
+                  { value: 'All', label: 'All' },
+                  { value: 'Under Review', label: 'Underreview' },
+                  { value: 'Interviewing', label: 'For Interview' },
                   { value: 'Hired', label: 'Hired' },
                   { value: 'Rejected', label: 'Rejected' }
                 ]}
-                style={{ minWidth: '220px' }}
+                style={{ minWidth: '180px' }}
               />
             )}
 
@@ -239,7 +248,7 @@ export default function Applicants() {
                 setViewMode(e.target.value); 
                 if (e.target.value === 'grouped') {
                   setFilterJobId('all'); 
-                  setStatusFilter('all'); // Reset status filter when grouping
+                  setStatusFilter('All'); 
                 }
               }}
               options={[
@@ -252,22 +261,21 @@ export default function Applicants() {
         </div>
       ) : (
         <div className="mb-32 flex-col align-start">
-          <BackButton onClick={() => { setFilterJobId('all'); setViewMode('grouped'); setStatusFilter('all'); }} />
+          <BackButton onClick={() => { setFilterJobId('all'); setViewMode('grouped'); setStatusFilter('All'); }} />
           <JobDetailsCard job={selectedJob} onShowSkills={() => setShowSkillsModal(true)} />
           
-          {/* 🚨 NEW: Status filter dropdown when viewing a specific job's applicants */}
           <div className="mt-16">
             <FilterSelect 
               value={statusFilter} 
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
-                { value: 'all', label: 'All Statuses' },
-                { value: 'needs_decision', label: '⚠️ Needs Decision (Interviewing)' },
-                { value: 'pending', label: 'Pending / Under Review' },
+                { value: 'All', label: 'All' },
+                { value: 'Under Review', label: 'Underreview' },
+                { value: 'Interviewing', label: 'For Interview' },
                 { value: 'Hired', label: 'Hired' },
                 { value: 'Rejected', label: 'Rejected' }
               ]}
-              style={{ minWidth: '250px' }}
+              style={{ minWidth: '180px' }}
             />
           </div>
         </div>
@@ -374,7 +382,7 @@ function ApplicantCard({ app, role, onInspectClick }) {
   const matchBorder = app.matchPercentage >= 80 ? '#a7f3d0' : app.matchPercentage >= 50 ? '#fde68a' : '#fecaca';
 
   return (
-    <div className="card" style={{ padding: 0 }}>
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
       <div className="flex-between-start" style={{ padding: '24px' }}>
         <div className="flex-row gap-16" style={{ minWidth: 0, flex: 1, paddingRight: '16px' }}>
           <div style={{ flexShrink: 0 }}><Avatar src={app.applicant_pic} fallbackName={app.applicant_name} type="user" size="md" /></div>
@@ -394,12 +402,45 @@ function ApplicantCard({ app, role, onInspectClick }) {
         </div>
       </div>
       
-      <div className="flex-between align-center" style={{ padding: '16px 24px', background: 'var(--bg-color)', borderTop: '1px solid var(--border-color)', borderBottomLeftRadius: 'inherit', borderBottomRightRadius: 'inherit' }}>
+      {/* 🚨 UPDATED: Integrated the 3-stage progress bar */}
+      <div className="flex-between align-center flex-wrap gap-24" style={{ padding: '16px 24px', background: 'var(--bg-color)', borderTop: '1px solid var(--border-color)', borderBottomLeftRadius: 'inherit', borderBottomRightRadius: 'inherit' }}>
         <button className="btn-outline btn-sm" onClick={onInspectClick} style={{ background: 'var(--card-bg)' }}>🔍 Inspect Job Seeker</button>
-        <div className="flex-row gap-8 align-center">
-          {app.status === 'Interviewing' && <span className="text-sm font-medium" style={{ color: '#065f46', background: '#ecfdf5', padding: '6px 12px', borderRadius: '6px' }}>Interview Scheduled</span>}
-          {app.status === 'Hired' && <span className="text-sm font-medium" style={{ color: '#1d4ed8', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px' }}>Hired 🎉</span>}
-        </div>
+        
+        {(() => {
+          const getStage = (status) => {
+            if (['Hired', 'Rejected'].includes(status)) return 3;
+            if (status === 'Interviewing') return 2;
+            return 1; // Pending / Under Review / Null
+          };
+          
+          const stage = getStage(app.status);
+          const isRejected = app.status === 'Rejected';
+          const isHired = app.status === 'Hired';
+          
+          const stage3Color = isRejected ? '#dc2626' : (isHired ? '#10b981' : 'var(--border-color)');
+          const stage3TextColor = isRejected ? '#dc2626' : (isHired ? '#10b981' : 'var(--secondary-text)');
+
+          return (
+            <div className="flex-row gap-4" style={{ flex: 1, minWidth: '180px', maxWidth: '300px' }}>
+              
+              <div className="flex-col gap-4" style={{ flex: 1, alignItems: 'center' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', color: stage >= 1 ? 'var(--text-color)' : 'var(--secondary-text)' }}>Viewing</span>
+                <div style={{ height: '4px', width: '100%', borderRadius: '2px', background: stage >= 1 ? 'var(--primary-color)' : 'var(--border-color)' }}></div>
+              </div>
+              
+              <div className="flex-col gap-4" style={{ flex: 1, alignItems: 'center' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', color: stage >= 2 ? 'var(--text-color)' : 'var(--secondary-text)' }}>Interview</span>
+                <div style={{ height: '4px', width: '100%', borderRadius: '2px', background: stage >= 2 ? 'var(--primary-color)' : 'var(--border-color)' }}></div>
+              </div>
+              
+              <div className="flex-col gap-4" style={{ flex: 1, alignItems: 'center' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 'bold', textTransform: 'uppercase', color: stage >= 3 ? stage3TextColor : 'var(--secondary-text)' }}>Decision</span>
+                <div style={{ height: '4px', width: '100%', borderRadius: '2px', background: stage >= 3 ? stage3Color : 'var(--border-color)' }}></div>
+              </div>
+
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

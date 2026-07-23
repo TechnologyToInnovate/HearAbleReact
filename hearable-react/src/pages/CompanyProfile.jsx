@@ -42,7 +42,6 @@ export default function CompanyProfile() {
           .from('jobs')
           .select('*')
           .eq('company_id', id)
-          // 🚨 FIX: Only fetch jobs that are actually approved and active
           .eq('status', 'Approved') 
           .order('created_at', { ascending: false });
 
@@ -139,7 +138,8 @@ export default function CompanyProfile() {
         title={
           <>
             {company.name}
-            {hasDeafBadge && <DeafAccessibleBadge size="lg" showText={true} features={company} isAccessible={company.is_deaf_accessible} />}
+            {/* 🚨 HIDDEN FOR GUESTS: Only show badge if role is not guest */}
+            {hasDeafBadge && role !== 'guest' && <DeafAccessibleBadge size="lg" showText={true} features={company} isAccessible={company.is_deaf_accessible} />}
           </>
         }
         subtitle={
@@ -242,20 +242,25 @@ export default function CompanyProfile() {
         <div style={{ position: 'sticky', top: '90px' }}>
           <div className="card p-24">
             <h3 className="mb-16 m-0">Company Details</h3>
-            <div className="flex-col gap-16">
-              <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
-                <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Industry</span>
-                <strong style={{ fontSize: '1rem' }}>{company.industry || 'Not specified'}</strong>
+            {/* 🚨 HIDDEN FOR GUESTS: Obscured the specific company details */}
+            {role === 'guest' ? (
+              <p className="text-secondary text-sm italic m-0">Please sign in to view company details.</p>
+            ) : (
+              <div className="flex-col gap-16">
+                <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                  <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Industry</span>
+                  <strong style={{ fontSize: '1rem' }}>{company.industry || 'Not specified'}</strong>
+                </div>
+                <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                  <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Founded</span>
+                  <strong style={{ fontSize: '1rem' }}>{company.founded_year || 'Not specified'}</strong>
+                </div>
+                <div>
+                  <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Headquarters</span>
+                  <strong style={{ fontSize: '1rem' }}>{locationText || 'Not specified'}</strong>
+                </div>
               </div>
-              <div style={{ paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
-                <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Founded</span>
-                <strong style={{ fontSize: '1rem' }}>{company.founded_year || 'Not specified'}</strong>
-              </div>
-              <div>
-                <span className="text-sm text-secondary" style={{ display: 'block', marginBottom: '4px' }}>Headquarters</span>
-                <strong style={{ fontSize: '1rem' }}>{locationText || 'Not specified'}</strong>
-              </div>
-            </div>
+            )}
           </div>
 
           {hasContact && (

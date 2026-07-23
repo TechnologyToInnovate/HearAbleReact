@@ -77,14 +77,21 @@ export const AuthProvider = ({ children }) => {
   }
 
   const signOut = async () => {
-    // 🚨 FIX: Immediately wipe local state to prevent race conditions during redirect
+    // Immediate wipe of local state to prevent race conditions during redirect
     setUser(null);
     setRole('guest');
     await supabase.auth.signOut();
   };
 
+  // Function to manually re-check the user's role after onboarding
+  const refreshProfile = async () => {
+    if (user) {
+      await resolveUserRole(user);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, role, isAuthLoading, setRole, signOut }}>
+    <AuthContext.Provider value={{ user, role, isAuthLoading, setRole, signOut, refreshProfile }}>
       {!isAuthLoading && children}
     </AuthContext.Provider>
   );

@@ -19,33 +19,26 @@ export default function Home() {
   const navigate = useNavigate();
   const { user, role } = useAuth();
   
-  // Hook to retrieve the global jobs list for the MatchedJobsWidget
   const { jobs: allJobs, isLoading: isJobsLoading } = useJobs(); 
   
-  // Dashboard feed state
   const [recentJobs, setRecentJobs] = useState([]);
   const [recentApplicants, setRecentApplicants] = useState([]);
   
-  // Profile state for displaying user/company specific sidebars
   const [userProfile, setUserProfile] = useState(null);
   const [companyProfile, setCompanyProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Statistics state used by the sidebar StatCards
   const [stats, setStats] = useState({ stat1: 0, stat2: 0, stat3: 0, stat4: 0 });
   const [adminStats, setAdminStats] = useState({ users: 0, pendingUsers: 0, companies: 0, activeJobs: 0, pendingJobs: 0 });
   
-  // UI toggles
   const [showCompanyOnboarding, setShowCompanyOnboarding] = useState(false); 
   const [showPendingDropdown, setShowPendingDropdown] = useState(false);
 
-  // Re-fetch dashboard data whenever the user or their role changes
   useEffect(() => {
     setShowCompanyOnboarding(false);
     fetchDashboardData();
   }, [role, user]); 
 
-  // Core data fetching function that branches based on user role
   async function fetchDashboardData() {
     setIsLoading(true);
     setUserProfile(null);
@@ -91,7 +84,7 @@ export default function Home() {
             id,
             created_at,
             status,
-            profiles ( id, first_name, last_name, email ),
+            profiles ( id, first_name, last_name, email, profile_pic ),
             jobs!inner ( id, title, company_id )
           `)
           .eq('jobs.company_id', compData.id)
@@ -113,7 +106,6 @@ export default function Home() {
       return;
     }
 
-    // 🚨 FIX: We added the 4 checkboxes to the companies select query!
     const { data: jobsData } = await supabase
       .from('jobs')
       .select(`

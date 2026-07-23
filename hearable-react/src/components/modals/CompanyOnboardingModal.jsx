@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
+import LocationSelect from '../common/LocationSelect';
 
 export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess }) {
   const [name, setName] = useState('');
@@ -12,6 +13,12 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
   const [founded, setFounded] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 🚨 NEW: Generate an array of years from the current year down to 1900
+  const currentYear = new Date().getFullYear();
+  const years = useMemo(() => {
+    return Array.from(new Array(currentYear - 1899), (val, index) => currentYear - index);
+  }, [currentYear]);
 
   useEffect(() => {
     if (companyData) {
@@ -68,25 +75,27 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '600px' }}>
+      {/* 🚨 FIXED: overflow visible so the location dropdown doesn't get cut off */}
+      <div className="modal-content" style={{ maxWidth: '600px', overflow: 'visible' }}>
         
         <div className="modal-header flex-col align-start">
           <h2 className="m-0">Verify Company Profile</h2>
           <p className="text-secondary text-sm mt-8 m-0">Please review the details provided by the administrator and complete your profile to continue.</p>
         </div>
         
-        <div className="modal-body">
+        {/* 🚨 FIXED: overflow visible for dropdowns */}
+        <div className="modal-body" style={{ overflowY: 'visible', overflowX: 'hidden' }}>
           <form onSubmit={handleSubmit} className="flex-col gap-24">
             <div>
               <label className="block mb-8 font-bold">Company Name *</label>
               <input type="text" className="search-input w-full" value={name} onChange={e => setName(e.target.value)} required />
             </div>
             
+            {/* 🚨 UPDATED: Replaced simple text inputs with the robust LocationSelect component */}
             <div>
               <label className="block mb-8 font-bold">Headquarters / Location *</label>
-              <div className="form-grid-3">
-                <input type="text" className="search-input w-full" placeholder="Country" value={country} onChange={e => setCountry(e.target.value)} required />
-                <input type="text" className="search-input w-full" placeholder="City" value={city} onChange={e => setCity(e.target.value)} required />
+              <div className="flex-col gap-16">
+                <LocationSelect country={country} setCountry={setCountry} city={city} setCity={setCity} />
                 <input type="text" className="search-input w-full" placeholder="Postal Code" value={postalCode} onChange={e => setPostalCode(e.target.value.replace(/\D/g, ''))} />
               </div>
             </div>
@@ -96,9 +105,16 @@ export default function CompanyOnboardingModal({ isOpen, companyData, onSuccess 
                 <label className="block mb-8 font-bold">Industry *</label>
                 <input type="text" className="search-input w-full" placeholder="e.g. Technology" value={industry} onChange={e => setIndustry(e.target.value)} required />
               </div>
+              
+              {/* 🚨 UPDATED: Replaced text input with a drop-down menu for founded year */}
               <div>
                 <label className="block mb-8 font-bold">Year Founded</label>
-                <input type="text" className="search-input w-full" placeholder="e.g. 2020" value={founded} onChange={e => setFounded(e.target.value)} />
+                <select className="search-input w-full" value={founded} onChange={e => setFounded(e.target.value)}>
+                  <option value="">Select Year</option>
+                  {years.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
               </div>
             </div>
 

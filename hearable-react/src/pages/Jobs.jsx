@@ -82,10 +82,10 @@ export default function Jobs() {
     })
     .map(job => {
       if (role === 'guest') {
-        const relatedCompany = companies?.find(c => c.id === job.company_id);
+        // 🚨 FIX: Replaced the industry string with a generic sign-in prompt
         return {
           ...job,
-          company: relatedCompany?.industry ? `Industry: ${relatedCompany.industry}` : 'Confidential Company',
+          company: 'Sign In To View Company', 
           location: 'Sign in to view location',
           pay_blurred: true, 
           pay_rate: '',
@@ -312,7 +312,6 @@ export default function Jobs() {
   const renderJobList = (jobList) => (
     <div className="flex-col gap-12">
       {jobList.map(job => {
-        // 🚨 BULLETPROOF FIX: Find the clean company data to pass down
         const relatedCompany = companies?.find(c => c.id === job.company_id);
 
         return (
@@ -331,6 +330,7 @@ export default function Jobs() {
                 if (window.innerWidth <= 768) window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               hideMatchScore={true}
+              role={role}
             />
           </div>
         );

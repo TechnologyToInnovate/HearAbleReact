@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import LocationSelect from '../common/LocationSelect';
 
@@ -23,6 +23,12 @@ export default function EditCompanyModal({ companyId, onClose, onSuccess }) {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Generate an array of years from the current year down to 1900
+  const currentYear = new Date().getFullYear();
+  const years = useMemo(() => {
+    return Array.from(new Array(currentYear - 1899), (val, index) => currentYear - index);
+  }, [currentYear]);
 
   useEffect(() => {
     async function fetchCompanyDetails() {
@@ -67,7 +73,6 @@ export default function EditCompanyModal({ companyId, onClose, onSuccess }) {
     try {
       let finalLocationId = locationId;
       
-      // 🚨 FIXED: Force them to strings first so .trim() never crashes
       const safeCountry = String(country).trim();
       const safeCity = String(city).trim();
       const safePostal = String(postalCode).trim();
@@ -131,7 +136,7 @@ export default function EditCompanyModal({ companyId, onClose, onSuccess }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ overflow: 'visible' }}> {/* 🚨 FIXED: Allow dropdown to spill over */}
+      <div className="modal-content" style={{ overflow: 'visible' }}>
         <div className="modal-header">
           <h2 className="m-0">Edit Company Profile</h2>
           <button className="close-btn" onClick={onClose}>✕</button>
@@ -154,7 +159,12 @@ export default function EditCompanyModal({ companyId, onClose, onSuccess }) {
                 </div>
                 <div>
                   <label className="mb-8 block font-medium">Founded Year</label>
-                  <input type="number" className="search-input w-full" placeholder="e.g. 2015" value={foundedYear} onChange={e => setFoundedYear(e.target.value)} />
+                  <select className="search-input w-full" value={foundedYear} onChange={e => setFoundedYear(e.target.value)}>
+                    <option value="">Select Year</option>
+                    {years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

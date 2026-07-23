@@ -4,13 +4,12 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import SkillBadge from '../components/common/SkillBadge'; 
 import AddSkillModal from '../components/modals/AddSkillModal'; 
-
 import LocationSelect from '../components/common/LocationSelect';
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, role } = useAuth(); 
+  const { user, role, refreshProfile } = useAuth(); 
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,12 +32,6 @@ export default function Onboarding() {
   // Step 3 State
   const [selectedSkills, setSelectedSkills] = useState([]); 
   const [showSkillModal, setShowSkillModal] = useState(false);
-
-  // 🚨 NEW: Step 4 State - Profile Additions
-  const [portfolioUrl, setPortfolioUrl] = useState('');
-  const [workExperience, setWorkExperience] = useState('');
-  const [certificates, setCertificates] = useState('');
-  const [awards, setAwards] = useState('');
 
   useEffect(() => {
     if (role !== 'needs_onboarding') navigate('/');
@@ -89,18 +82,13 @@ export default function Onboarding() {
       }
     }
 
-    // 🚨 NEW: Payload includes new profile additions
     const payload = {
       first_name: firstName.trim(), 
       last_name: lastName.trim(), 
       contact_number: contactNumber.trim() || null,
       location_id: locationId, 
       batch_id: batch || null, 
-      degree_id: degree || null,
-      portfolio_url: portfolioUrl.trim() || null,
-      work_experience: workExperience.trim() || null,
-      certificates: certificates.trim() || null,
-      awards: awards.trim() || null
+      degree_id: degree || null
     };
 
     let { data: updatedProfile, error: profileError } = await supabase
@@ -128,6 +116,9 @@ export default function Onboarding() {
         .insert(selectedSkills.map(skill => ({ profile_id: user.id, skill_id: skill.id })));
     }
 
+    // Tell AuthContext to fetch the fresh profile data and update the role
+    await refreshProfile();
+
     setIsSubmitting(false);
     
     const returnTo = location.state?.returnTo || '/';
@@ -152,8 +143,7 @@ export default function Onboarding() {
         
         <div className="flex-between p-24" style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
           <h2 className="m-0">Set Up Your Profile</h2>
-          {/* 🚨 NEW: Extended to Step 4 */}
-          <span className="text-secondary font-bold text-sm">Step {step} of 4</span>
+          <span className="text-secondary font-bold text-sm">Step {step} of 3</span>
         </div>
 
         <div className="p-32">
@@ -228,33 +218,6 @@ export default function Onboarding() {
               </div>
             </div>
           )}
-
-          {/* 🚨 NEW: Step 4 - Experience & Achievements */}
-          {step === 4 && (
-            <div className="flex-col gap-24">
-              <h3 className="m-0">Experience & Achievements</h3>
-              
-              <div className="flex-col gap-8">
-                <label className="font-bold text-sm" title="Link to your personal website, GitHub, Behance, etc.">Portfolio URL</label>
-                <input type="url" className="search-input w-full" value={portfolioUrl} onChange={e => setPortfolioUrl(e.target.value)} placeholder="https://yourportfolio.com" />
-              </div>
-              
-              <div className="flex-col gap-8">
-                <label className="font-bold text-sm" title="Describe your past job titles, responsibilities, and dates of employment">Work Experience</label>
-                <textarea className="search-input w-full" value={workExperience} onChange={e => setWorkExperience(e.target.value)} placeholder="Briefly describe your relevant work experience..." rows={3} />
-              </div>
-              
-              <div className="flex-col gap-8">
-                <label className="font-bold text-sm" title="List official certifications or credentials you have earned">Certificates</label>
-                <textarea className="search-input w-full" value={certificates} onChange={e => setCertificates(e.target.value)} placeholder="List any relevant certifications..." rows={2} />
-              </div>
-              
-              <div className="flex-col gap-8">
-                <label className="font-bold text-sm" title="List notable professional or academic awards">Awards</label>
-                <textarea className="search-input w-full" value={awards} onChange={e => setAwards(e.target.value)} placeholder="List any awards or recognitions..." rows={2} />
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="flex-between align-center p-24" style={{ borderTop: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
@@ -262,13 +225,10 @@ export default function Onboarding() {
             {step > 1 && <button type="button" className="btn-outline btn-sm" onClick={() => setStep(step - 1)}>← Back</button>}
           </div>
           
+          {/* 🚨 REMOVED the "Skip for now" button here */}
           <div className="flex-row gap-24 align-center">
-            {step > 1 ? (
-              <button type="button" onClick={() => step < 4 ? setStep(step + 1) : handleSubmit()} title="You can always fill this out later" style={{ background: 'none', border: 'none', color: 'var(--secondary-text)', cursor: 'pointer', fontSize: '0.95rem', fontWeight: '500', padding: 0 }}>Skip for now</button>
-            ) : <div></div>}
-            
-            <button type="button" className="btn-black" onClick={() => step < 4 ? setStep(step + 1) : handleSubmit()} disabled={isSubmitting || (step === 1 && !isStep1Valid)} style={{ padding: '12px 24px', fontSize: '1rem' }}>
-              {step < 4 ? 'Continue' : isSubmitting ? 'Saving...' : 'Finish Setup'}
+            <button type="button" className="btn-black" onClick={() => step < 3 ? setStep(step + 1) : handleSubmit()} disabled={isSubmitting || (step === 1 && !isStep1Valid)} style={{ padding: '12px 24px', fontSize: '1rem' }}>
+              {step < 3 ? 'Continue' : isSubmitting ? 'Saving...' : 'Finish Setup'}
             </button>
           </div>
         </div>

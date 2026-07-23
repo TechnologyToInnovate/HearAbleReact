@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useCompanies } from '../hooks/useCompanies';
@@ -9,6 +9,7 @@ import SearchBar from '../components/common/SearchBar';
 import Avatar from '../components/common/Avatar';
 import StatusBadge from '../components/common/StatusBadge';
 import DeafAccessibleBadge from '../components/common/DeafAccessibleBadge';
+import LocationSelect from '../components/common/LocationSelect'; // Added import
 
 export default function Companies({ role }) {
   const navigate = useNavigate();
@@ -32,6 +33,12 @@ export default function Companies({ role }) {
   const [newFoundedYear, setNewFoundedYear] = useState('');
   const [newWebsite, setNewWebsite] = useState('');
   const [newDescription, setNewDescription] = useState('');
+
+  // Generate an array of years from the current year down to 1900
+  const currentYear = new Date().getFullYear();
+  const years = useMemo(() => {
+    return Array.from(new Array(currentYear - 1899), (val, index) => currentYear - index);
+  }, [currentYear]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -131,7 +138,8 @@ export default function Companies({ role }) {
     <div className="page-container-wide">
 
       {showAddForm && role === 'admin' ? (
-        <section className="card p-20 mb-32" style={{ maxWidth: '800px', margin: '0 auto 32px' }}>
+        // Added overflow: 'visible' to prevent dropdown clipping
+        <section className="card p-20 mb-32" style={{ maxWidth: '800px', margin: '0 auto 32px', overflow: 'visible' }}>
           <div className="flex-between mb-24" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
             <h3 style={{ margin: 0 }}>Pre-Approve New Company</h3>
             <button className="btn-outline btn-sm" onClick={() => setShowAddForm(false)}>Cancel</button>
@@ -144,21 +152,34 @@ export default function Companies({ role }) {
               <div><label>Company Email *</label><input type="email" className="search-input w-full" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required /></div>
               <div><label>Company Name *</label><input type="text" className="search-input w-full" value={newName} onChange={(e) => setNewName(e.target.value)} required /></div>
             </div>
+            
+            {/* Updated Year Founded to a dropdown */}
             <div className="form-grid-3 mt-8">
               <div><label>Industry *</label><input type="text" className="search-input w-full" value={newIndustry} onChange={(e) => setNewIndustry(e.target.value)} required /></div>
-              <div><label>Year Founded</label><input type="number" className="search-input w-full" value={newFoundedYear} onChange={(e) => setNewFoundedYear(e.target.value)} /></div>
+              <div>
+                <label>Year Founded</label>
+                <select className="search-input w-full" value={newFoundedYear} onChange={e => setNewFoundedYear(e.target.value)}>
+                  <option value="">Select Year</option>
+                  {years.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
               <div><label>Website</label><input type="url" className="search-input w-full" value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)} /></div>
             </div>
+            
             <div className="mt-8">
               <label>About the Company</label>
               <textarea className="search-input w-full" rows="3" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} />
             </div>
+            
+            {/* Replaced location inputs with LocationSelect component */}
             <label style={{ display: 'block', fontWeight: '500', marginTop: '16px' }}>Location Details *</label>
-            <div className="form-grid-3">
-              <div><input type="text" className="search-input w-full" placeholder="Country *" value={newCountry} onChange={(e) => setNewCountry(e.target.value)} required /></div>
-              <div><input type="text" className="search-input w-full" placeholder="City *" value={newCity} onChange={(e) => setNewCity(e.target.value)} required /></div>
-              <div><input type="text" className="search-input w-full" placeholder="Postal Code" value={newPostalCode} onChange={(e) => setNewPostalCode(e.target.value.replace(/\D/g, ''))} /></div>
+            <div className="flex-col gap-16">
+              <LocationSelect country={newCountry} setCountry={setNewCountry} city={newCity} setCity={setNewCity} />
+              <input type="text" className="search-input w-full" placeholder="Postal Code" value={newPostalCode} onChange={(e) => setNewPostalCode(e.target.value.replace(/\D/g, ''))} />
             </div>
+            
             <button type="submit" className="btn-black w-full mt-24" disabled={isSubmitting}>
               {isSubmitting ? 'Registering...' : 'Add to Pre-Approved Roster'}
             </button>
@@ -243,7 +264,6 @@ export default function Companies({ role }) {
 
                 const hasDeafBadge = company.has_interpreters || company.has_trained_staff || company.has_visual_alarms || company.has_captioning;
 
-                // 🚨 NEW LOGIC: Description Truncation
                 const maxChars = 150;
                 const desc = company.description || '';
                 const isLongDesc = desc.length > maxChars;
@@ -284,7 +304,6 @@ export default function Companies({ role }) {
                       </div>
                     </div>
 
-                    {/* 🚨 NEW LOGIC: Render Truncated Description */}
                     {desc && (
                       <div style={{ marginTop: '4px' }}>
                         <p className="text-secondary text-sm" style={{ margin: 0, lineHeight: '1.6' }}>
@@ -293,7 +312,7 @@ export default function Companies({ role }) {
                             <span 
                               style={{ color: 'var(--primary-color)', fontWeight: '600', marginLeft: '6px', cursor: 'pointer' }}
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevents double firing the card click event
+                                e.stopPropagation(); 
                                 if (!company.isPreApprovedOnly) navigate(`/company/${company.id}`);
                               }}
                             >
