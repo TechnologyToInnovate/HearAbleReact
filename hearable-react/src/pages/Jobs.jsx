@@ -20,7 +20,10 @@ export default function Jobs() {
   const [selectedJobId, setSelectedJobId] = useState(null);
   
   const [savedJobs, setSavedJobs] = useState([]);
-  const [appliedJobs, setAppliedJobs] = useState([]);
+  
+  // THIS MUST BE AN ARRAY OF OBJECTS NOW TO HOLD THE STATUS
+  const [appliedJobs, setAppliedJobs] = useState([]); 
+  
   const [isSaving, setIsSaving] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
@@ -39,7 +42,16 @@ export default function Jobs() {
   const [filterType, setFilterType] = useState('All');
   const [filterDate, setFilterDate] = useState('All');
   
-  const [adminStatusFilter, setAdminStatusFilter] = useState('Approved'); 
+  // 🚨 UPDATED: Read the activeTab from the navigation state if it exists
+  const [adminStatusFilter, setAdminStatusFilter] = useState(location.state?.activeTab || 'Approved'); 
+
+  // 🚨 NEW: Clear the navigation state after setting the tab so refreshes act normally
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setAdminStatusFilter(location.state.activeTab);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (currentUser) fetchUserData();
@@ -82,14 +94,12 @@ export default function Jobs() {
     })
     .map(job => {
       if (role === 'guest') {
-        // 🚨 FIX: Replaced the industry string with a generic sign-in prompt
         return {
           ...job,
           company: 'Sign In To View Company', 
           location: 'Sign in to view location',
           pay_blurred: true, 
-          pay_rate: '',
-          description: 'Sign In To View Full Job Description and Apply'
+          pay_rate: ''
         };
       }
       return job;
@@ -102,7 +112,6 @@ export default function Jobs() {
     selectedCompanyData = {
       ...selectedCompanyData,
       name: 'Sign In To View Company',
-      description: 'Sign In To View Company Details and Full Profile',
       locations: { city: 'Sign in to view location', country: '' },
       logo_url: null,
       representative: null,
@@ -122,10 +131,12 @@ export default function Jobs() {
     if (['guest', 'company', 'admin'].includes(role)) return;
     
     const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', currentUser.id);
-    const { data: applied } = await supabase.from('applications').select('job_id').eq('applicant_id', currentUser.id);
+    
+    // IMPORTANT: Fetches both the job_id AND the current status of the application
+    const { data: applied } = await supabase.from('applications').select('job_id, status').eq('applicant_id', currentUser.id);
     
     if (saved) setSavedJobs(saved.map(s => s.job_id));
-    if (applied) setAppliedJobs(applied.map(a => a.job_id));
+    if (applied) setAppliedJobs(applied); // Saves the array of objects containing the statuses
   }
 
   async function handleApplyClick() {
@@ -164,7 +175,8 @@ export default function Jobs() {
     }]);
 
     if (!error) {
-      setAppliedJobs([...appliedJobs, selectedJobId]);
+      // Ensures new applications correctly log as 'Pending' in local state
+      setAppliedJobs([...appliedJobs, { job_id: selectedJobId, status: 'Pending' }]);
       alert("Application sent successfully!");
       setShowApplyModal(false);
     } else {
@@ -184,7 +196,7 @@ export default function Jobs() {
       .match({ applicant_id: currentUser.id, job_id: selectedJobId });
 
     if (!error) {
-      setAppliedJobs(appliedJobs.filter(id => id !== selectedJobId));
+      setAppliedJobs(appliedJobs.filter(a => a.job_id !== selectedJobId));
       alert("Application withdrawn successfully.");
     } else {
       console.error("Withdrawal error:", error);
@@ -428,7 +440,9 @@ export default function Jobs() {
               role={role}
               currentUser={currentUser}
               isApplying={isApplying}
-              hasApplied={appliedJobs.includes(selectedJobId)}
+              // PASSING DOWN STATUS ACCURATELY HERE
+              hasApplied={appliedJobs.some(a => a.job_id === selectedJobId)}
+              applicationStatus={appliedJobs.find(a => a.job_id === selectedJobId)?.status}
               isSaved={savedJobs.includes(selectedJobId)}
               isSaving={isSaving}
               handleApply={handleApplyClick} 
@@ -439,6 +453,8 @@ export default function Jobs() {
               handleWithdrawApplication={handleWithdrawApplication} 
               navigate={navigate}
               handleClose={() => setSelectedJobId(null)} 
+              initialOpenJobDesc={location.state?.selectedJobId === selectedJobData.id ? location.state?.openJobDesc : false}
+              initialOpenCompDesc={location.state?.selectedJobId === selectedJobData.id ? location.state?.openCompDesc : false}
             />
           ) : (
             <div className="card h-full flex-col align-center justify-center text-center text-secondary p-32" style={{ display: window.innerWidth > 768 ? 'flex' : 'none' }}>

@@ -34,9 +34,11 @@ export default function Login({ setRole }) {
         await routeUserAfterLogin(data.user);
       } else {
 
-        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+        // 🚨 UPDATED REGEX: Enforces at least 1 lowercase (?=.*[a-z]), 1 uppercase (?=.*[A-Z]), 1 number (?=.*\d), 1 special char, and min 8 chars
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
         if (!passwordRegex.test(password)) {
-          setErrorMsg('Password must be at least 8 characters long and contain a mix of letters, numbers, and special characters.');
+          // 🚨 UPDATED ERROR MESSAGE
+          setErrorMsg('Password must be at least 8 characters long and contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.');
           setLoading(false);
           return;
         }
@@ -211,7 +213,8 @@ export default function Login({ setRole }) {
                 minLength={isLogin ? "6" : "8"} 
                 autoComplete={isLogin ? "current-password" : "new-password"} 
               />
-              {!isLogin && <p className="text-secondary mt-8" style={{ fontSize: '0.75rem' }}>Must be at least 8 characters and include letters, numbers, and special characters.</p>}
+              {/* 🚨 UPDATED HINT TEXT */}
+              {!isLogin && <p className="text-secondary mt-8" style={{ fontSize: '0.75rem' }}>Must be at least 8 characters and include 1 uppercase, 1 lowercase, 1 number, and 1 special character.</p>}
             </div>
 
             <button type="submit" className="btn-black w-full mt-16" disabled={loading} style={{ padding: '12px' }}>

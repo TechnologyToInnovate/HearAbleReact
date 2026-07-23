@@ -5,7 +5,8 @@ import './index.css';
 // GLOBAL CONTEXT & COMPONENTS
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from "./components/layout/Navbar";
-import SiteFeedbackWidget from './components/common/SiteFeedbackWidget'; // 🚨 NEW: Imported the widget
+import SiteFeedbackWidget from './components/common/SiteFeedbackWidget';
+import WelcomePopup from './components/common/WelcomePopup'; // 🚨 NEW: Imported the popup
 
 import { useAutoLogout } from './hooks/useAutoLogout';
 
@@ -65,6 +66,9 @@ function AppRoutes() {
 
   return (
     <div className="app-container">
+      
+      {/* 🚨 NEW: Added the Welcome Popup globally */}
+      <WelcomePopup />
       
       <Navbar />
 
@@ -131,7 +135,6 @@ function AppRoutes() {
         </Routes>
       </main>
 
-      {/* 🚨 NEW: Added the floating widget so it sits outside the main content flow but inside the app container */}
       <SiteFeedbackWidget />
       
     </div>

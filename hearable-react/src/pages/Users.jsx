@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient'; 
 
 // Custom hooks and utilities
@@ -12,15 +12,19 @@ import Avatar from '../components/common/Avatar';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
 import EmptyState from '../components/common/EmptyState';
-import FilterSelect from '../components/common/FilterSelect'; // 🚨 NEW
+import FilterSelect from '../components/common/FilterSelect'; 
 
 export default function Users({ role }) {
   const navigate = useNavigate();
+  const location = useLocation(); // 🚨 NEW: Added useLocation
   
   const { users, isLoading } = useUsers(role);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('All');
+  
+  // 🚨 UPDATED: Read the activeTab from the navigation state if it exists
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'All');
+  
   const [sortBy, setSortBy] = useState('name_asc');
   const [filterDegree, setFilterDegree] = useState('All');
   const [filterBatch, setFilterBatch] = useState('All');
@@ -33,6 +37,14 @@ export default function Users({ role }) {
   useEffect(() => {
     if (role !== 'admin') navigate('/');
   }, [role, navigate]);
+
+  // 🚨 NEW: Clear the navigation state after setting the tab so refreshes act normally
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -149,7 +161,6 @@ export default function Users({ role }) {
         />
       </div>
 
-      {/* 🚨 REFACTORED FILTERS */}
       <div className="flex-row-wrap gap-16 mb-32">
         <FilterSelect 
           value={sortBy} 

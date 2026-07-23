@@ -3,10 +3,15 @@ import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SiteFeedbackWidget() {
-  const { user } = useAuth();
+  const { user, role } = useAuth(); // 🚨 NEW: Destructured role to check if guest
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 🚨 NEW: If there is no user or they are a guest, do not render the widget at all
+  if (!user || role === 'guest') {
+    return null;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,9 +20,9 @@ export default function SiteFeedbackWidget() {
     setIsSubmitting(true);
     try {
       const { error } = await supabase.from('feedbacks').insert([{
-        user_id: user?.id || null, 
+        user_id: user.id, 
         title: 'Website Feedback',
-        purpose: 'Site Improvement / Bug Report',
+        purpose: 'Website', // 🚨 UPDATED: Changed to exactly match the "Website" tab category
         message: message.trim()
       }]);
       

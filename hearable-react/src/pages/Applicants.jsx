@@ -261,7 +261,16 @@ export default function Applicants() {
         </div>
       ) : (
         <div className="mb-32 flex-col align-start">
-          <BackButton onClick={() => { setFilterJobId('all'); setViewMode('grouped'); setStatusFilter('All'); }} />
+          <BackButton onClick={() => { 
+            // 🚨 UPDATED: Explicitly navigate to /jobs with the exact job ID if they came from there
+            if (location.state?.filterJobId) {
+              navigate('/jobs', { state: { selectedJobId: location.state.filterJobId } });
+            } else {
+              setFilterJobId('all'); 
+              setViewMode('grouped'); 
+              setStatusFilter('All'); 
+            }
+          }} />
           <JobDetailsCard job={selectedJob} onShowSkills={() => setShowSkillsModal(true)} />
           
           <div className="mt-16">
@@ -402,7 +411,6 @@ function ApplicantCard({ app, role, onInspectClick }) {
         </div>
       </div>
       
-      {/* 🚨 UPDATED: Integrated the 3-stage progress bar */}
       <div className="flex-between align-center flex-wrap gap-24" style={{ padding: '16px 24px', background: 'var(--bg-color)', borderTop: '1px solid var(--border-color)', borderBottomLeftRadius: 'inherit', borderBottomRightRadius: 'inherit' }}>
         <button className="btn-outline btn-sm" onClick={onInspectClick} style={{ background: 'var(--card-bg)' }}>🔍 Inspect Job Seeker</button>
         

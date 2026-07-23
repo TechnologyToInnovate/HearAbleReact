@@ -1,7 +1,7 @@
 import React from 'react';
 import DeafAccessibleBadge from '../common/DeafAccessibleBadge';
 
-export default function JobCard({ job, companyData, isSelected, onClick, hideMatchScore = false, role }) {
+export default function JobCard({ job, companyData, isSelected, onClick, hideMatchScore = false, role, children }) {
   const accessData = companyData || {};
   
   // Match the CompanyProfile workaround. Only show if a specific feature is checked.
@@ -33,7 +33,6 @@ export default function JobCard({ job, companyData, isSelected, onClick, hideMat
       </div>
       
       <div className="text-secondary mb-12 flex-row gap-8 align-center" style={{ fontSize: '0.95rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
-        {/* 🚨 GUEST CHECK: Hide company details if guest */}
         {isGuest ? (
           <span style={{ fontStyle: 'italic', color: 'var(--secondary-text)' }}>
             Sign in to view company details
@@ -53,7 +52,6 @@ export default function JobCard({ job, companyData, isSelected, onClick, hideMat
               </span>
             )}
             
-            {/* Only render the wrapper if they actually have the badge */}
             {hasDeafBadge && (
               <div style={{ flexShrink: 0 }}>
                 <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
@@ -77,6 +75,21 @@ export default function JobCard({ job, companyData, isSelected, onClick, hideMat
         <span className="badge badge-neutral" style={{ borderRadius: '4px' }}>{job.work_model || 'On-site'}</span>
         <span className="badge badge-neutral" style={{ borderRadius: '4px' }}>{job.type}</span>
       </div>
+
+      {children && (
+        <div 
+          style={{ 
+            borderTop: '1px solid var(--border-color)', 
+            marginTop: '16px', 
+            paddingTop: '20px', 
+            display: 'flex', 
+            justifyContent: 'flex-end' 
+          }} 
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }

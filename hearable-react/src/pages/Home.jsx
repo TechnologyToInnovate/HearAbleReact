@@ -29,10 +29,13 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   
   const [stats, setStats] = useState({ stat1: 0, stat2: 0, stat3: 0, stat4: 0 });
-  const [adminStats, setAdminStats] = useState({ users: 0, pendingUsers: 0, companies: 0, activeJobs: 0, pendingJobs: 0 });
+  const [adminStats, setAdminStats] = useState({ users: 0, pendingUsers: 0, companies: 0, activeJobs: 0, pendingJobs: 0, pendingResumes: 0 });
+  
+  const [recentPendingUsers, setRecentPendingUsers] = useState([]);
+  const [recentPendingJobs, setRecentPendingJobs] = useState([]);
+  const [recentPendingResumes, setRecentPendingResumes] = useState([]);
   
   const [showCompanyOnboarding, setShowCompanyOnboarding] = useState(false); 
-  const [showPendingDropdown, setShowPendingDropdown] = useState(false);
 
   useEffect(() => {
     setShowCompanyOnboarding(false);
@@ -47,19 +50,37 @@ export default function Home() {
     const activeId = user?.id;
 
     if (role === 'admin') {
-      const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-      const { count: pendingUsersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
-      const { count: companyCount } = await supabase.from('companies').select('*', { count: 'exact', head: true });
-      const { count: activeJobsCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'Approved');
-      const { count: pendingJobsCount } = await supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
+      // Execute all queries concurrently for maximum efficiency
+      const [
+        { count: usersCount },
+        { count: companyCount },
+        { count: activeJobsCount },
+        { data: pUsers, count: pendingUsersCount },
+        { data: pJobs, count: pendingJobsCount },
+        { data: pResumes, count: pendingResumesCount }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('companies').select('*', { count: 'exact', head: true }),
+        supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'Approved'),
+        
+        supabase.from('profiles').select('id, first_name, last_name, created_at', { count: 'exact' }).eq('status', 'Pending').order('created_at', { ascending: false }).limit(3),
+        supabase.from('jobs').select('id, title, created_at', { count: 'exact' }).eq('status', 'Pending').order('created_at', { ascending: false }).limit(3),
+        supabase.from('resumes').select('id, title, created_at, file_url', { count: 'exact' }).eq('status', 'Pending').order('created_at', { ascending: false }).limit(3)
+      ]);
       
       setAdminStats({ 
         users: usersCount || 0, 
         pendingUsers: pendingUsersCount || 0,
         companies: companyCount || 0,
         activeJobs: activeJobsCount || 0,
-        pendingJobs: pendingJobsCount || 0
+        pendingJobs: pendingJobsCount || 0,
+        pendingResumes: pendingResumesCount || 0
       });
+
+      setRecentPendingUsers((pUsers || []).map(u => ({ id: u.id, title: formatFullName(u.first_name, u.last_name, 'Unknown User'), created_at: u.created_at })));
+      setRecentPendingJobs((pJobs || []).map(j => ({ id: j.id, title: j.title || 'Untitled Job', created_at: j.created_at })));
+      setRecentPendingResumes((pResumes || []).map(r => ({ id: r.id, title: r.title || 'Untitled Resume', created_at: r.created_at, file_url: r.file_url })));
+
       setIsLoading(false);
       return;
     }
@@ -195,17 +216,11 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="form-grid-2">
+          <div>
             <div className="card p-24 text-center">
-              <h3 className="mb-16 mt-0">For Job Seekers</h3>
+              <h3 className="mb-16 mt-0">For Deaf Job Seekers</h3>
               <p className="text-secondary m-0" style={{ lineHeight: '1.6' }}>
                 Find companies that value your talent and provide deaf-accessible environments. Build your profile, showcase your skills, and apply to roles where you can truly thrive.
-              </p>
-            </div>
-            <div className="card p-24 text-center">
-              <h3 className="mb-16 mt-0">For Inclusive Employers</h3>
-              <p className="text-secondary m-0" style={{ lineHeight: '1.6' }}>
-                Tap into a highly skilled, diverse talent pool. Post jobs, highlight your accessibility features, and hire exceptional professionals ready to make an impact.
               </p>
             </div>
           </div>
@@ -217,9 +232,9 @@ export default function Home() {
           {role === 'admin' && (
             <AdminOverview 
               adminStats={adminStats}
-              showPendingDropdown={showPendingDropdown}
-              setShowPendingDropdown={setShowPendingDropdown}
-              navigate={navigate}
+              recentPendingUsers={recentPendingUsers}
+              recentPendingJobs={recentPendingJobs}
+              recentPendingResumes={recentPendingResumes}
               isLoading={isLoading}
             />
           )}
@@ -266,6 +281,18 @@ export default function Home() {
                   <Avatar src={companyProfile?.logo_url} fallbackName={companyProfile?.name || 'Company'} size="lg" type="company" />
                 </div>
                 <h3 className="m-0 mb-8">{companyProfile?.name}</h3>
+                
+                {(companyProfile?.status === 'Archived' || companyProfile?.status === 'Rejected') && (
+                  <div className="mb-12">
+                    <span style={{ 
+                      background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', 
+                      padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold', display: 'inline-block' 
+                    }}>
+                      Account Disabled
+                    </span>
+                  </div>
+                )}
+                
                 <p className="text-sm text-secondary m-0 mb-24">{companyProfile?.address}</p>
                 <button className="btn-black w-full" disabled={!companyProfile?.id} onClick={() => navigate(`/company/${companyProfile?.id}`)}>
                   {companyProfile?.id ? 'View Company Profile' : 'No Profile Found'}

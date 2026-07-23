@@ -1,34 +1,32 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // 🚨 NEW: Added useNavigate
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { formatStandardDate } from '../utils/dateUtils';
 
 export default function Feedbacks() {
   const { user: currentUser, role } = useAuth();
+  const navigate = useNavigate(); // 🚨 NEW: Initialize navigate
   
-  // State for storing the list of feedbacks and managing the loading UI
   const [feedbacks, setFeedbacks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State for managing the feedback submission modal and its form fields
+  const [activeTab, setActiveTab] = useState('Jobs');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newPurpose, setNewPurpose] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch feedbacks whenever the component mounts or the user context changes
   useEffect(() => {
     if (currentUser) fetchFeedbacks();
   }, [currentUser, role]);
 
-  // Retrieves feedback from the database based on the user's role
   async function fetchFeedbacks() {
     setIsLoading(true);
-    
     let query = supabase.from('feedbacks').select('*').order('created_at', { ascending: false });
     
-    // Admins see all platform feedback; standard users only see the feedback they have submitted
     if (role !== 'admin') {
       query = query.eq('user_id', currentUser.id);
     }
@@ -38,14 +36,12 @@ export default function Feedbacks() {
     setIsLoading(false);
   }
 
-  // Handles the submission of a new feedback entry via the modal form
   async function handleSubmit(e) {
     e.preventDefault();
     if (!newMessage.trim() || !newTitle.trim() || !newPurpose) return;
     
     setIsSubmitting(true);
     
-    // Insert the new feedback into the database, tagging it with the current user's ID
     const { error } = await supabase.from('feedbacks').insert([{ 
       user_id: currentUser.id, 
       title: newTitle.trim(),
@@ -54,14 +50,13 @@ export default function Feedbacks() {
     }]);
 
     if (!error) {
-      // Clear form state and close the modal upon successful submission
       setNewTitle('');
       setNewPurpose('');
       setNewMessage('');
       setIsModalOpen(false); 
       
-      // Refresh the feedback list to display the newly added item
       fetchFeedbacks();
+      setActiveTab(newPurpose);
       alert("Thank you for your feedback!");
     } else {
       console.error(error);
@@ -70,14 +65,12 @@ export default function Feedbacks() {
     setIsSubmitting(false);
   }
 
-  // Deletes a feedback entry from the database (Admin or Original Owner)
   async function handleDeleteFeedback(id) {
     if (!window.confirm("Are you sure you want to permanently delete this feedback?")) return;
 
     const { error } = await supabase.from('feedbacks').delete().eq('id', id);
 
     if (!error) {
-      // Instantly remove the deleted feedback from the UI
       setFeedbacks(feedbacks.filter(fb => fb.id !== id));
     } else {
       console.error(error);
@@ -85,19 +78,29 @@ export default function Feedbacks() {
     }
   }
 
-  // Restrict access: companies are not permitted to use the feedback system
   if (role === 'company') {
     return <div className="page-container-wide"><p className="text-center p-32">This page is for standard users and admins only.</p></div>;
   }
 
+  const filteredFeedbacks = feedbacks.filter(fb => fb.purpose === activeTab);
+
+  // 🚨 NEW: Function to render standard http links as clickable tags
+  const renderMessageWithLinks = (text) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.split(urlRegex).map((part, i) => {
+      if (part.match(urlRegex)) {
+        return <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color)', textDecoration: 'underline' }}>{part}</a>;
+      }
+      return part;
+    });
+  };
+
   return (
     <div className="page-container">
       
-      {/* Page Header: Displays the title and conditionally renders the New Feedback button for non-admins */}
       <div className="flex-between align-center mb-24">
         <h1 className="m-0">{role === 'admin' ? 'All Platform Feedback' : 'My Feedback'}</h1>
         
-        {/* 🚨 UPDATED: Lock the New Feedback button for pending/rejected users */}
         {role !== 'admin' && (
           role === 'user' ? (
             <button className="btn-black" onClick={() => setIsModalOpen(true)}>
@@ -116,7 +119,23 @@ export default function Feedbacks() {
         )}
       </div>
 
-      {/* Feedback Submission Modal */}
+      <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', borderBottom: '1px solid var(--border-color)' }}>
+        {['Jobs', 'Website'].map(tab => (
+          <button
+            key={tab} 
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '8px 20px', border: 'none', background: 'none',
+              borderBottom: activeTab === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
+              color: activeTab === tab ? 'var(--primary-color)' : 'var(--secondary-text)',
+              fontWeight: activeTab === tab ? '600' : '400', cursor: 'pointer', fontSize: '1rem',
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       {isModalOpen && role !== 'admin' && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '600px' }}>
@@ -149,10 +168,8 @@ export default function Feedbacks() {
                     required
                   >
                     <option value="" disabled>Select a category</option>
-                    <option value="Website">Website Issue / Idea</option>
-                    <option value="Job Posting">Job Postings</option>
-                    <option value="Application Process">Application Process</option>
-                    <option value="Other">Other</option>
+                    <option value="Jobs">Jobs</option>
+                    <option value="Website">Website</option>
                   </select>
                 </div>
 
@@ -180,59 +197,83 @@ export default function Feedbacks() {
         </div>
       )}
 
-      {/* Feedback List Display */}
-      <h3 className="mb-16">Previous Feedback</h3>
-      {isLoading ? <p className="text-secondary">Loading...</p> : feedbacks.length > 0 ? (
+      {isLoading ? <p className="text-secondary">Loading...</p> : filteredFeedbacks.length > 0 ? (
         <div className="flex-col gap-16">
-          {feedbacks.map(fb => (
-            <div key={fb.id} className="card p-24">
-              <div className="flex-between-start mb-16">
-                <div>
-                  <h3 className="m-0 text-lg">{fb.title || 'Untitled Feedback'}</h3>
-                  <span 
-                    className="badge badge-neutral mt-8" 
-                    style={{ display: 'inline-block', backgroundColor: 'var(--bg-color)' }}
-                  >
-                    Category: {fb.purpose || 'Unspecified'}
-                  </span>
-                </div>
-                
-                {/* Admins can see a snippet of the submitting user's ID for reference */}
-                {role === 'admin' && (
-                  <div className="badge badge-neutral" style={{ flexShrink: 0 }}>
-                    User ID: {fb.user_id?.substring(0, 8)}...
-                  </div>
-                )}
-              </div>
-              
-              <div style={{ backgroundColor: 'var(--bg-color)', padding: '16px', borderRadius: '8px' }}>
-                <p className="m-0" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>"{fb.message}"</p>
-              </div>
-              
-              {/* Bottom row housing the Admin/User Delete Button and the Date */}
-              <div className="flex-between align-center mt-16">
-                <div>
-                  {/* Both Admins and the original author can now see the delete button */}
-                  {(role === 'admin' || fb.user_id === currentUser?.id) && (
-                    <button 
-                      className="btn-danger btn-sm" 
-                      onClick={() => handleDeleteFeedback(fb.id)}
+          {filteredFeedbacks.map(fb => {
+            // 🚨 NEW: Parse out the hidden job ID and title tags appended by JobDetailsPane
+            const jobIdMatch = fb.message.match(/\[JobID:(\d+)\]/);
+            const jobTitleMatch = fb.message.match(/📌 Job Title: (.*)/);
+            
+            // 🚨 NEW: Remove the tags from the message string so the user only sees their text
+            let displayMessage = fb.message;
+            if (jobIdMatch) {
+              displayMessage = displayMessage.replace(/\n\n---\n📌 Job Title: .*\n\[JobID:\d+\]/, '');
+            }
+
+            return (
+              <div key={fb.id} className="card p-24">
+                <div className="flex-between-start mb-16">
+                  <div>
+                    <h3 className="m-0 text-lg">{fb.title || 'Untitled Feedback'}</h3>
+                    <span 
+                      className="badge badge-neutral mt-8" 
+                      style={{ display: 'inline-block', backgroundColor: 'var(--bg-color)' }}
                     >
-                      Delete Feedback
-                    </button>
+                      Category: {fb.purpose || 'Unspecified'}
+                    </span>
+                  </div>
+                  
+                  {role === 'admin' && (
+                    <div className="badge badge-neutral" style={{ flexShrink: 0 }}>
+                      User ID: {fb.user_id?.substring(0, 8)}...
+                    </div>
                   )}
                 </div>
-                <p className="text-secondary text-sm m-0">
-                  Submitted: {formatStandardDate(fb.created_at)}
-                </p>
+                
+                <div style={{ height: '1px', background: 'var(--border-color)', marginBottom: '16px' }} />
+
+                <div style={{ backgroundColor: 'var(--bg-color)', padding: '16px', borderRadius: '8px' }}>
+                  <p className="m-0" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                    {renderMessageWithLinks(displayMessage)}
+                  </p>
+                </div>
+
+                {/* 🚨 NEW: If the parser found a Job ID, render the "View Job Post" button! */}
+                {jobIdMatch && (
+                  <div className="mt-16">
+                    <button 
+                      className="btn-outline btn-sm"
+                      title="Navigate to the job post this feedback refers to"
+                      onClick={() => navigate('/jobs', { state: { selectedJobId: parseInt(jobIdMatch[1], 10) } })}
+                    >
+                      View Job Post: {jobTitleMatch ? jobTitleMatch[1] : 'Related Job'}
+                    </button>
+                  </div>
+                )}
+                
+                <div className="flex-between align-center mt-16">
+                  <div>
+                    {(role === 'admin' || fb.user_id === currentUser?.id) && (
+                      <button 
+                        className="btn-danger btn-sm" 
+                        onClick={() => handleDeleteFeedback(fb.id)}
+                      >
+                        Delete Feedback
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-secondary text-sm m-0">
+                    Submitted: {formatStandardDate(fb.created_at)}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="card text-center text-secondary p-32">
           <h3 className="m-0 mb-8">No Feedback</h3>
-          <p className="m-0">{role === 'admin' ? 'No feedback received yet.' : 'You haven\'t submitted any feedback yet.'}</p>
+          <p className="m-0">{role === 'admin' ? `No feedback in the ${activeTab} category yet.` : `You haven't submitted any feedback for ${activeTab} yet.`}</p>
         </div>
       )}
     </div>

@@ -18,7 +18,6 @@ export default function Resumes() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // 🚨 UPDATED: Instead of just a URL, we store the ID of the resume being previewed
   const [previewResumeId, setPreviewResumeId] = useState(null);
 
   // Strict Admin Guard
@@ -32,6 +31,7 @@ export default function Resumes() {
 
   useEffect(() => setCurrentPage(1), [searchQuery, activeTab]);
 
+  // 🚨 RESTORED: Back to the original, guaranteed-to-work dual queries
   async function fetchResumes() {
     setIsLoading(true);
     const { data: resumesData } = await supabase.from('resumes').select('*').order('created_at', { ascending: false });
@@ -70,7 +70,6 @@ export default function Resumes() {
   const currentResumes = processedResumes.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(processedResumes.length / itemsPerPage);
 
-  // Helper variable to find the active resume object for the modal
   const previewResume = resumes.find(r => r.id === previewResumeId);
 
   return (
@@ -119,7 +118,6 @@ export default function Resumes() {
                   <span className="text-sm text-secondary">Uploaded: {new Date(resume.created_at).toLocaleDateString()}</span>
                 </div>
                 
-                {/* 🚨 UPDATED: Accept/Reject buttons removed from here; only Preview and Open remain */}
                 <div className="flex-row gap-8 mt-8" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {resume.file_url && (
                     <>
@@ -169,7 +167,6 @@ export default function Resumes() {
                 <StatusBadge status={previewResume.status || 'Pending'} />
               </div>
               
-              {/* 🚨 UPDATED: Accept and Reject buttons are now in the modal header! */}
               <div className="flex-row align-center gap-16">
                 <div className="flex-row gap-8">
                   {(previewResume.status || 'Pending') !== 'Approved' && (
@@ -192,7 +189,6 @@ export default function Resumes() {
                   )}
                 </div>
                 
-                {/* Visual divider */}
                 <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-color)' }}></div>
                 
                 <button onClick={() => setPreviewResumeId(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>

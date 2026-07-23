@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../supabaseClient'; 
 
 import SkillBadge from '../common/SkillBadge'; 
 import StatusBadge from '../common/StatusBadge';
@@ -8,13 +9,31 @@ import { formatLocation } from '../../utils/formatUtils';
 
 export default function JobDetailsPane({
   selectedJob, selectedCompany, role, currentUser,
-  isApplying, hasApplied, isSaved, isSaving,
+  isApplying, hasApplied, applicationStatus, isSaved, isSaving, 
   handleApply, handleSaveJob, handleDeleteJob,
   setIsEditingJob, navigate, handleUpdateJobStatus,
   handleRepostJob, handleWithdrawApplication,
-  handleClose 
+  handleClose,
+  initialOpenJobDesc, 
+  initialOpenCompDesc
 }) {
-  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [isDescExpanded, setIsDescExpanded] = useState(initialOpenCompDesc || false);
+  const [isJobDescExpanded, setIsJobDescExpanded] = useState(initialOpenJobDesc || false);
+
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  const typeRef = useRef(null);
+  const descriptionRef = useRef(null);
+  const skillsRef = useRef(null);
+  const companyRef = useRef(null);
+
+  useEffect(() => {
+    setIsDescExpanded(initialOpenCompDesc || false);
+    setIsJobDescExpanded(initialOpenJobDesc || false);
+  }, [selectedJob?.id, initialOpenCompDesc, initialOpenJobDesc]);
 
   if (!selectedJob) return null;
 
@@ -24,9 +43,18 @@ export default function JobDetailsPane({
   const editCount = selectedJob.edit_count || 0;
   const showCompanyActions = role === 'company' && isOwner;
 
+  const GUEST_LIMIT = 150;
+  const JOB_DESC_LIMIT = 150;
+
+  const jobDesc = selectedJob.description || '';
+  const shouldTruncateJob = jobDesc.length > JOB_DESC_LIMIT;
+
+  const companyDesc = selectedCompany?.description || '';
+  const shouldTruncateCompGuest = isGuest && companyDesc.length > GUEST_LIMIT;
+  const displayCompDescGuest = shouldTruncateCompGuest ? companyDesc.substring(0, GUEST_LIMIT) + '...' : companyDesc;
+
   const DESC_LIMIT = 200;
-  const companyDesc = selectedCompany?.description;
-  const shouldTruncateDesc = companyDesc && companyDesc.length > DESC_LIMIT;
+  const shouldTruncateDesc = !isGuest && companyDesc.length > DESC_LIMIT;
   const displayDesc = (shouldTruncateDesc && !isDescExpanded) 
     ? companyDesc.substring(0, DESC_LIMIT) + '...' 
     : companyDesc;
@@ -38,10 +66,57 @@ export default function JobDetailsPane({
   const accessData = selectedCompany || {};
   const hasDeafBadge = accessData.has_interpreters || accessData.has_trained_staff || accessData.has_visual_alarms || accessData.has_captioning;
 
+  const scrollToSection = (ref) => {
+    if (ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const navSections = [];
+  navSections.push({ id: 1, title: 'Job Type', ref: typeRef });
+  navSections.push({ id: navSections.length + 1, title: 'Job Description', ref: descriptionRef });
+  
+  if (selectedJob.skills && selectedJob.skills.length > 0) {
+    navSections.push({ id: navSections.length + 1, title: 'Required Skills', ref: skillsRef });
+  }
+  
+  if (selectedCompany && !showCompanyActions) {
+    navSections.push({ id: navSections.length + 1, title: 'About The Company', ref: companyRef });
+  }
+
+  const isInterviewStage = applicationStatus && applicationStatus.toLowerCase().includes('interview');
+
+  const handleFeedbackSubmit = async (e) => {
+    e.preventDefault();
+    if (!feedbackMessage.trim() || !feedbackTitle.trim()) return;
+
+    setIsSubmittingFeedback(true);
+    
+    // 🚨 UPDATED: Appending a hidden Job ID tag and Title to the message payload
+    const finalMessage = `${feedbackMessage.trim()}\n\n---\n📌 Job Title: ${selectedJob.title}\n[JobID:${selectedJob.id}]`;
+
+    const { error } = await supabase.from('feedbacks').insert([{
+      user_id: currentUser.id,
+      title: feedbackTitle.trim(),
+      purpose: 'Jobs', 
+      message: finalMessage
+    }]);
+
+    if (!error) {
+      alert('Thank you for your feedback!');
+      setShowFeedbackModal(false);
+      setFeedbackTitle('');
+      setFeedbackMessage('');
+    } else {
+      alert('Failed to send feedback. Please try again.');
+      console.error(error);
+    }
+    setIsSubmittingFeedback(false);
+  };
+
   return (
     <div className="card p-0 flex-col" style={{ position: 'relative', height: '100%', overflowY: 'auto' }}>
       
-      {/* HEADER SECTION */}
       <div className="p-24" style={{ position: 'sticky', top: 0, backgroundColor: 'var(--card-bg)', zIndex: 10, borderBottom: '1px solid var(--border-color)', borderTopLeftRadius: 'inherit', borderTopRightRadius: 'inherit' }}>
         
         <button 
@@ -108,7 +183,6 @@ export default function JobDetailsPane({
         </div>
         
         <div className="text-secondary mb-16 flex-row gap-8 align-center" style={{ fontSize: '1rem', fontWeight: '500', width: '100%', minWidth: 0 }}>
-          {/* 🚨 GUEST CHECK: Hide company header details */}
           {isGuest ? (
             <span style={{ fontStyle: 'italic', color: 'var(--secondary-text)' }}>
               Sign in to view company details and location
@@ -175,15 +249,26 @@ export default function JobDetailsPane({
         ) : (role !== 'company' && role !== 'admin') ? (
           <div className="flex-row gap-12 mt-8 mobile-action-group">
             {hasApplied ? (
-              <button 
-                className="btn-danger" 
-                style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem', opacity: isApplying ? 0.7 : 1 }} 
-                onClick={handleWithdrawApplication} 
-                disabled={isApplying}
-                title="Click to cancel and withdraw your submitted application"
-              >
-                {isApplying ? 'Processing...' : 'Withdraw Application'}
-              </button>
+              isInterviewStage ? (
+                <button 
+                  className="btn-black" 
+                  style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem' }} 
+                  onClick={() => setShowFeedbackModal(true)} 
+                  title="Leave feedback about the interview process"
+                >
+                  Leave Feedback
+                </button>
+              ) : (
+                <button 
+                  className="btn-danger" 
+                  style={{ flex: 1, padding: '10px 16px', fontSize: '0.95rem', opacity: isApplying ? 0.7 : 1 }} 
+                  onClick={handleWithdrawApplication} 
+                  disabled={isApplying}
+                  title="Click to cancel and withdraw your submitted application"
+                >
+                  {isApplying ? 'Processing...' : 'Withdraw Application'}
+                </button>
+              )
             ) : (
               <button 
                 className={`btn-apply`} 
@@ -209,145 +294,223 @@ export default function JobDetailsPane({
         ) : null}
       </div>
 
-      <div className="p-24" style={{ flex: 1 }}>
-        
-        <h3 className="mb-16 m-0" style={{ fontSize: '1.2rem' }}>Job Details</h3>
-        
-        <div className="sub-card mb-32" style={{ padding: '20px' }}>
-          {selectedJob.pay && (
-            <div className="mb-20">
-              <div className="font-bold mb-12 text-primary" style={{ fontSize: '1.05rem' }}>Pay</div>
+      <div style={{ display: 'flex', flex: 1 }}>
+        <div className="p-24" style={{ flex: 1, minWidth: 0 }}>
+          
+          <h3 className="mb-16 m-0" style={{ fontSize: '1.2rem' }}>Job Details</h3>
+          
+          <div className="sub-card mb-32" style={{ padding: '20px' }}>
+            {selectedJob.pay && (
+              <div className="mb-20">
+                <div className="font-bold mb-12 text-primary" style={{ fontSize: '1.05rem' }}>Pay</div>
+                <div className="flex-row-wrap gap-12">
+                  <span className="badge badge-neutral" style={{ 
+                    padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px',
+                    filter: selectedJob.pay_blurred ? 'blur(5px)' : 'none', 
+                    userSelect: selectedJob.pay_blurred ? 'none' : 'auto' 
+                  }}>
+                    {selectedJob.pay_blurred ? '$$$,$$$ - $$$,$$$' : `${selectedJob.pay} ${selectedJob.pay_rate}`}
+                  </span>
+                </div>
+              </div>
+            )}
+            <div>
+              <div className="font-bold mb-12 text-primary" style={{ fontSize: '1.05rem', scrollMarginTop: '250px' }} ref={typeRef}>Job Type</div>
               <div className="flex-row-wrap gap-12">
-                <span className="badge badge-neutral" style={{ 
-                  padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px',
-                  filter: selectedJob.pay_blurred ? 'blur(5px)' : 'none', 
-                  userSelect: selectedJob.pay_blurred ? 'none' : 'auto' 
-                }}>
-                  {selectedJob.pay_blurred ? '$$$,$$$ - $$$,$$$' : `${selectedJob.pay} ${selectedJob.pay_rate}`}
-                </span>
+                <span className="badge badge-neutral" title="Employment Type" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>{selectedJob.type}</span>
+                <span className="badge badge-neutral" title="Work Setup" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>{selectedJob.work_model || 'On-site'}</span>
+              </div>
+            </div>
+          </div>
+
+          {!isGuest && selectedJob.location && (
+            <div className="mb-32">
+              <h3 className="mb-12 m-0" style={{ fontSize: '1.2rem' }}>Location</h3>
+              <div className="sub-card" style={{ padding: '16px 20px' }}>
+                <p className="text-secondary m-0 text-base font-medium" style={{ lineHeight: '1.6' }}>{selectedJob.location}</p>
               </div>
             </div>
           )}
-          <div>
-            <div className="font-bold mb-12 text-primary" style={{ fontSize: '1.05rem' }}>Job Type</div>
-            <div className="flex-row-wrap gap-12">
-              <span className="badge badge-neutral" title="Employment Type" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>{selectedJob.type}</span>
-              <span className="badge badge-neutral" title="Work Setup" style={{ padding: '6px 12px', fontSize: '0.85rem', borderRadius: '4px' }}>{selectedJob.work_model || 'On-site'}</span>
-            </div>
-          </div>
-        </div>
 
-        {/* 🚨 GUEST CHECK: Hide exact location */}
-        {!isGuest && selectedJob.location && (
           <div className="mb-32">
-            <h3 className="mb-12 m-0" style={{ fontSize: '1.2rem' }}>Location</h3>
-            <div className="sub-card" style={{ padding: '16px 20px' }}>
-              <p className="text-secondary m-0 text-base font-medium" style={{ lineHeight: '1.6' }}>{selectedJob.location}</p>
-            </div>
-          </div>
-        )}
-
-        <div className="mb-32">
-          <h3 className="mb-12 m-0" style={{ fontSize: '1.2rem' }}>Job Description</h3>
-          <p className="m-0 text-secondary" style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>
-            {selectedJob.description}
-          </p>
-        </div>
-
-        {selectedJob.skills && selectedJob.skills.length > 0 && (
-          <div className="mb-32">
-            <h3 className="mb-12 m-0" style={{ fontSize: '1.2rem' }}>Required Skills</h3>
-            <div className="flex-row-wrap gap-12">
-              {selectedJob.skills.map((skill, index) => (
-                <SkillBadge key={skill.id || index} skill={skill} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {selectedCompany && !showCompanyActions && (
-          <div className="sub-card mt-24 mb-16" style={{ padding: '24px', position: 'relative' }}>
+            <h3 className="mb-12 m-0" style={{ fontSize: '1.2rem', scrollMarginTop: '250px' }} ref={descriptionRef}>Job Description</h3>
+            <p className="m-0 text-secondary" style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>
+              {shouldTruncateJob && !isJobDescExpanded 
+                ? jobDesc.substring(0, JOB_DESC_LIMIT) + '...' 
+                : jobDesc}
+            </p>
             
-            <h3 className="m-0 mb-20" style={{ fontSize: '1.2rem', paddingRight: '140px' }}>
-              About Company
-            </h3>
-
-            {/* 🚨 GUEST CHECK: Hide the entire About section contents */}
-            {isGuest ? (
-              <div className="text-center p-24" style={{ background: 'var(--bg-color)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
-                <p className="text-secondary m-0 mb-16">Create a free account to view company details, accessible features, and apply to this job!</p>
-                <button className="btn-black" onClick={() => navigate('/login', { state: { returnTo: `/jobs` } })}>
-                  Sign In
-                </button>
-              </div>
-            ) : (
-              <>
-                {hasDeafBadge && (
-                  <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
-                    <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
-                  </div>
-                )}
-
-                <div className="flex-row gap-16 align-start mb-24">
-                  <Avatar src={selectedCompany.logo_url} fallbackName={selectedCompany.name} size="md" type="company" customStyle={{ width: '48px', height: '48px', flexShrink: 0 }} />
-                  
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 
-                      className="m-0 mb-8" 
-                      style={{ 
-                        fontSize: '1.15rem', 
-                        whiteSpace: 'nowrap', 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis' 
-                      }}
-                      title={selectedCompany.name}
-                    >
-                      {selectedCompany.name}
-                    </h4>
-                    <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>
-                      {formatLocation(selectedCompany.locations?.city, selectedCompany.locations?.country, "Location not specified")}
-                    </p>
-                  </div>
-                </div>
-
-                {companyDesc && (
-                  <div className="mb-24">
-                    <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
-                      {displayDesc}
-                    </p>
-                    {shouldTruncateDesc && (
-                      <button 
-                        onClick={() => setIsDescExpanded(!isDescExpanded)}
-                        title={isDescExpanded ? "Collapse company description" : "Expand company description"}
-                        style={{ 
-                          background: 'none', 
-                          border: 'none', 
-                          color: 'var(--primary-color)', 
-                          fontWeight: '700', 
-                          padding: '8px 0 0 0', 
-                          cursor: 'pointer',
-                          fontSize: '0.9rem'
-                        }}
-                      >
-                        {isDescExpanded ? 'Show Less' : 'Read More...'}
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                <button 
-                  className="btn-outline w-full btn-sm" 
-                  title="Navigate to company profile page"
-                  style={{ padding: '8px 12px' }} 
-                  onClick={() => navigate(`/company/${selectedCompany.id}`)}
-                >
-                  View Full Company Profile
-                </button>
-              </>
+            {shouldTruncateJob && (
+              <button 
+                onClick={() => {
+                  if (isGuest) {
+                    navigate('/login', { state: { returnTo: `/jobs`, returnState: { selectedJobId: selectedJob.id, openJobDesc: true } } });
+                  } else {
+                    setIsJobDescExpanded(!isJobDescExpanded);
+                  }
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontWeight: '700', padding: '8px 0 0 0', cursor: 'pointer', fontSize: '0.9rem' }}
+              >
+                {isGuest ? 'Read More...' : (isJobDescExpanded ? 'Show Less' : 'Read More...')}
+              </button>
             )}
           </div>
-        )}
+
+          {selectedJob.skills && selectedJob.skills.length > 0 && (
+            <div className="mb-32">
+              <h3 className="mb-12 m-0" style={{ fontSize: '1.2rem', scrollMarginTop: '250px' }} ref={skillsRef}>Required Skills</h3>
+              <div className="flex-row-wrap gap-12">
+                {selectedJob.skills.map((skill, index) => (
+                  <SkillBadge key={skill.id || index} skill={skill} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedCompany && !showCompanyActions && (
+            <div className="sub-card mt-24 mb-16" style={{ padding: '24px', position: 'relative' }}>
+              
+              <h3 className="m-0" style={{ fontSize: '1.2rem', paddingRight: '140px', scrollMarginTop: '250px' }} ref={companyRef}>
+                About The Company
+              </h3>
+              <div style={{ height: '1px', background: 'var(--border-color)', margin: '16px 0 20px 0' }} />
+
+              {isGuest ? (
+                <>
+                  {companyDesc && (
+                    <div className="mb-24">
+                      <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+                        {displayCompDescGuest}
+                      </p>
+                      {shouldTruncateCompGuest && (
+                        <button 
+                          onClick={() => navigate('/login', { state: { returnTo: `/jobs`, returnState: { selectedJobId: selectedJob.id, openCompDesc: true } } })}
+                          style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontWeight: '700', padding: '8px 0 0 0', cursor: 'pointer', fontSize: '0.9rem' }}
+                        >
+                          Read More...
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="text-center p-16 mt-16" style={{ background: 'var(--bg-color)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                    <p className="text-secondary m-0 mb-12 text-sm">Create a free account to view the full company profile, accessible features, and apply to this job!</p>
+                    
+                    <button className="btn-black btn-sm" onClick={() => navigate('/login', { state: { returnTo: `/jobs`, returnState: { selectedJobId: selectedJob.id, openApply: true } } })}>
+                      Sign In To View
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {hasDeafBadge && (
+                    <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
+                      <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
+                    </div>
+                  )}
+
+                  <div className="flex-row gap-16 align-start mb-24">
+                    <Avatar src={selectedCompany.logo_url} fallbackName={selectedCompany.name} size="md" type="company" customStyle={{ width: '48px', height: '48px', flexShrink: 0 }} />
+                    
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 
+                        className="m-0 mb-8" 
+                        style={{ 
+                          fontSize: '1.15rem', 
+                          whiteSpace: 'nowrap', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis' 
+                        }}
+                        title={selectedCompany.name}
+                      >
+                        {selectedCompany.name}
+                      </h4>
+                      <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>
+                        {formatLocation(selectedCompany.locations?.city, selectedCompany.locations?.country, "Location not specified")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {companyDesc && (
+                    <div className="mb-24">
+                      <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+                        {displayDesc}
+                      </p>
+                      {shouldTruncateDesc && (
+                        <button 
+                          onClick={() => setIsDescExpanded(!isDescExpanded)}
+                          title={isDescExpanded ? "Collapse company description" : "Expand company description"}
+                          style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            color: 'var(--primary-color)', 
+                            fontWeight: '700', 
+                            padding: '8px 0 0 0', 
+                            cursor: 'pointer',
+                            fontSize: '0.9rem'
+                          }}
+                        >
+                          {isDescExpanded ? 'Show Less' : 'Read More...'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <button 
+                    className="btn-outline w-full btn-sm" 
+                    title="Navigate to company profile page"
+                    style={{ padding: '8px 12px' }} 
+                    onClick={() => navigate(`/company/${selectedCompany.id}`)}
+                  >
+                    View Full Company Profile
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {showFeedbackModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
+          <div className="card p-0" style={{ width: '100%', maxWidth: '500px', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Job Feedback</h3>
+              <button title="Close" onClick={() => setShowFeedbackModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-color)', lineHeight: 1 }}>&times;</button>
+            </div>
+            <div style={{ padding: '24px' }}>
+              <form onSubmit={handleFeedbackSubmit} className="flex-col gap-16">
+                <div>
+                  <label className="block mb-8 font-medium">Title</label>
+                  <input 
+                    type="text" 
+                    className="search-input w-full" 
+                    placeholder="e.g., Great Interview Process!" 
+                    value={feedbackTitle}
+                    onChange={(e) => setFeedbackTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block mb-8 font-medium">Details</label>
+                  <textarea 
+                    className="search-input w-full" 
+                    rows="5" 
+                    style={{ resize: 'vertical' }}
+                    placeholder="Tell us about your experience with this job/interview..." 
+                    value={feedbackMessage}
+                    onChange={(e) => setFeedbackMessage(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn-black w-full" style={{ padding: '12px', fontSize: '1rem' }} disabled={isSubmittingFeedback}>
+                  {isSubmittingFeedback ? 'Submitting...' : 'Submit Feedback'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

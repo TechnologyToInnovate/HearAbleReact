@@ -21,6 +21,9 @@ export default function Navbar() {
   const [profileName, setProfileName] = useState('');
   const [profilePic, setProfilePic] = useState(null);
   
+  // 🚨 NEW: Track account status globally
+  const [accountStatus, setAccountStatus] = useState('Active');
+  
   const dropdownRef = useRef(null);
   const manageJobsRef = useRef(null);
   const manageUsersRef = useRef(null);
@@ -77,23 +80,32 @@ export default function Navbar() {
       if (!user) {
         setProfileName('');
         setProfilePic(null);
+        setAccountStatus('Active');
         return;
       }
       
       if (['user', 'pending_user', 'rejected_user'].includes(role)) {
-        const { data } = await supabase.from('profiles').select('first_name, last_name, profile_pic').eq('id', user.id).maybeSingle();
-        if (data && (data.first_name || data.last_name)) {
-          setProfileName(`${data.first_name || ''} ${data.last_name || ''}`.trim());
+        // 🚨 UPDATED: Now fetching status along with profile details
+        const { data } = await supabase.from('profiles').select('first_name, last_name, profile_pic, status').eq('id', user.id).maybeSingle();
+        if (data) {
+          if (data.first_name || data.last_name) {
+            setProfileName(`${data.first_name || ''} ${data.last_name || ''}`.trim());
+          } else {
+            setProfileName('User');
+          }
           setProfilePic(data.profile_pic);
+          setAccountStatus(data.status || 'Active');
         } else {
           setProfileName('User');
           setProfilePic(null);
         }
       } else if (role === 'company') {
-        const { data } = await supabase.from('companies').select('name, logo_url').eq('id', user.id).maybeSingle();
+        // 🚨 UPDATED: Now fetching status for companies too
+        const { data } = await supabase.from('companies').select('name, logo_url, status').eq('id', user.id).maybeSingle();
         if (data && data.name) {
           setProfileName(data.name);
           setProfilePic(data.logo_url);
+          setAccountStatus(data.status || 'Active');
         }
       } else if (role === 'admin') {
         setProfileName('Admin Account');
@@ -145,7 +157,6 @@ export default function Navbar() {
         <>
           <li><Link to="/user-jobs" className={`nav-link ${location.pathname === '/user-jobs' ? 'active' : ''}`}>Applications</Link></li>
           <li><Link to="/resumes" className={`nav-link ${location.pathname === '/resumes' ? 'active' : ''}`}>Resumes</Link></li>
-          {/* 🚨 User Feedback nav link removed here */}
         </>
       )}
 
@@ -276,8 +287,16 @@ export default function Navbar() {
   );
 
   return (
-    <nav className="navbar">
-      <div className="navbar-container">
+    <nav className="navbar" style={{ display: 'flex', flexDirection: 'column', height: 'auto' }}>
+      
+      {/* 🚨 NEW: Global Warning Banner */}
+      {['Archived', 'Rejected'].includes(accountStatus) && !isMinimalNav && (
+        <div style={{ background: '#fef2f2', color: '#dc2626', width: '100%', padding: '10px 16px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem', borderBottom: '1px solid #fecaca', zIndex: 1001 }}>
+          ⚠️ Account Disabled: Your account is currently suspended or under review. Some platform features may be restricted.
+        </div>
+      )}
+
+      <div className="navbar-container" style={{ width: '100%' }}>
         <div className="brand" onClick={() => isOnboarding ? handleSignOut() : navigate('/')} style={{ cursor: 'pointer' }}>
           <span className="brand-logo">H</span><span className="brand-name">Hearable</span>
         </div>

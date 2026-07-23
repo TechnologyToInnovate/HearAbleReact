@@ -109,6 +109,18 @@ export default function CompanyProfile() {
 
   const isOwnProfile = currentUser?.id === id;
   const isAdmin = role === 'admin';
+
+  // 🚨 STRICT BLOCK: Prevent standard users and guests from viewing a disabled profile via direct URL
+  if (!isAdmin && !isOwnProfile && (company.status === 'Archived' || company.status === 'Rejected')) {
+    return (
+      <div className="page-container-wide text-center mt-32">
+        <h2 style={{ fontSize: '3rem', margin: '0 0 16px 0' }}>🏢</h2>
+        <h3 className="m-0 mb-8">Profile Unavailable</h3>
+        <p className="text-secondary">This company profile is currently disabled or under review.</p>
+        <button className="btn-outline mt-24" onClick={() => navigate('/companies')}>View Active Companies</button>
+      </div>
+    );
+  }
   
   const loc = company.locations || {};
   const locationText = formatLocation(loc.city, loc.country, '');
@@ -136,11 +148,21 @@ export default function CompanyProfile() {
         fallbackName={company.name}
         avatarType="company"
         title={
-          <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             {company.name}
-            {/* 🚨 HIDDEN FOR GUESTS: Only show badge if role is not guest */}
+            
+            {/* 🚨 NEW: Alert the company owner that their profile is disabled */}
+            {isOwnProfile && ['Archived', 'Rejected'].includes(company.status) && (
+              <span style={{ 
+                background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', 
+                fontSize: '0.85rem', padding: '4px 12px', borderRadius: '12px', fontWeight: 'bold' 
+              }}>
+                Account Disabled
+              </span>
+            )}
+
             {hasDeafBadge && role !== 'guest' && <DeafAccessibleBadge size="lg" showText={true} features={company} isAccessible={company.is_deaf_accessible} />}
-          </>
+          </div>
         }
         subtitle={
           <>
@@ -227,7 +249,7 @@ export default function CompanyProfile() {
             ) : companyJobs.length > 0 ? (
               <div className="flex-col gap-16">
                 {companyJobs.map(job => (
-                  <JobCard key={job.id} job={job} isSelected={false} onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })} />
+                  <JobCard key={job.id} job={job} isSelected={false} onClick={() => navigate('/jobs', { state: { selectedJobId: job.id } })} role={role} />
                 ))}
               </div>
             ) : (
@@ -242,7 +264,6 @@ export default function CompanyProfile() {
         <div style={{ position: 'sticky', top: '90px' }}>
           <div className="card p-24">
             <h3 className="mb-16 m-0">Company Details</h3>
-            {/* 🚨 HIDDEN FOR GUESTS: Obscured the specific company details */}
             {role === 'guest' ? (
               <p className="text-secondary text-sm italic m-0">Please sign in to view company details.</p>
             ) : (

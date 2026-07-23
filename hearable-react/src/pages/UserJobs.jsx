@@ -19,7 +19,7 @@ export default function UserJobs() {
 
   // States for the feedback modal
   const [feedbackApp, setFeedbackApp] = useState(null);
-  const [rating, setRating] = useState(5);
+  const [feedbackTitle, setFeedbackTitle] = useState('');
   const [comment, setComment] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
@@ -40,8 +40,9 @@ export default function UserJobs() {
       .eq('applicant_id', user.id)
       .order('created_at', { ascending: false });
 
+    let mappedApps = [];
     if (appsData) {
-      const mappedApps = appsData.map(app => ({
+      mappedApps = appsData.map(app => ({
         ...app,
         job: {
           ...app.jobs,
@@ -62,40 +63,49 @@ export default function UserJobs() {
       .order('created_at', { ascending: false });
 
     if (savedData) {
-      const mappedSaved = savedData.map(saved => ({
-        ...saved,
-        job: {
-          ...saved.jobs,
-          location: saved.jobs.locations?.city || '',
-          skills: saved.jobs.job_skills ? saved.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
-          company: saved.jobs.companies?.name || 'Unknown Company',
-          is_deaf_accessible: saved.jobs.companies?.is_deaf_accessible || false,
-          date: formatStandardDate(saved.jobs.created_at)
-        }
-      }));
+      const mappedSaved = savedData.map(saved => {
+        const matchingApp = mappedApps.find(app => app.job_id === saved.job_id);
+        return {
+          ...saved,
+          status: matchingApp ? matchingApp.status : null,
+          job: {
+            ...saved.jobs,
+            location: saved.jobs.locations?.city || '',
+            skills: saved.jobs.job_skills ? saved.jobs.job_skills.map(js => ({ id: js.skills.id, name: js.skills.name })) : [],
+            company: saved.jobs.companies?.name || 'Unknown Company',
+            is_deaf_accessible: saved.jobs.companies?.is_deaf_accessible || false,
+            date: formatStandardDate(saved.jobs.created_at)
+          }
+        };
+      });
       setSavedJobs(mappedSaved);
     }
 
     setIsLoading(false);
   }
 
-  // Handle feedback submission using exact database schema
   async function handleSubmitFeedback(e) {
     e.preventDefault();
+    if (!comment.trim() || !feedbackTitle.trim()) return;
+
     setIsSubmittingFeedback(true);
+    
+    // Append the hidden Job ID tag and Title to match JobDetailsPane format
+    const finalMessage = `${comment.trim()}\n\n---\n📌 Job Title: ${feedbackApp.job?.title}\n[JobID:${feedbackApp.job?.id}]`;
+
     try {
       const { error } = await supabase.from('feedbacks').insert([{
         user_id: user.id,
-        title: `Hired: ${feedbackApp.job?.title} at ${feedbackApp.job?.company}`,
-        purpose: `Company Rating: ${rating}/5`,
-        message: comment
+        title: feedbackTitle.trim(),
+        purpose: 'Jobs',
+        message: finalMessage
       }]);
       
       if (error) throw error;
       
       alert('Thank you! Your feedback has been submitted successfully.');
       setFeedbackApp(null);
-      setRating(5);
+      setFeedbackTitle('');
       setComment('');
     } catch (error) {
       console.error("Failed to submit feedback:", error);
@@ -176,33 +186,54 @@ export default function UserJobs() {
       {isLoading ? (
         <p className="text-center text-secondary mt-32">Loading your applications...</p>
       ) : displayList.length > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-          {displayList.map(item => (
-            <div key={item.id} className="flex-col" style={{ position: 'relative', gap: '12px' }}>
-              
-              {activeTab !== 'Saved' && (
-                <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
-                  <StatusBadge status={item.status || 'Pending'} />
-                </div>
-              )}
+        <div className="flex-col gap-24">
+          {displayList.map(item => {
+            const isInterviewStage = item.status === 'Interviewing' || item.status === 'Approved';
+            const isHiredStage = item.status === 'Hired';
+            const showFeedbackBtn = isInterviewStage || isHiredStage || activeTab === 'Interviews' || activeTab === 'Hired';
 
-              <JobCard 
-                job={item.job} 
-                isSelected={false} 
-                onClick={() => navigate('/jobs', { state: { selectedJobId: item.job.id } })} 
-              />
-              
-              {activeTab === 'Hired' && (
-                <button 
-                  className="btn-outline w-full" 
-                  style={{ background: 'var(--card-bg)', border: '1px solid var(--primary-color)', color: 'var(--primary-color)', padding: '10px' }}
-                  onClick={() => setFeedbackApp(item)}
+            return (
+              <div key={item.id} className="w-full" style={{ position: 'relative' }}>
+                
+                {item.status ? (
+                  <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
+                    <StatusBadge status={item.status} />
+                  </div>
+                ) : (
+                  <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
+                    <span className="badge badge-neutral" style={{ background: 'var(--bg-color)' }}>Saved</span>
+                  </div>
+                )}
+
+                <JobCard 
+                  job={item.job} 
+                  isSelected={false} 
+                  onClick={() => navigate('/jobs', { state: { selectedJobId: item.job.id } })} 
                 >
-                  ⭐️ Leave Feedback
-                </button>
-              )}
-            </div>
-          ))}
+                  {showFeedbackBtn && (
+                    <button 
+                      className="btn-sm" 
+                      style={{ 
+                        background: '#047857', // 🚨 Darker Green
+                        border: 'none', 
+                        color: '#ffffff', 
+                        padding: '8px 24px',
+                        fontWeight: '600',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFeedbackApp(item);
+                      }}
+                    >
+                      Leave Feedback
+                    </button>
+                  )}
+                </JobCard>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="card text-center text-secondary p-32 mt-32">
@@ -211,46 +242,55 @@ export default function UserJobs() {
         </div>
       )}
 
-      {/* Feedback Submission Modal */}
+      {/* 🚨 RESTRUCTURED MODAL (Matches JobDetailsPane exactly) */}
       {feedbackApp && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div className="card p-24" style={{ width: '100%', maxWidth: '400px', background: 'var(--card-bg)' }}>
-            <h3 className="m-0 mb-16">Leave Feedback</h3>
-            <p className="text-sm text-secondary mb-16" style={{ lineHeight: '1.5' }}>
-              How was your experience getting hired for <strong>{feedbackApp.job?.title}</strong> at <strong>{feedbackApp.job?.company}</strong>?
-            </p>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
+          <div className="card p-0" style={{ width: '100%', maxWidth: '500px', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Job Feedback</h3>
+              <button 
+                title="Close" 
+                onClick={() => {
+                  setFeedbackApp(null);
+                  setFeedbackTitle('');
+                  setComment('');
+                }} 
+                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-color)', lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
             
-            <form onSubmit={handleSubmitFeedback} className="flex-col gap-16">
-              <div>
-                <label className="block mb-8 font-bold text-sm">Rating (1-5)</label>
-                <input 
-                  type="number" min="1" max="5" 
-                  value={rating} 
-                  onChange={(e) => setRating(e.target.value)} 
-                  className="search-input w-full" 
-                  required 
-                />
-              </div>
-              <div>
-                <label className="block mb-8 font-bold text-sm">Comments</label>
-                <textarea 
-                  value={comment} 
-                  onChange={(e) => setComment(e.target.value)} 
-                  className="search-input w-full" 
-                  rows="4" 
-                  required 
-                  placeholder="Share your experience working with this company..." 
-                />
-              </div>
-              <div className="flex-row gap-8 mt-8">
-                <button type="submit" className="btn-black flex-1" disabled={isSubmittingFeedback}>
+            <div style={{ padding: '24px' }}>
+              <form onSubmit={handleSubmitFeedback} className="flex-col gap-16">
+                <div>
+                  <label className="block mb-8 font-medium">Title</label>
+                  <input 
+                    type="text" 
+                    className="search-input w-full" 
+                    placeholder="e.g., Great Interview Process!" 
+                    value={feedbackTitle}
+                    onChange={(e) => setFeedbackTitle(e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block mb-8 font-medium">Details</label>
+                  <textarea 
+                    className="search-input w-full" 
+                    rows="5" 
+                    style={{ resize: 'vertical' }}
+                    placeholder="Tell us about your experience with this job/interview..." 
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn-black w-full" style={{ padding: '12px', fontSize: '1rem' }} disabled={isSubmittingFeedback}>
                   {isSubmittingFeedback ? 'Submitting...' : 'Submit Feedback'}
                 </button>
-                <button type="button" className="btn-outline flex-1" onClick={() => setFeedbackApp(null)}>
-                  Cancel
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
