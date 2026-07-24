@@ -20,8 +20,6 @@ export default function Jobs() {
   const [selectedJobId, setSelectedJobId] = useState(null);
   
   const [savedJobs, setSavedJobs] = useState([]);
-  
-  // THIS MUST BE AN ARRAY OF OBJECTS NOW TO HOLD THE STATUS
   const [appliedJobs, setAppliedJobs] = useState([]); 
   
   const [isSaving, setIsSaving] = useState(false);
@@ -42,10 +40,8 @@ export default function Jobs() {
   const [filterType, setFilterType] = useState('All');
   const [filterDate, setFilterDate] = useState('All');
   
-  // 🚨 UPDATED: Read the activeTab from the navigation state if it exists
   const [adminStatusFilter, setAdminStatusFilter] = useState(location.state?.activeTab || 'Approved'); 
 
-  // 🚨 NEW: Clear the navigation state after setting the tab so refreshes act normally
   useEffect(() => {
     if (location.state?.activeTab) {
       setAdminStatusFilter(location.state.activeTab);
@@ -72,8 +68,17 @@ export default function Jobs() {
 
   const filteredJobs = (jobs || [])
     .filter(job => {
-      if (role !== 'admin' && job.status !== 'Approved') return false; 
-      if (role === 'admin' && adminStatusFilter !== 'All' && job.status !== adminStatusFilter) return false;
+      const isDeadlinePassed = job.closing_date 
+        ? new Date(job.closing_date) < new Date(new Date().setHours(0,0,0,0)) 
+        : false;
+
+      // 🚨 REVERTED: Simple visibility logic for the public board
+      if (role === 'admin') {
+        if (adminStatusFilter !== 'All' && job.status !== adminStatusFilter) return false;
+      } else {
+        if (job.status !== 'Approved') return false;
+        if (isDeadlinePassed) return false;
+      }
 
       const matchesSearch = (job.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                             (job.company || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -96,7 +101,7 @@ export default function Jobs() {
       if (role === 'guest') {
         return {
           ...job,
-          company: 'Sign In To View Company', 
+          company: job.companies?.industry || 'Confidential Industry', 
           location: 'Sign in to view location',
           pay_blurred: true, 
           pay_rate: ''
@@ -111,7 +116,8 @@ export default function Jobs() {
   if (role === 'guest' && selectedCompanyData) {
     selectedCompanyData = {
       ...selectedCompanyData,
-      name: 'Sign In To View Company',
+      name: selectedCompanyData.industry || 'Confidential Industry',
+      description: 'Sign in or create an account to view full company details and learn more about this employer.',
       locations: { city: 'Sign in to view location', country: '' },
       logo_url: null,
       representative: null,
@@ -131,12 +137,10 @@ export default function Jobs() {
     if (['guest', 'company', 'admin'].includes(role)) return;
     
     const { data: saved } = await supabase.from('saved_jobs').select('job_id').eq('user_id', currentUser.id);
-    
-    // IMPORTANT: Fetches both the job_id AND the current status of the application
     const { data: applied } = await supabase.from('applications').select('job_id, status').eq('applicant_id', currentUser.id);
     
     if (saved) setSavedJobs(saved.map(s => s.job_id));
-    if (applied) setAppliedJobs(applied); // Saves the array of objects containing the statuses
+    if (applied) setAppliedJobs(applied);
   }
 
   async function handleApplyClick() {
@@ -175,7 +179,6 @@ export default function Jobs() {
     }]);
 
     if (!error) {
-      // Ensures new applications correctly log as 'Pending' in local state
       setAppliedJobs([...appliedJobs, { job_id: selectedJobId, status: 'Pending' }]);
       alert("Application sent successfully!");
       setShowApplyModal(false);
@@ -294,30 +297,6 @@ export default function Jobs() {
     } catch (error) {
       console.error("Error deleting job:", error);
       alert("An error occurred while trying to delete the job.");
-    }
-  }
-
-  async function handleRepostJob(jobId) {
-    if (role !== 'company') return;
-    
-    const newClosingDate = new Date();
-    newClosingDate.setDate(newClosingDate.getDate() + 7);
-    const formattedDate = newClosingDate.toISOString().split('T')[0];
-
-    const { error } = await supabase
-      .from('jobs')
-      .update({ 
-        closing_date: formattedDate,
-        status: 'Pending' 
-      })
-      .eq('id', jobId);
-
-    if (!error) {
-      alert("Job reposted for 1 week! It is now pending admin approval.");
-      setJobs(jobs?.map(j => j.id === jobId ? { ...j, closing_date: formattedDate, status: 'Pending' } : j));
-      setSelectedJobId(null);
-    } else {
-      alert("Failed to repost job.");
     }
   }
 
@@ -440,7 +419,6 @@ export default function Jobs() {
               role={role}
               currentUser={currentUser}
               isApplying={isApplying}
-              // PASSING DOWN STATUS ACCURATELY HERE
               hasApplied={appliedJobs.some(a => a.job_id === selectedJobId)}
               applicationStatus={appliedJobs.find(a => a.job_id === selectedJobId)?.status}
               isSaved={savedJobs.includes(selectedJobId)}
@@ -449,7 +427,6 @@ export default function Jobs() {
               handleSaveJob={handleSaveJob}
               handleDeleteJob={handleDeleteJob} 
               handleUpdateJobStatus={handleUpdateJobStatus}
-              handleRepostJob={handleRepostJob}
               handleWithdrawApplication={handleWithdrawApplication} 
               navigate={navigate}
               handleClose={() => setSelectedJobId(null)} 

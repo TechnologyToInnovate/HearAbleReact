@@ -20,9 +20,16 @@ export default function MyJobs() {
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  const [companyProfile, setCompanyProfile] = useState(null);
+  
   // Tracks which job is currently selected for the right-hand details pane
   const [selectedJobId, setSelectedJobId] = useState(null);
   
+  // 🚨 UPDATED: State initializes from localStorage to remember the last visited tab
+  const [companyTab, setCompanyTab] = useState(() => {
+    return localStorage.getItem('companyTab') || 'Active';
+  });
+
   // UI filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModality, setFilterModality] = useState('All');
@@ -36,6 +43,11 @@ export default function MyJobs() {
 
   // Derived state: find the full job object for the currently selected ID
   const selectedJob = jobs.find(job => job.id === selectedJobId);
+
+  // 🚨 NEW: Effect to save the active tab to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('companyTab', companyTab);
+  }, [companyTab]);
 
   // Protect the route: ensure only authenticated companies can access this dashboard
   useEffect(() => {
@@ -64,6 +76,10 @@ export default function MyJobs() {
     const { data: jobsData } = await supabase.from('jobs').select('*, locations(city, country), job_skills(skills(id, name))').eq('company_id', currentUser.id).order('created_at', { ascending: false });
     const { data: appsData } = await supabase.from('applications').select('job_id');
 
+    if (companyData) {
+      setCompanyProfile(companyData);
+    }
+
     if (jobsData && companyData) {
       // Map the relational database structure into a flat, UI-friendly format
       const mappedJobs = jobsData.map(job => {
@@ -90,8 +106,8 @@ export default function MyJobs() {
   async function handlePostJob(formData) {
     if (!currentUser) return;
     
-    // Platform limitation: companies can only have up to 3 active postings at a time
-    if (jobs.length >= 3) return alert("You have reached the maximum limit of 3 active job postings.");
+    // Limit increased to 5 postings
+    if (jobs.length >= 5) return alert("You have reached the maximum limit of 5 job postings.");
 
     setIsSubmitting(true);
     const { skills, location: jobLocationString, ...jobDetails } = formData;
@@ -209,6 +225,19 @@ export default function MyJobs() {
 
   // Master filtering logic for the job list view
   const filteredJobs = jobs.filter(job => {
+    // Calculate if the job's deadline has passed
+    const isDeadlinePassed = job.closing_date 
+      ? new Date(job.closing_date) < new Date(new Date().setHours(0,0,0,0)) 
+      : false;
+
+    // Filter jobs based on Active, Archived, or All tabs
+    if (companyTab === 'Active') {
+      if (isDeadlinePassed || job.status === 'Rejected' || job.status === 'Archived') return false; 
+    } else if (companyTab === 'Archived') {
+      if (!isDeadlinePassed && job.status !== 'Rejected' && job.status !== 'Archived') return false;
+    }
+    // If companyTab === 'All', we don't return false for any status/deadline
+
     const matchesSearch = (job.title || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesModality = filterModality === 'All' || job.work_model === filterModality;
     const matchesType = filterType === 'All' || job.type === filterType;
@@ -233,6 +262,28 @@ export default function MyJobs() {
       <JobFormModal isOpen={isEditingJob} onClose={() => setIsEditingJob(false)} onSubmit={handleUpdateJob} initialData={selectedJob} isEditing={true} isSubmitting={isSubmitting} />
 
       {/* --- HEADER & FILTERS --- */}
+      <div className="flex-between align-center mb-24">
+        <h1 className="m-0">My Postings</h1>
+      </div>
+
+      {/* Company Tabs for All, Active, and Archived */}
+      <div className="flex-row gap-8 mb-24" style={{ overflowX: 'auto', borderBottom: '1px solid var(--border-color)' }}>
+        {['All', 'Active', 'Archived'].map(tab => (
+          <button
+            key={tab} 
+            onClick={() => { setCompanyTab(tab); setSelectedJobId(null); }}
+            style={{
+              padding: '8px 20px', border: 'none', background: 'none',
+              borderBottom: companyTab === tab ? '2px solid var(--primary-color)' : '2px solid transparent',
+              color: companyTab === tab ? 'var(--primary-color)' : 'var(--secondary-text)',
+              fontWeight: companyTab === tab ? '600' : '400', cursor: 'pointer', fontSize: '1rem',
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       <div className="mb-16">
         <SearchBar value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search your job titles..." />
       </div>
@@ -244,19 +295,19 @@ export default function MyJobs() {
           filterDate={filterDate} setFilterDate={setFilterDate}
         />
         
-        {/* Job Posting Limit Indicator */}
+        {/* Job Posting Limit Indicator increased to 5 */}
         {!isLoading && (
           <div className="flex-col" style={{ alignItems: 'flex-end' }}>
             <button 
               className="btn-black" 
               onClick={() => setShowAddForm(true)}
-              disabled={jobs.length >= 3}
-              style={{ opacity: jobs.length >= 3 ? 0.5 : 1, cursor: jobs.length >= 3 ? 'not-allowed' : 'pointer' }}
+              disabled={jobs.length >= 5}
+              style={{ opacity: jobs.length >= 5 ? 0.5 : 1, cursor: jobs.length >= 5 ? 'not-allowed' : 'pointer' }}
             >
               + Post a Job
             </button>
             <span className="text-sm text-secondary mt-4 font-bold">
-              {jobs.length}/3 Posts Used
+              {jobs.length}/5 Posts Used
             </span>
           </div>
         )}
@@ -283,7 +334,7 @@ export default function MyJobs() {
                     )}
                   </div>
 
-                  <JobCard job={job} isSelected={false} onClick={() => setSelectedJobId(job.id)} />
+                  <JobCard job={job} companyData={companyProfile} isSelected={false} onClick={() => setSelectedJobId(job.id)} />
                 </div>
               ))}
             </div>
@@ -313,7 +364,7 @@ export default function MyJobs() {
                     )}
                   </div>
 
-                  <JobCard job={job} isSelected={job.id === selectedJobId} onClick={() => setSelectedJobId(job.id)} />
+                  <JobCard job={job} companyData={companyProfile} isSelected={job.id === selectedJobId} onClick={() => setSelectedJobId(job.id)} />
                 </div>
               )) : <p className="text-center text-secondary p-20">No matching jobs.</p>}
             </div>
@@ -323,6 +374,7 @@ export default function MyJobs() {
           <div className="job-details-column">
             <JobDetailsPane
               selectedJob={selectedJob}
+              selectedCompany={companyProfile}
               role={role}
               currentUser={currentUser}
               handleDeleteJob={handleDeleteJob}

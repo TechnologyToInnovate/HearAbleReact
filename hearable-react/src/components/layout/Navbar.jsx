@@ -162,7 +162,8 @@ export default function Navbar() {
 
       {role === 'company' && (
         <>
-          <li><Link to="/my-jobs" className={`nav-link ${location.pathname === '/my-jobs' ? 'active' : ''}`}>Postings</Link></li>
+          {/* 🚨 UPDATED: Renamed from Postings to My Postings */}
+          <li><Link to="/my-jobs" className={`nav-link ${location.pathname === '/my-jobs' ? 'active' : ''}`}>My Postings</Link></li>
           <li><Link to="/applicants" className={`nav-link ${location.pathname === '/applicants' ? 'active' : ''}`}>Applicants</Link></li>
         </>
       )}

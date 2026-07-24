@@ -12,7 +12,7 @@ export default function JobDetailsPane({
   isApplying, hasApplied, applicationStatus, isSaved, isSaving, 
   handleApply, handleSaveJob, handleDeleteJob,
   setIsEditingJob, navigate, handleUpdateJobStatus,
-  handleRepostJob, handleWithdrawApplication,
+  handleWithdrawApplication,
   handleClose,
   initialOpenJobDesc, 
   initialOpenCompDesc
@@ -43,16 +43,15 @@ export default function JobDetailsPane({
   const editCount = selectedJob.edit_count || 0;
   const showCompanyActions = role === 'company' && isOwner;
 
-  const GUEST_LIMIT = 150;
-  const JOB_DESC_LIMIT = 150;
+  const companyNameToDisplay = isGuest 
+    ? (selectedCompany?.industry || 'Confidential Industry') 
+    : (selectedCompany?.name || 'Unknown Company');
 
+  const JOB_DESC_LIMIT = 150;
   const jobDesc = selectedJob.description || '';
   const shouldTruncateJob = jobDesc.length > JOB_DESC_LIMIT;
 
   const companyDesc = selectedCompany?.description || '';
-  const shouldTruncateCompGuest = isGuest && companyDesc.length > GUEST_LIMIT;
-  const displayCompDescGuest = shouldTruncateCompGuest ? companyDesc.substring(0, GUEST_LIMIT) + '...' : companyDesc;
-
   const DESC_LIMIT = 200;
   const shouldTruncateDesc = !isGuest && companyDesc.length > DESC_LIMIT;
   const displayDesc = (shouldTruncateDesc && !isDescExpanded) 
@@ -92,7 +91,6 @@ export default function JobDetailsPane({
 
     setIsSubmittingFeedback(true);
     
-    // 🚨 UPDATED: Appending a hidden Job ID tag and Title to the message payload
     const finalMessage = `${feedbackMessage.trim()}\n\n---\n📌 Job Title: ${selectedJob.title}\n[JobID:${selectedJob.id}]`;
 
     const { error } = await supabase.from('feedbacks').insert([{
@@ -142,16 +140,7 @@ export default function JobDetailsPane({
                 </>
               )}
 
-              {showCompanyActions && isDeadlinePassed && (
-                <button 
-                  title="Extend the deadline for this job by 7 days"
-                  onClick={() => handleRepostJob(selectedJob.id)} 
-                  className="btn-outline btn-sm"
-                  style={{ background: '#f0fdf4', color: '#166534', borderColor: '#bbf7d0', cursor: 'pointer' }}
-                >
-                  Repost Job
-                </button>
-              )}
+              {/* 🚨 REMOVED: Repost Job Button Logic from here */}
 
               {showCompanyActions && setIsEditingJob && (
                 <button 
@@ -196,9 +185,9 @@ export default function JobDetailsPane({
                   textOverflow: 'ellipsis', 
                   maxWidth: '45%'
                 }}
-                title={selectedJob.company}
+                title={companyNameToDisplay}
               >
-                {selectedJob.company}
+                {companyNameToDisplay}
               </div>
               
               {selectedJob.location && (
@@ -375,96 +364,66 @@ export default function JobDetailsPane({
               </h3>
               <div style={{ height: '1px', background: 'var(--border-color)', margin: '16px 0 20px 0' }} />
 
-              {isGuest ? (
-                <>
-                  {companyDesc && (
-                    <div className="mb-24">
-                      <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
-                        {displayCompDescGuest}
-                      </p>
-                      {shouldTruncateCompGuest && (
-                        <button 
-                          onClick={() => navigate('/login', { state: { returnTo: `/jobs`, returnState: { selectedJobId: selectedJob.id, openCompDesc: true } } })}
-                          style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontWeight: '700', padding: '8px 0 0 0', cursor: 'pointer', fontSize: '0.9rem' }}
-                        >
-                          Read More...
-                        </button>
-                      )}
-                    </div>
-                  )}
+              {hasDeafBadge && !isGuest && (
+                <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
+                  <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
+                </div>
+              )}
 
-                  <div className="text-center p-16 mt-16" style={{ background: 'var(--bg-color)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
-                    <p className="text-secondary m-0 mb-12 text-sm">Create a free account to view the full company profile, accessible features, and apply to this job!</p>
-                    
-                    <button className="btn-black btn-sm" onClick={() => navigate('/login', { state: { returnTo: `/jobs`, returnState: { selectedJobId: selectedJob.id, openApply: true } } })}>
-                      Sign In To View
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {hasDeafBadge && (
-                    <div style={{ position: 'absolute', top: '24px', right: '24px' }}>
-                      <DeafAccessibleBadge size="sm" showText={true} features={accessData} isAccessible={hasDeafBadge} />
-                    </div>
-                  )}
-
-                  <div className="flex-row gap-16 align-start mb-24">
-                    <Avatar src={selectedCompany.logo_url} fallbackName={selectedCompany.name} size="md" type="company" customStyle={{ width: '48px', height: '48px', flexShrink: 0 }} />
-                    
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <h4 
-                        className="m-0 mb-8" 
-                        style={{ 
-                          fontSize: '1.15rem', 
-                          whiteSpace: 'nowrap', 
-                          overflow: 'hidden', 
-                          textOverflow: 'ellipsis' 
-                        }}
-                        title={selectedCompany.name}
-                      >
-                        {selectedCompany.name}
-                      </h4>
-                      <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>
-                        {formatLocation(selectedCompany.locations?.city, selectedCompany.locations?.country, "Location not specified")}
-                      </p>
-                    </div>
-                  </div>
-
-                  {companyDesc && (
-                    <div className="mb-24">
-                      <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
-                        {displayDesc}
-                      </p>
-                      {shouldTruncateDesc && (
-                        <button 
-                          onClick={() => setIsDescExpanded(!isDescExpanded)}
-                          title={isDescExpanded ? "Collapse company description" : "Expand company description"}
-                          style={{ 
-                            background: 'none', 
-                            border: 'none', 
-                            color: 'var(--primary-color)', 
-                            fontWeight: '700', 
-                            padding: '8px 0 0 0', 
-                            cursor: 'pointer',
-                            fontSize: '0.9rem'
-                          }}
-                        >
-                          {isDescExpanded ? 'Show Less' : 'Read More...'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  <button 
-                    className="btn-outline w-full btn-sm" 
-                    title="Navigate to company profile page"
-                    style={{ padding: '8px 12px' }} 
-                    onClick={() => navigate(`/company/${selectedCompany.id}`)}
+              <div className="flex-row gap-16 align-start mb-24">
+                <Avatar src={isGuest ? null : selectedCompany.logo_url} fallbackName={companyNameToDisplay} size="md" type="company" customStyle={{ width: '48px', height: '48px', flexShrink: 0 }} />
+                
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h4 
+                    className="m-0 mb-8" 
+                    style={{ 
+                      fontSize: '1.15rem', 
+                      whiteSpace: 'nowrap', 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis' 
+                    }}
+                    title={companyNameToDisplay}
                   >
-                    View Full Company Profile
+                    {companyNameToDisplay}
+                  </h4>
+                  <p className="text-sm text-secondary m-0" style={{ lineHeight: '1.5' }}>
+                    {isGuest ? 'Sign in to view location' : formatLocation(selectedCompany.locations?.city, selectedCompany.locations?.country, "Location not specified")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-24">
+                <p className="text-secondary m-0" style={{ lineHeight: '1.6', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+                  {isGuest ? 'Sign in or create an account to view full company details and learn more about this employer.' : displayDesc}
+                </p>
+                {!isGuest && shouldTruncateDesc && (
+                  <button 
+                    onClick={() => setIsDescExpanded(!isDescExpanded)}
+                    title={isDescExpanded ? "Collapse company description" : "Expand company description"}
+                    style={{ 
+                      background: 'none', 
+                      border: 'none', 
+                      color: 'var(--primary-color)', 
+                      fontWeight: '700', 
+                      padding: '8px 0 0 0', 
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    {isDescExpanded ? 'Show Less' : 'Read More...'}
                   </button>
-                </>
+                )}
+              </div>
+
+              {!isGuest && (
+                <button 
+                  className="btn-outline w-full btn-sm" 
+                  title="Navigate to company profile page"
+                  style={{ padding: '8px 12px' }} 
+                  onClick={() => navigate(`/company/${selectedCompany.id}`)}
+                >
+                  View Full Company Profile
+                </button>
               )}
             </div>
           )}

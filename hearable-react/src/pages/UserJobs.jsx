@@ -115,11 +115,18 @@ export default function UserJobs() {
     }
   }
 
+  // 🚨 NEW: Helper function to determine if a job's deadline has passed
+  const isJobExpired = (dateString) => {
+    if (!dateString) return false;
+    return new Date(dateString) < new Date(new Date().setHours(0,0,0,0));
+  };
+
+  // 🚨 UPDATED: Display lists now automatically filter out expired jobs for Saved & Applied
   let displayList = [];
   if (activeTab === 'Saved') {
-    displayList = savedJobs;
+    displayList = savedJobs.filter(item => !isJobExpired(item.job?.closing_date));
   } else if (activeTab === 'Applied') {
-    displayList = applications;
+    displayList = applications.filter(item => !isJobExpired(item.job?.closing_date));
   } else if (activeTab === 'Interviews') { 
     displayList = applications.filter(app => app.status === 'Interviewing' || app.status === 'Approved');
   } else if (activeTab === 'Hired') {
@@ -142,8 +149,9 @@ export default function UserJobs() {
       <div className="flex-row gap-8 mb-32" style={{ overflowX: 'auto', borderBottom: '1px solid var(--border-color)' }}>
         {tabs.map(tab => {
           let count = 0;
-          if (tab === 'Saved') count = savedJobs.length;
-          if (tab === 'Applied') count = applications.length;
+          // 🚨 UPDATED: Tab counts stay accurate by filtering out expired jobs as well
+          if (tab === 'Saved') count = savedJobs.filter(item => !isJobExpired(item.job?.closing_date)).length;
+          if (tab === 'Applied') count = applications.filter(item => !isJobExpired(item.job?.closing_date)).length;
           if (tab === 'Interviews') count = applications.filter(a => a.status === 'Interviewing' || a.status === 'Approved').length;
           if (tab === 'Hired') count = applications.filter(a => a.status === 'Hired').length;
           if (tab === 'Archived') count = applications.filter(a => a.status === 'Rejected' || a.status === 'Archived').length;
@@ -191,46 +199,69 @@ export default function UserJobs() {
             const isInterviewStage = item.status === 'Interviewing' || item.status === 'Approved';
             const isHiredStage = item.status === 'Hired';
             const showFeedbackBtn = isInterviewStage || isHiredStage || activeTab === 'Interviews' || activeTab === 'Hired';
+            
+            // 🚨 NEW: Determines if the job is expired and should be unclickable
+            const expired = isJobExpired(item.job?.closing_date);
+            const disableClick = expired && (activeTab === 'Interviews' || activeTab === 'Hired' || activeTab === 'Archived');
 
             return (
-              <div key={item.id} className="w-full" style={{ position: 'relative' }}>
+              <div 
+                key={item.id} 
+                className="w-full" 
+                style={{ 
+                  position: 'relative', 
+                  opacity: disableClick ? 0.7 : 1, // Visually greys out expired items
+                  transition: 'opacity 0.2s'
+                }}
+              >
                 
-                {item.status ? (
-                  <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
-                    <StatusBadge status={item.status} />
-                  </div>
-                ) : (
-                  <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none' }}>
-                    <span className="badge badge-neutral" style={{ background: 'var(--bg-color)' }}>Saved</span>
-                  </div>
-                )}
-
-                <JobCard 
-                  job={item.job} 
-                  isSelected={false} 
-                  onClick={() => navigate('/jobs', { state: { selectedJobId: item.job.id } })} 
-                >
-                  {showFeedbackBtn && (
-                    <button 
-                      className="btn-sm" 
-                      style={{ 
-                        background: '#047857', // 🚨 Darker Green
-                        border: 'none', 
-                        color: '#ffffff', 
-                        padding: '8px 24px',
-                        fontWeight: '600',
-                        borderRadius: '6px',
-                        cursor: 'pointer'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFeedbackApp(item);
-                      }}
-                    >
-                      Leave Feedback
-                    </button>
+                <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 2, pointerEvents: 'none', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {/* 🚨 NEW: Shows a 'Closed' badge if the job is expired */}
+                  {disableClick && (
+                    <span className="badge badge-neutral" style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                      Closed
+                    </span>
                   )}
-                </JobCard>
+                  {item.status ? (
+                    <StatusBadge status={item.status} />
+                  ) : (
+                    <span className="badge badge-neutral" style={{ background: 'var(--bg-color)' }}>Saved</span>
+                  )}
+                </div>
+
+                <div 
+                  onClick={disableClick ? (e) => e.preventDefault() : undefined} 
+                  style={{ cursor: disableClick ? 'default' : 'pointer' }}
+                >
+                  <JobCard 
+                    job={item.job} 
+                    isSelected={false} 
+                    // Prevents redirection to the job board if expired
+                    onClick={disableClick ? () => {} : () => navigate('/jobs', { state: { selectedJobId: item.job.id } })} 
+                  >
+                    {showFeedbackBtn && (
+                      <button 
+                        className="btn-sm" 
+                        style={{ 
+                          background: '#047857', 
+                          border: 'none', 
+                          color: '#ffffff', 
+                          padding: '8px 24px',
+                          fontWeight: '600',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          pointerEvents: 'auto' // Ensures button remains clickable even if the card is not
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFeedbackApp(item);
+                        }}
+                      >
+                        Leave Feedback
+                      </button>
+                    )}
+                  </JobCard>
+                </div>
               </div>
             );
           })}
@@ -242,7 +273,7 @@ export default function UserJobs() {
         </div>
       )}
 
-      {/* 🚨 RESTRUCTURED MODAL (Matches JobDetailsPane exactly) */}
+      {/* RESTRUCTURED MODAL (Matches JobDetailsPane exactly) */}
       {feedbackApp && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, padding: '20px' }}>
           <div className="card p-0" style={{ width: '100%', maxWidth: '500px', background: 'var(--card-bg)', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
