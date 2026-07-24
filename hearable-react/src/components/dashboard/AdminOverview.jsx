@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// 🚨 FIXED: Corrected relative path to go up two directories
 import { supabase } from '../../supabaseClient'; 
 import StatCard from './StatCard';
+
+// 🚨 NEW: Import the actual Job Details component
+import JobDetailsPane from '../jobs/JobDetailsPane';
 
 export default function AdminOverview({ adminStats, isLoading, recentPendingUsers = [], recentPendingJobs = [], recentPendingResumes = [] }) {
   const navigate = useNavigate();
@@ -13,13 +15,16 @@ export default function AdminOverview({ adminStats, isLoading, recentPendingUser
   });
 
   const [previewResume, setPreviewResume] = useState(null);
+  const [previewJob, setPreviewJob] = useState(null); 
+
   const [handledResumes, setHandledResumes] = useState([]);
+  const [handledJobs, setHandledJobs] = useState([]); 
 
   useEffect(() => {
     localStorage.setItem('adminShowStats', JSON.stringify(showStatsDropdown));
   }, [showStatsDropdown]);
 
-  async function handleUpdateStatus(id, newStatus) {
+  async function handleUpdateResumeStatus(id, newStatus) {
     const { error } = await supabase.from('resumes').update({ status: newStatus }).eq('id', id);
     if (!error) {
       setHandledResumes([...handledResumes, id]);
@@ -29,8 +34,21 @@ export default function AdminOverview({ adminStats, isLoading, recentPendingUser
     }
   }
 
+  async function handleUpdateJobStatus(id, newStatus) {
+    const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', id);
+    if (!error) {
+      setHandledJobs([...handledJobs, id]);
+      setPreviewJob(null); 
+    } else {
+      alert('Failed to update job status');
+    }
+  }
+
   const displayResumes = recentPendingResumes.filter(r => !handledResumes.includes(r.id));
   const displayResumeCount = Math.max(0, (adminStats.pendingResumes || 0) - handledResumes.length);
+  
+  const displayJobs = recentPendingJobs.filter(j => !handledJobs.includes(j.id));
+  const displayJobCount = Math.max(0, (adminStats.pendingJobs || 0) - handledJobs.length);
 
   return (
     <div className="mb-32">
@@ -136,7 +154,7 @@ export default function AdminOverview({ adminStats, isLoading, recentPendingUser
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--card-bg)'}
           >
             <h3 className="m-0 mb-8" style={{ fontSize: '3rem', color: 'var(--text-color)', fontWeight: '800' }}>
-              {adminStats.pendingJobs || 0}
+              {displayJobCount}
             </h3>
             <span className="font-bold text-sm text-secondary" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Pending Jobs
@@ -153,11 +171,18 @@ export default function AdminOverview({ adminStats, isLoading, recentPendingUser
                 View All &rarr;
               </button>
             </div>
-            {recentPendingJobs.length > 0 ? (
+            {displayJobs.length > 0 ? (
               <div className="flex-col gap-12">
-                {recentPendingJobs.map((job, index) => (
-                  <div key={job.id} className="pb-12" style={{ borderBottom: index !== recentPendingJobs.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                {displayJobs.map((job, index) => (
+                  <div key={job.id} className="flex-between align-center pb-12" style={{ borderBottom: index !== displayJobs.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                     <span className="text-base font-medium text-truncate block" style={{ color: 'var(--text-color)' }} title={job.title}>{job.title}</span>
+                    <button 
+                      className="btn-outline btn-sm" 
+                      style={{ padding: '6px 16px', background: 'var(--card-bg)' }} 
+                      onClick={() => setPreviewJob(job)}
+                    >
+                      Preview
+                    </button>
                   </div>
                 ))}
               </div>
@@ -232,7 +257,46 @@ export default function AdminOverview({ adminStats, isLoading, recentPendingUser
 
       </div>
 
-      {/* PREVIEW MODAL */}
+      {/* --- 🚨 UPDATED: FULL JOB DETAILS COMPONENT MODAL --- */}
+      {previewJob && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div className="card p-0" style={{ width: '100%', maxWidth: '900px', height: '85vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-color)', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', overflow: 'hidden', border: '1px solid var(--border-color)', position: 'relative' }}>
+            
+            {/* Custom Modal Header with Approve/Reject explicitly provided just in case */}
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: 'var(--card-bg)' }}>
+              <div className="flex-row align-center gap-12">
+                <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Job Preview</h3>
+                <span style={{ background: '#fef9c3', color: '#854d0e', border: '1px solid #fef08a', padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                  Pending
+                </span>
+              </div>
+              <div className="flex-row align-center gap-16">
+                <div className="flex-row gap-8">
+                  <button className="btn-sm" onClick={() => handleUpdateJobStatus(previewJob.id, 'Approved')} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>✓ Approve</button>
+                  <button className="btn-sm" onClick={() => handleUpdateJobStatus(previewJob.id, 'Rejected')} style={{ background: 'var(--card-bg)', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}>✕ Reject</button>
+                </div>
+                <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border-color)' }}></div>
+                <button onClick={() => setPreviewJob(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-color)' }}>✕</button>
+              </div>
+            </div>
+
+            {/* Exactly rendering the JobDetailsPane */}
+            <div style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-color)' }}>
+              <JobDetailsPane 
+                selectedJob={previewJob}
+                selectedCompany={previewJob.companies}
+                role="admin"
+                handleUpdateJobStatus={handleUpdateJobStatus}
+                handleClose={() => setPreviewJob(null)}
+                navigate={navigate}
+              />
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+      {/* --- RESUME PREVIEW MODAL --- */}
       {previewResume && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
           
@@ -241,10 +305,7 @@ export default function AdminOverview({ adminStats, isLoading, recentPendingUser
             <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <div className="flex-row align-center gap-12">
                 <h3 className="m-0" style={{ fontSize: '1.25rem' }}>Resume Preview</h3>
-                <span style={{ 
-                  background: '#fef9c3', color: '#854d0e', border: '1px solid #fef08a', 
-                  padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' 
-                }}>
+                <span style={{ background: '#fef9c3', color: '#854d0e', border: '1px solid #fef08a', padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                   Pending
                 </span>
               </div>
@@ -253,14 +314,14 @@ export default function AdminOverview({ adminStats, isLoading, recentPendingUser
                 <div className="flex-row gap-8">
                   <button 
                     className="btn-sm" 
-                    onClick={() => handleUpdateStatus(previewResume.id, 'Approved')} 
+                    onClick={() => handleUpdateResumeStatus(previewResume.id, 'Approved')} 
                     style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}
                   >
                     ✓ Approve
                   </button>
                   <button 
                     className="btn-sm" 
-                    onClick={() => handleUpdateStatus(previewResume.id, 'Rejected')} 
+                    onClick={() => handleUpdateResumeStatus(previewResume.id, 'Rejected')} 
                     style={{ background: 'var(--card-bg)', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '6px 16px', fontWeight: '500', cursor: 'pointer' }}
                   >
                     ✕ Reject

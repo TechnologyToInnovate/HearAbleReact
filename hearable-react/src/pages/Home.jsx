@@ -50,7 +50,6 @@ export default function Home() {
     const activeId = user?.id;
 
     if (role === 'admin') {
-      // Execute all queries concurrently for maximum efficiency
       const [
         { count: usersCount },
         { count: companyCount },
@@ -64,7 +63,10 @@ export default function Home() {
         supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'Approved'),
         
         supabase.from('profiles').select('id, first_name, last_name, created_at', { count: 'exact' }).eq('status', 'Pending').order('created_at', { ascending: false }).limit(3),
-        supabase.from('jobs').select('id, title, created_at', { count: 'exact' }).eq('status', 'Pending').order('created_at', { ascending: false }).limit(3),
+        
+        // 🚨 UPDATED: Fetch FULL job data and FULL company data for the JobDetailsPane component
+        supabase.from('jobs').select('*, companies(*)', { count: 'exact' }).eq('status', 'Pending').order('created_at', { ascending: false }).limit(3),
+        
         supabase.from('resumes').select('id, title, created_at, file_url', { count: 'exact' }).eq('status', 'Pending').order('created_at', { ascending: false }).limit(3)
       ]);
       
@@ -78,7 +80,10 @@ export default function Home() {
       });
 
       setRecentPendingUsers((pUsers || []).map(u => ({ id: u.id, title: formatFullName(u.first_name, u.last_name, 'Unknown User'), created_at: u.created_at })));
-      setRecentPendingJobs((pJobs || []).map(j => ({ id: j.id, title: j.title || 'Untitled Job', created_at: j.created_at })));
+      
+      // 🚨 UPDATED: Passing the entire raw object straight to state so it can be passed to the component
+      setRecentPendingJobs(pJobs || []);
+      
       setRecentPendingResumes((pResumes || []).map(r => ({ id: r.id, title: r.title || 'Untitled Resume', created_at: r.created_at, file_url: r.file_url })));
 
       setIsLoading(false);
